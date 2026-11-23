@@ -36,6 +36,7 @@ class InvoiceRead(BaseModel):
     notes: str | None
     status: str
     rejection_reason: str | None
+    version: int = Field(description="Versió del registre (ETag); envia-la a If-Match")
 
 
 class RejectInvoice(BaseModel):

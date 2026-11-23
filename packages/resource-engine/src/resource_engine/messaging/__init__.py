@@ -11,6 +11,7 @@ from resource_engine.messaging.delivery import (
 from resource_engine.messaging.envelope import EventEnvelope, EventSerializer, to_jsonable
 from resource_engine.messaging.inbound import decode_body, decode_http, try_decode
 from resource_engine.messaging.processing import (
+    LoggingObserver,
     MessageProcessor,
     Outcome,
     ProcessResult,
@@ -21,6 +22,7 @@ from resource_engine.messaging.worker import ConsumerStats, MessageConsumer
 
 __all__ = [
     "ConsumerStats",
+    "LoggingObserver",
     "MessageConsumer",
     "MessageProcessor",
     "Outcome",

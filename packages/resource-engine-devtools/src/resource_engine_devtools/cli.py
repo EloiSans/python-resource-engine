@@ -85,6 +85,8 @@ def _describe(registry: ResourceRegistry, name: str | None) -> list[dict[str, An
                 ],
                 "restricted_fields": list(d.restricted_fields),
                 "tenant_field": d.tenant_field,
+                "version_field": d.version_field,
+                "require_version": d.require_version,
                 "audit": {
                     "enabled": getattr(d.resource_cls, "audit", True),
                     "reads": getattr(d.resource_cls, "audit_reads", False),
@@ -129,6 +131,9 @@ def cmd_inspect(args: argparse.Namespace) -> int:
         lines.append(f"  permissions: {', '.join(r['permissions'])}")
         if r["tenant_field"]:
             lines.append(f"  tenant field: {r['tenant_field']}")
+        if r["version_field"]:
+            strict = " (required)" if r["require_version"] else ""
+            lines.append(f"  version field: {r['version_field']}{strict}")
         if r["restricted_fields"]:
             lines.append(f"  restricted fields: {', '.join(r['restricted_fields'])}")
         audit = r["audit"]

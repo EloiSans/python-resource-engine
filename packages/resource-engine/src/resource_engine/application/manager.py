@@ -41,6 +41,8 @@ from resource_engine.application.hooks import HookPoint
 from resource_engine.application.query import ListQuery, Page
 from resource_engine.application.registry import ResourceRegistry
 from resource_engine.application.resource import Resource, ResourceDefinition
+from resource_engine.application.transaction import Transaction
+from resource_engine.application.transaction import current as current_transaction
 from resource_engine.errors import (
     ActionNotFound,
     ConditionNotSupported,
@@ -53,8 +55,12 @@ from resource_engine.errors import (
     PermissionDenied,
     TenantMismatch,
     TenantRequired,
+    TransactionDoomed,
     UnknownTransition,
     ValidationFailed,
+    VersionConflict,
+    VersioningNotSupported,
+    VersionRequired,
 )
 from resource_engine.messaging.delivery import AfterCommitDelivery, EventDelivery
 from resource_engine.ports.audit import AuditSink
@@ -140,12 +146,14 @@ class ResourceManager:
         operation: str,
         *,
         tenant: str | None = None,
+        expected_version: int | None = None,
         **kw: Any,
     ) -> OperationContext:
         ctx = OperationContext(
             resource=definition, operation=operation, services=self.services, **kw
         )
         ctx.extras["requested_tenant"] = tenant
+        ctx.extras["expected_version"] = expected_version
         if self.documents is not None:
             from resource_engine.documents.manager import ContextDocuments
 
@@ -375,7 +383,7 @@ class ResourceManager:
             if self.authorizer is None:
                 return True
             return (await self.authorizer.check(actor, name)).allowed is not False
-        async with self.uow_factory() as uow:
+        async with self._reading(ctx) as uow:
             entity = await uow.repository(definition.name).get(entity_id)
             if entity is None:
                 return False
@@ -389,6 +397,75 @@ class ResourceManager:
             if self.authorizer is None:
                 return True
             return (await self.authorizer.check(actor, name, resource=entity)).allowed is True
+
+    # -------------------------------------------------------------- versions
+
+    def _versioned_repository(self, ctx: OperationContext) -> Any:
+        repository = ctx.repository()
+        if not getattr(repository, "supports_versions", False):
+            raise VersioningNotSupported(
+                f"The repository of {ctx.resource.name!r} cannot check versions",
+                hint="Use a repository with supports_versions (in-memory, SQLAlchemy), "
+                "or remove version_field: remote APIs own their concurrency.",
+                doc="docs/concurrency.md",
+            )
+        return repository
+
+    async def _check_version(self, ctx: OperationContext, entity: Any) -> None:
+        """Steps 5/5b: the client's version (``expected_version=`` or the version
+        field in the input) must be the loaded one."""
+        version_field = ctx.resource.version_field
+        if version_field is None:
+            return
+        self._versioned_repository(ctx)
+        expected = ctx.extras.get("expected_version")
+        data = ctx.data
+        if isinstance(data, BaseModel) and version_field in data.model_fields_set:
+            sent = getattr(data, version_field)
+            data.model_fields_set.discard(version_field)  # not an input value
+            if expected is None:
+                expected = sent
+        current = getattr(entity, version_field, None)
+        ctx.extras["loaded_version"] = current
+        action = ctx.operation if ctx.operation in ("update", "delete") else _action_of(ctx)
+        if expected is None:
+            if ctx.resource.require_version:
+                error = VersionRequired(
+                    f"{ctx.resource.name} {ctx.entity_id!r}: send the version you read",
+                    hint="Send If-Match with the ETag of the record "
+                    "(or expected_version=), see docs/concurrency.md.",
+                    details={"resource": ctx.resource.name, "id": ctx.entity_id},
+                )
+                await self._audit_denied(ctx, action, error)
+                raise error
+            return
+        if expected != current:
+            error = _conflict(ctx, expected, current)
+            await self._audit_denied(ctx, action, error)
+            raise error
+
+    async def _write(self, ctx: OperationContext, entity: Any) -> Any:
+        """``Repository.update``, compare-and-set on versioned resources."""
+        if ctx.resource.version_field is None:
+            return await ctx.repository().update(entity)
+        repository = self._versioned_repository(ctx)
+        loaded = ctx.extras.get("loaded_version")
+        try:
+            return await repository.update(entity, expected_version=loaded)
+        except VersionConflict as error:
+            await self._audit_denied(ctx, _action_of(ctx), error)
+            raise
+
+    async def _remove(self, ctx: OperationContext, entity: Any) -> None:
+        if ctx.resource.version_field is None:
+            await ctx.repository().delete(entity)
+            return
+        repository = self._versioned_repository(ctx)
+        try:
+            await repository.delete(entity, expected_version=ctx.extras.get("loaded_version"))
+        except VersionConflict as error:
+            await self._audit_denied(ctx, "delete", error)
+            raise
 
     # -------------------------------------------------------------------- audit
 
@@ -446,6 +523,14 @@ class ResourceManager:
                     {"fields": error.details["fields"]}
                     if isinstance(getattr(error, "details", None), dict)
                     and "fields" in error.details
+                    else {}
+                ),
+                **(
+                    {
+                        "expected": error.details.get("expected"),
+                        "current": error.details.get("current"),
+                    }
+                    if isinstance(error, VersionConflict)
                     else {}
                 ),
             },
@@ -512,9 +597,76 @@ class ResourceManager:
             await self._audit_denied(ctx, "list", error)
             raise error
 
+    def _joined(self) -> Transaction | None:
+        tx = current_transaction.get()
+        return tx if tx is not None and tx.owner is self and not tx.finished else None
+
+    @asynccontextmanager
+    async def transaction(self) -> AsyncIterator[Transaction]:
+        """Run several operations in one unit of work (see
+        ``resource_engine.application.transaction``). Nested calls join the
+        outer transaction."""
+        joined = self._joined()
+        if joined is not None:
+            yield joined
+            return
+        async with self.uow_factory() as uow:
+            tx = Transaction(self, uow)
+            token = current_transaction.set(tx)
+            try:
+                yield tx
+                if tx.doomed is not None:
+                    cause = tx.doomed
+                    raise TransactionDoomed(
+                        "An operation failed inside the transaction; it can only roll back",
+                        hint="Let the error propagate, or check before calling the manager.",
+                        details={
+                            "code": getattr(cause, "code", type(cause).__name__),
+                            "message": str(cause),
+                        },
+                    ) from cause
+                await uow.commit()
+            except BaseException:
+                for ctx in reversed(tx.contexts):
+                    await _run_callbacks(reversed(ctx._on_rollback), "rollback", ctx)
+                raise
+            finally:
+                tx.finished = True
+                current_transaction.reset(token)
+        for ctx, qualifier in tx.after_commit:
+            await self._after_commit(ctx, qualifier)
+
+    @asynccontextmanager
+    async def _reading(self, ctx: OperationContext | None = None) -> AsyncIterator[Any]:
+        """A unit of work for reads: the transaction's, if one is open (reads then
+        see its uncommitted writes)."""
+        tx = self._joined()
+        if tx is not None:
+            if ctx is not None:
+                ctx.uow = tx.view
+            yield tx.view
+            return
+        async with self.uow_factory() as uow:
+            if ctx is not None:
+                ctx.uow = uow
+            yield uow
+
     @asynccontextmanager
     async def _transaction(self, ctx: OperationContext) -> AsyncIterator[UnitOfWork]:
-        """Steps 4-9: open the unit of work; on failure run staged-effect compensations."""
+        """Steps 4-9: open the unit of work (or join ``transaction()``); on
+        failure run staged-effect compensations (or doom the transaction)."""
+        tx = self._joined()
+        if tx is not None:
+            ctx.uow = tx.view
+            ctx.extras["transaction"] = tx
+            tx.contexts.append(ctx)
+            try:
+                yield ctx.uow
+            except BaseException as exc:
+                if tx.doomed is None:
+                    tx.doomed = exc
+                raise
+            return
         try:
             async with self.uow_factory() as uow:
                 ctx.uow = uow
@@ -524,6 +676,10 @@ class ResourceManager:
             raise
 
     async def _after_commit(self, ctx: OperationContext, qualifier: str | None = None) -> None:
+        tx = ctx.extras.get("transaction")
+        if tx is not None and not tx.finished:  # runs when the transaction commits
+            tx.after_commit.append((ctx, qualifier))
+            return
         ctx.uow = None
         await _run_callbacks(ctx._on_commit, "on_commit", ctx)
         for hook in ctx.resource.dispatcher.for_point(HookPoint.AFTER_COMMIT, None):
@@ -594,8 +750,7 @@ class ResourceManager:
         query = tenant_query
         rules = await self._read_rules(ctx)
         await self._gate_query(ctx, query, rules)
-        async with self.uow_factory() as uow:
-            ctx.uow = uow
+        async with self._reading(ctx):
             scoped = await self._scoped(ctx, query)
             if scoped is None:
                 return Page([], 0, query.offset, query.limit)
@@ -620,8 +775,7 @@ class ResourceManager:
         self._require(definition, "get")
         ctx = self._context(definition, "get", actor=actor, entity_id=entity_id, tenant=tenant)
         await self._gate(ctx, "get")
-        async with self.uow_factory() as uow:
-            ctx.uow = uow
+        async with self._reading(ctx):
             entity = await self._load(ctx)
             await self._gate_record(ctx, "get", entity)
             result = self._to_read(ctx, entity, await self._read_rules(ctx))
@@ -644,6 +798,8 @@ class ResourceManager:
             ctx.entity = entity
             if definition.machine:
                 await definition.machine.initialize(entity)
+            if definition.version_field and getattr(entity, definition.version_field, None) is None:
+                setattr(entity, definition.version_field, 1)
             await self._stamp_tenant(ctx, entity)
             await self._gate(ctx, "create", resource=entity, input=ctx.data)
             await self._gate_fields(ctx, entity, ctx.data)
@@ -667,11 +823,18 @@ class ResourceManager:
         *,
         actor: Any = None,
         tenant: str | None = None,
+        expected_version: int | None = None,
     ) -> Any:
         definition = self.registry.get(resource)
         self._require(definition, "update")
         ctx = self._context(
-            definition, "update", actor=actor, raw_input=data, entity_id=entity_id, tenant=tenant
+            definition,
+            "update",
+            actor=actor,
+            raw_input=data,
+            entity_id=entity_id,
+            tenant=tenant,
+            expected_version=expected_version,
         )
         await self._gate(ctx, "update")
         await self._validate(ctx, definition.schemas["update"])
@@ -680,6 +843,7 @@ class ResourceManager:
             entity = await self._load(ctx)
             await self._gate_record(ctx, "update", entity, input=ctx.data)
             await self._gate_fields(ctx, entity, ctx.data)
+            await self._check_version(ctx, entity)
             await hooks.run(HookPoint.BEFORE_UPDATE, ctx)
             sent = ctx.data.model_dump(exclude_unset=True)
             before = {k: getattr(entity, k, None) for k in sent}
@@ -689,7 +853,7 @@ class ResourceManager:
                 for k, old in before.items()
                 if getattr(entity, k, None) != old
             }
-            ctx.entity = await ctx.repository().update(entity)
+            ctx.entity = await self._write(ctx, entity)
             ctx.record_event(
                 ResourceUpdated(resource=definition.name, entity_id=entity_id, changes=changes)
             )
@@ -701,18 +865,32 @@ class ResourceManager:
         return ctx.result
 
     async def delete(
-        self, resource: ResourceRef, entity_id: Any, *, actor: Any = None, tenant: str | None = None
+        self,
+        resource: ResourceRef,
+        entity_id: Any,
+        *,
+        actor: Any = None,
+        tenant: str | None = None,
+        expected_version: int | None = None,
     ) -> None:
         definition = self.registry.get(resource)
         self._require(definition, "delete")
-        ctx = self._context(definition, "delete", actor=actor, entity_id=entity_id, tenant=tenant)
+        ctx = self._context(
+            definition,
+            "delete",
+            actor=actor,
+            entity_id=entity_id,
+            tenant=tenant,
+            expected_version=expected_version,
+        )
         await self._gate(ctx, "delete")
         hooks = definition.dispatcher
         async with self._transaction(ctx) as uow:
             entity = await self._load(ctx)
             await self._gate_record(ctx, "delete", entity)
+            await self._check_version(ctx, entity)
             await hooks.run(HookPoint.BEFORE_DELETE, ctx)
-            await ctx.repository().delete(entity)
+            await self._remove(ctx, entity)
             if self.documents is not None and definition.document_slots:
                 await self.documents.cascade(ctx)
             ctx.record_event(ResourceDeleted(resource=definition.name, entity_id=entity_id))
@@ -730,6 +908,7 @@ class ResourceManager:
         *,
         actor: Any = None,
         tenant: str | None = None,
+        expected_version: int | None = None,
     ) -> Any:
         definition = self.registry.get(resource)
         machine = definition.machine
@@ -751,6 +930,7 @@ class ResourceManager:
             raw_input=data,
             entity_id=entity_id,
             tenant=tenant,
+            expected_version=expected_version,
         )
         await self._gate(ctx, f"transition:{event}")
         await self._validate(ctx, definition.transition_schemas.get(event), event)
@@ -758,6 +938,7 @@ class ResourceManager:
         async with self._transaction(ctx) as uow:
             entity = await self._load(ctx)
             await self._gate_record(ctx, f"transition:{event}", entity, input=ctx.data)
+            await self._check_version(ctx, entity)
             ctx.previous_state = machine.current(entity)
             if (
                 self.documents is not None
@@ -766,10 +947,14 @@ class ResourceManager:
             ):
                 await self.documents.check_required(ctx, event)
             await hooks.run(HookPoint.BEFORE_TRANSITION, ctx, event)
-            payload = ctx.data.model_dump() if ctx.data is not None else {}
+            payload = (
+                ctx.data.model_dump(exclude={definition.version_field} - {None})
+                if ctx.data is not None
+                else {}
+            )
             previous, new = await machine.fire(entity, event, payload)
             ctx.previous_state, ctx.new_state = previous, new
-            ctx.entity = await ctx.repository().update(entity)
+            ctx.entity = await self._write(ctx, entity)
             ctx.record_event(
                 TransitionExecuted(
                     resource=definition.name,
@@ -793,8 +978,7 @@ class ResourceManager:
         if definition.machine is None:
             return []
         ctx = self._context(definition, "get", actor=actor, entity_id=entity_id, tenant=tenant)
-        async with self.uow_factory() as uow:
-            ctx.uow = uow
+        async with self._reading(ctx):
             entity = await self._load(ctx)
             await self._gate_record(ctx, "get", entity)
             events = definition.machine.allowed_events(entity)
@@ -818,6 +1002,7 @@ class ResourceManager:
         *,
         actor: Any = None,
         tenant: str | None = None,
+        expected_version: int | None = None,
     ) -> Any:
         definition = self.registry.get(resource)
         action_def = definition.actions.get(action)
@@ -836,6 +1021,7 @@ class ResourceManager:
             raw_input=data,
             entity_id=entity_id,
             tenant=tenant,
+            expected_version=expected_version,
         )
         await self._gate(ctx, f"action:{action}")
         await self._validate(ctx, action_def.input_schema, action)
@@ -844,6 +1030,9 @@ class ResourceManager:
             if action_def.instance:
                 entity = await self._load(ctx)
                 await self._gate_record(ctx, f"action:{action}", entity, input=ctx.data)
+                if definition.version_field:  # claim the version before the action writes
+                    await self._check_version(ctx, entity)
+                    ctx.entity = await self._write(ctx, entity)
             else:
                 await self._gate(ctx, f"action:{action}", resource=None, input=ctx.data)
             await hooks.run(HookPoint.BEFORE_ACTION, ctx, action)
@@ -884,3 +1073,27 @@ async def _run_callbacks(callbacks: Any, kind: str, ctx: OperationContext) -> No
                 ctx.resource.name,
                 ctx.correlation_id,
             )
+
+
+def _action_of(ctx: OperationContext) -> str:
+    if ctx.operation == "transition":
+        return f"transition:{ctx.transition}"
+    if ctx.operation == "action":
+        return f"action:{ctx.action}"
+    return ctx.operation
+
+
+def _conflict(ctx: OperationContext, expected: Any, current: Any) -> VersionConflict:
+    return VersionConflict(
+        f"{ctx.resource.name} {ctx.entity_id!r} changed: version {current}, "
+        f"the write was based on {expected}",
+        hint="Reload the record and apply your change again.",
+        details={
+            "resource": ctx.resource.name,
+            "id": ctx.entity_id,
+            "expected": expected,
+            "current": current,
+            "reason": "version conflict",
+        },
+        doc="docs/concurrency.md",
+    )

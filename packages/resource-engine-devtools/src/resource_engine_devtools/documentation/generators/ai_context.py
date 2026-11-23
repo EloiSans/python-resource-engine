@@ -18,6 +18,9 @@ def render_ai_context(model: DocumentationModel) -> str:
             out.append(f"  filterable: {', '.join(r.filterable)}")
         if r.tenant_field:
             out.append(f"  tenant_field: {r.tenant_field}")
+        if r.version_field:
+            strict = " (required)" if r.require_version else ""
+            out.append(f"  version_field: {r.version_field}{strict}")
         if r.restricted_fields:
             out.append(f"  restricted_fields: {', '.join(r.restricted_fields)}")
         if model.audit_resource and not r.audit:
@@ -62,6 +65,14 @@ def render_ai_context(model: DocumentationModel) -> str:
             "- resources with tenant_field are confined to Principal.tenant (other tenants' "
             "records are 404); no tenant -> RE-E708, another tenant -> RE-E709; admin and "
             "system_principal act across tenants and pass tenant= to create",
+        ]
+    if any(r.version_field for r in model.resources):
+        out += [
+            "",
+            "## Concurrency",
+            "- resources with version_field: responses carry ETag; update/transition/action/"
+            "delete take expected_version= (HTTP If-Match) and a stale one fails with RE-E105 "
+            "(409); require_version makes it mandatory (RE-E106, 428); create starts at 1",
         ]
     if model.audit_resource:
         out += [

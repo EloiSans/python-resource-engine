@@ -72,3 +72,45 @@ class Authorizer(Protocol):
 
     # Optional: authorizers without field rules leave every field open.
     # async def field_rules(self, principal, resource: str, mode: str) -> FieldRules
+
+
+@dataclass(frozen=True)
+class AuthzRequest:
+    """One question to an external policy engine.
+
+    ``resource`` and ``input`` are plain dicts (Python values: ``Decimal``,
+    ``date``... kept; adapters encode them for their engine), or ``...`` when
+    not known yet. ``resource_type`` is the resource name (``"invoices"``);
+    ``id_field`` names its identifier.
+
+    ``filter`` is true when a residual will be applied to records (a ``list``
+    row filter, field rules); otherwise a residual only has to say "depends on
+    the record" (step 2), so engines may answer without enumerating records.
+    """
+
+    subject: dict[str, Any] | None
+    action: str
+    resource_type: str | None
+    resource: Any = ...
+    input: Any = ...
+    context: dict[str, Any] = field(default_factory=dict)
+    entity_id: Any = None
+    id_field: str = "id"
+    filter: bool = False
+
+    @property
+    def unknowns(self) -> tuple[str, ...]:
+        """Namespaces not known yet (``resource``, ``input``)."""
+        return tuple(n for n in ("resource", "input") if getattr(self, n) is ...)
+
+
+class PolicyEngine(Protocol):
+    """An external policy engine (OPA, Cedar, OpenFGA...) behind
+    ``EngineAuthorizer``."""
+
+    async def evaluate(self, request: AuthzRequest) -> Any:
+        """``True``/``False`` when decided; otherwise a residual condition (the
+        engine-neutral condition language of ``resource_engine.authz.conditions``)
+        over the unknown namespaces. Raise ``ConditionNotSupported`` when the
+        engine's residual cannot be expressed."""
+        ...

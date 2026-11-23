@@ -53,6 +53,14 @@ def render_resource(r: ResourceDoc, audit_resource: str | None = None) -> str:
             f"Multi-inquilí: cada registre pertany a l'inquilí del camp `{r.tenant_field}`; "
             "les operacions es limiten a l'inquilí de qui crida.",
         ]
+    if r.version_field:
+        required = " Les escriptures sense versió es rebutgen (428)." if r.require_version else ""
+        out += [
+            "",
+            f"Concurrència optimista: el camp `{r.version_field}` és la versió del registre "
+            "(capçalera `ETag`); les modificacions envien `If-Match` i una versió antiga "
+            f"es rebutja amb 409.{required}",
+        ]
     if r.restricted_fields:
         out += [
             "",

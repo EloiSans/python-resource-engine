@@ -1,6 +1,7 @@
 # Cloud emulators for integration tests:  docker compose -f compose.emulators.yaml up -d --build
 # Then: uv run pytest -m emulator
-# Open-source services with UIs: Garage (S3), RabbitMQ (:15672) and Keycloak (:8180).
+# Open-source services with UIs: Garage (S3), RabbitMQ (:15672), Keycloak (:8180)
+# and the OpenFGA playground (:3000). OPA (:8181) serves docker/opa/*.rego.
 # Azure Service Bus is not included: its official emulator requires accepting
 # Microsoft EULAs (emulator and SQL Server); see docs/adapters.md.
 name: resource-engine-emulators
@@ -74,6 +75,23 @@ services:
       - "127.0.0.1:8180:8180"
     volumes:
       - ./docker/keycloak:/opt/keycloak/data/import:ro
+
+  opa:
+    # Policy decisions and the compile API (row filters); policies reload on change.
+    image: openpolicyagent/opa:1.22.4
+    command: ["run", "--server", "--addr=:8181", "--watch", "/policies"]
+    ports:
+      - "127.0.0.1:8181:8181"
+    volumes:
+      - ./docker/opa:/policies:ro
+
+  openfga:
+    # In-memory datastore: stores and tuples are lost on restart (tests create their own).
+    image: openfga/openfga:v1.22.0
+    command: ["run"]
+    ports:
+      - "127.0.0.1:8080:8080"
+      - "127.0.0.1:3000:3000"
 
 volumes:
   garage-meta:

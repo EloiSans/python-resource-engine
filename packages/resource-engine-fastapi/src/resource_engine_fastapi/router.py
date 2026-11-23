@@ -11,11 +11,12 @@ import inspect
 from collections.abc import Callable
 from typing import Any
 
-from fastapi import APIRouter, Body, Depends, FastAPI, Path, Query, Response, status
+from fastapi import APIRouter, Body, Depends, FastAPI, Header, Path, Query, Response, status
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, create_model
 from resource_engine import ListQuery, ResourceDefinition, ResourceManager, ResourceRegistry
 from resource_engine.authz.fields import hidden_fields
+from resource_engine.errors import InvalidQuery
 
 from resource_engine_fastapi.documents import (
     add_owner_document_routes,
@@ -52,12 +53,40 @@ def _dump(value: Any) -> Any:
     return value.model_dump(mode="json", by_alias=True, exclude=set(hidden_fields(value)))
 
 
-def _respond(value: Any, status_code: int = 200) -> Any:
+def _respond(
+    value: Any,
+    status_code: int = 200,
+    *,
+    version_field: str | None = None,
+    response: Response | None = None,
+) -> Any:
     """Results with hidden fields (field-level permissions) are serialized without
-    them, bypassing response-model validation, which would require them."""
+    them, bypassing response-model validation, which would require them.
+    Versioned resources answer with ``ETag: "<version>"``."""
+    version = getattr(value, version_field, None) if version_field else None
+    etag = None if version is None else f'"{version}"'
     if hidden_fields(value):
-        return JSONResponse(_dump(value), status_code=status_code)
+        reply = JSONResponse(_dump(value), status_code=status_code)
+        if etag:
+            reply.headers["ETag"] = etag
+        return reply
+    if etag and response is not None:
+        response.headers["ETag"] = etag
     return value
+
+
+def parse_if_match(value: str | None) -> int | None:
+    """``If-Match: "3"`` (or ``W/"3"``) → 3; ``*`` or no header → ``None``."""
+    if value is None or value.strip() == "*":
+        return None
+    token = value.split(",")[0].strip().removeprefix("W/").strip('"')
+    try:
+        return int(token)
+    except ValueError:
+        raise InvalidQuery(
+            f"If-Match {value!r} is not a version ETag",
+            hint='Send the ETag the record was read with, e.g. If-Match: "3".',
+        ) from None
 
 
 def _respond_page(page: dict[str, Any]) -> Any:
@@ -107,6 +136,29 @@ def build_resource_router(
     )
     read = definition.schemas.get("read")
     docs = definition.operation_docs
+    version_field = definition.version_field
+    # versioned resources: responses carry ETag, writes accept If-Match
+    response_param = _param("response", Response, inspect.Parameter.empty)
+    match_params = (
+        [
+            _param(
+                "if_match",
+                str | None,
+                Header(
+                    None,
+                    alias="If-Match",
+                    description="ETag of the record as read; a stale one is refused (409)",
+                ),
+            )
+        ]
+        if version_field
+        else []
+    )
+
+    def reply(value: Any, kw: dict[str, Any], status_code: int = 200) -> Any:
+        return _respond(
+            value, status_code, version_field=version_field, response=kw.get("response")
+        )
 
     if definition.enabled("list"):
         filter_params = []
@@ -167,12 +219,19 @@ def build_resource_router(
 
     if definition.enabled("get"):
 
-        async def get_endpoint(entity_id: Any, actor: Any, tenant: Any = None) -> Any:
-            return _respond(await manager.get(name, entity_id, actor=actor, tenant=tenant))
+        async def get_endpoint(**kw: Any) -> Any:
+            result = await manager.get(
+                name, kw["entity_id"], actor=kw["actor"], tenant=kw.get("tenant")
+            )
+            return reply(result, kw)
 
         router.add_api_route(
             "/{entity_id}",
-            _endpoint(get_endpoint, [id_param, *tenant_params, actor_param], f"get_{name}"),
+            _endpoint(
+                get_endpoint,
+                [id_param, *tenant_params, actor_param, response_param],
+                f"get_{name}",
+            ),
             methods=["GET"],
             response_model=read,
             summary=_summary(docs.get("get")) or f"Get one of {name}",
@@ -181,8 +240,11 @@ def build_resource_router(
 
     if definition.enabled("create"):
 
-        async def create_endpoint(payload: Any, actor: Any, tenant: Any = None) -> Any:
-            return _respond(await manager.create(name, payload, actor=actor, tenant=tenant), 201)
+        async def create_endpoint(**kw: Any) -> Any:
+            result = await manager.create(
+                name, kw["payload"], actor=kw["actor"], tenant=kw.get("tenant")
+            )
+            return reply(result, kw, 201)
 
         router.add_api_route(
             "",
@@ -192,6 +254,7 @@ def build_resource_router(
                     _param("payload", definition.schemas["create"], Body(...)),
                     *tenant_params,
                     actor_param,
+                    response_param,
                 ],
                 f"create_{name}",
             ),
@@ -204,12 +267,16 @@ def build_resource_router(
 
     if definition.enabled("update"):
 
-        async def update_endpoint(
-            entity_id: Any, payload: BaseModel, actor: Any, tenant: Any = None
-        ) -> Any:
-            return _respond(
-                await manager.update(name, entity_id, payload, actor=actor, tenant=tenant)
+        async def update_endpoint(**kw: Any) -> Any:
+            result = await manager.update(
+                name,
+                kw["entity_id"],
+                kw["payload"],
+                actor=kw["actor"],
+                tenant=kw.get("tenant"),
+                expected_version=parse_if_match(kw.get("if_match")),
             )
+            return reply(result, kw)
 
         router.add_api_route(
             "/{entity_id}",
@@ -219,7 +286,9 @@ def build_resource_router(
                     id_param,
                     _param("payload", definition.schemas["update"], Body(...)),
                     *tenant_params,
+                    *match_params,
                     actor_param,
+                    response_param,
                 ],
                 f"update_{name}",
             ),
@@ -231,13 +300,23 @@ def build_resource_router(
 
     if definition.enabled("delete"):
 
-        async def delete_endpoint(entity_id: Any, actor: Any, tenant: Any = None) -> Response:
-            await manager.delete(name, entity_id, actor=actor, tenant=tenant)
+        async def delete_endpoint(**kw: Any) -> Response:
+            await manager.delete(
+                name,
+                kw["entity_id"],
+                actor=kw["actor"],
+                tenant=kw.get("tenant"),
+                expected_version=parse_if_match(kw.get("if_match")),
+            )
             return Response(status_code=status.HTTP_204_NO_CONTENT)
 
         router.add_api_route(
             "/{entity_id}",
-            _endpoint(delete_endpoint, [id_param, *tenant_params, actor_param], f"delete_{name}"),
+            _endpoint(
+                delete_endpoint,
+                [id_param, *tenant_params, *match_params, actor_param],
+                f"delete_{name}",
+            ),
             methods=["DELETE"],
             status_code=status.HTTP_204_NO_CONTENT,
             response_class=Response,
@@ -266,7 +345,11 @@ def build_resource_router(
             router.add_api_route(
                 f"/{{entity_id}}/transitions/{event}",
                 _transition_endpoint(
-                    definition, manager, event, id_param, [*tenant_params, actor_param]
+                    definition,
+                    manager,
+                    event,
+                    id_param,
+                    [*tenant_params, *match_params, actor_param, response_param],
                 ),
                 methods=["POST"],
                 response_model=read,
@@ -282,21 +365,22 @@ def build_resource_router(
             instance: bool = action.instance,
         ) -> Callable[..., Any]:
             async def action_endpoint(**kw: Any) -> Any:
-                return _respond(
-                    await manager.run_action(
-                        name,
-                        action_name,
-                        kw.get("entity_id"),
-                        kw.get("payload"),
-                        actor=kw["actor"],
-                        tenant=kw.get("tenant"),
-                    )
+                result = await manager.run_action(
+                    name,
+                    action_name,
+                    kw.get("entity_id"),
+                    kw.get("payload"),
+                    actor=kw["actor"],
+                    tenant=kw.get("tenant"),
+                    expected_version=parse_if_match(kw.get("if_match")),
                 )
+                return reply(result, kw)
 
             params = [id_param] if instance else []
             if schema is not None:
                 params.append(_param("payload", schema, Body(...)))
-            params += [*tenant_params, actor_param]
+            params += [*tenant_params, *(match_params if instance else []), actor_param]
+            params.append(response_param)
             return _endpoint(action_endpoint, params, f"{name}_{action_name}")
 
         path = (
@@ -328,16 +412,16 @@ def _transition_endpoint(
     schema = definition.transition_schemas.get(event)
 
     async def transition_endpoint(**kw: Any) -> Any:
-        return _respond(
-            await manager.transition(
-                definition.name,
-                kw["entity_id"],
-                event,
-                kw.get("payload"),
-                actor=kw["actor"],
-                tenant=kw.get("tenant"),
-            )
+        result = await manager.transition(
+            definition.name,
+            kw["entity_id"],
+            event,
+            kw.get("payload"),
+            actor=kw["actor"],
+            tenant=kw.get("tenant"),
+            expected_version=parse_if_match(kw.get("if_match")),
         )
+        return _respond(result, version_field=definition.version_field, response=kw.get("response"))
 
     params = [id_param]
     if schema is not None:

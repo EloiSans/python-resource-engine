@@ -53,7 +53,13 @@ HTTP push ──► build_event_receiver (FastAPI) ─────────�
 | `InboxStore` / `SupportsInbox` | port; in-memory and SQLAlchemy | Envelope ids already processed, per consumer name. |
 
 ```python
-from resource_engine.messaging import EventRouter, MessageConsumer, MessageProcessor, RetryPolicy
+from resource_engine.messaging import (
+    EventRouter,
+    LoggingObserver,
+    MessageConsumer,
+    MessageProcessor,
+    RetryPolicy,
+)
 from resource_engine_aws import SqsMessageSource
 
 router = EventRouter()
@@ -67,10 +73,11 @@ async def mark_paid(envelope):
 processor = MessageProcessor(
     router,
     name="invoices-payments",  # inbox entries are per consumer
-    inbox=uow_factory,  # unit of work with inbox(); optional
+    manager=manager,  # handler + inbox in one transaction (exactly-once effects)
     retry=RetryPolicy(max_deliveries=5, base_delay=1, max_delay=300),
+    observers=[LoggingObserver()],  # metrics hooks
 )
-consumer = MessageConsumer(SqsMessageSource(sqs, queue_url), processor)
+consumer = MessageConsumer(SqsMessageSource(sqs, queue_url), processor, concurrency=4)
 await consumer.run_forever(stop_event)
 ```
 
@@ -93,19 +100,51 @@ Messages of a batch are processed in order. When one fails, later messages with
 the same `key` in that batch are retried without running, so per-entity order is
 kept on FIFO queues, Service Bus sessions and Pub/Sub ordering keys.
 
-### Duplicates
+With `MessageConsumer(..., concurrency=4)`, up to 4 keys of a batch run at the
+same time. Each key still runs in order, and messages without a key are
+independent. Every message has its own transaction.
 
-Delivery is at-least-once. With `inbox=`, a message is skipped when its envelope
-id is already recorded for that consumer. The id is recorded **after** the handler
-succeeds, in its own transaction, so a crash between the two can still run a
-handler twice: keep handlers idempotent where you can (for example, transitions
-fail with RE-E201 when repeated, which the handler can treat as done). Running
-handler and inbox in one transaction needs the manager to join an outer unit of
-work; it is on the roadmap.
+### Exactly-once effects
+
+Delivery is at-least-once. With `manager=`, each message runs in
+[`manager.transaction()`](lifecycle.md#grouping-operations):
+
+1. If the envelope id is already in the inbox for this consumer, the result is
+   `DUPLICATE`.
+2. The handler runs. Every manager call it makes joins the transaction.
+3. The id is checked again, then recorded.
+4. Everything commits together.
+
+A crash, or a handler error, rolls back the handler's writes and the inbox mark
+together, so the redelivery starts clean. The changes, their audit entries and
+their outbox events exist only if the message is recorded as processed.
+
+Two consumers racing on the same message:
+
+- If the first has already committed, the second sees the id on its second
+  check and rolls back (`DUPLICATE`).
+- If the first hasn't committed yet, the inbox primary key fails the second
+  commit (`RETRY`), and its redelivery is a `DUPLICATE`.
+
+This covers the manager's writes. Calls to other services from a handler are
+not undone; put them in `after_commit` hooks or behind the outbox.
+
+`inbox=uow_factory` without `manager=` keeps the older mode. Duplicates are
+skipped, but the id is recorded **after** the handler, in its own transaction,
+so a crash between the two can run a handler twice.
 
 Enable the inbox with `SqlAlchemyUnitOfWork(..., inbox_table=inbox_table(metadata))`
 or the in-memory unit of work. Old rows can be deleted once older than the
 broker's redelivery window.
+
+### Metrics
+
+`observers=[...]` are called after every message with `(consumer, message,
+result, seconds)`, sync or async. That includes duplicates, dead letters, and
+messages held back behind a failed key (0 seconds). A failing observer is
+logged and ignored. `LoggingObserver` writes one line per message to
+`resource_engine.messaging.metrics`, and it's the model for an OpenTelemetry or
+Prometheus adapter.
 
 ### Push endpoints
 

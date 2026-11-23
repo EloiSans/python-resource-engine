@@ -43,17 +43,28 @@
   restricted and excluded fields; SQLAlchemy table; logging and composite sinks.
 - Tenancy: `tenant_field` confines every operation to `Principal.tenant`
   (independent of policies); cross-tenant admin and engine jobs; `?tenant=`.
+- External policy engines: `EngineAuthorizer` and the `PolicyEngine` port; OPA
+  (compile API row filters), Cedar (partial evaluation) and OpenFGA
+  (`list_objects`, `TupleSync`) adapters; `AuthorizerContract`.
+- Optimistic concurrency: `version_field` on resources, compare-and-set in the
+  in-memory and SQLAlchemy repositories, `ETag` / `If-Match` over HTTP (409,
+  428 with `require_version`), refused writes in the audit trail.
+- `manager.transaction()`: several operations in one unit of work, post-commit
+  work deferred, doomed on failure. Consumers: handler and inbox in one
+  transaction (`MessageProcessor(manager=...)`, exactly-once effects),
+  concurrency per key, `MessageObserver` metrics hooks with `LoggingObserver`.
 
 ## Next
 
-- Permissions: Cedar / OPA / OpenFGA adapters behind the `Authorizer` port.
+- Policy engines: OpenFGA conditions on input values, OPA bundles, Cedar schemas
+  generated from the registry.
 - Audit: retention and purge, tamper evidence, external sinks (OpenTelemetry, SIEM).
 - Example app with authentication (Keycloak) so `invoices` can be tenant-scoped.
 - `check`: hook/effect mismatches.
 - AI skill packaged with devtools (`SKILL.md`, references, anti-patterns) and
   `resource-engine ai install` / `ai sync` with managed `AGENTS.md` block and lock file.
-- Handler and inbox in one transaction (`ResourceManager` joining an outer unit of
-  work), concurrent processing per key, consumer metrics hooks.
+- OpenTelemetry observer for consumers (counters, duration histogram); inbox
+  retention job.
 - EventBridge and Event Grid publishers.
 - SAP: OData v2/v4 repository for S/4HANA APIs on top of the REST repository,
   BTP destination service lookup.
@@ -62,7 +73,6 @@
 - Azure Blob Storage and Google Cloud Storage blob stores; reference document
   processors (ClamAV scan, text extraction).
 - NoSQL repositories (DynamoDB, Cosmos DB, Firestore) after adding capability flags.
-- Optimistic concurrency for transitions (version column).
-- Audit trail and transition history.
+- Transition history view per record (from the audit trail).
 - Scaffolding (`resource-engine scaffold`).
 - Choose and add a licence; CI publishing per package.

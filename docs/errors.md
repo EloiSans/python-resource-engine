@@ -10,10 +10,14 @@ them as `{"error": {...}}`.
 | <a id="re-e002"></a>RE-E002 | `ResourceNotRegistered` | 404 | The resource name is not in the registry. |
 | <a id="re-e003"></a>RE-E003 | `OperationNotEnabled` | 405 | The CRUD operation is not listed in `operations`. |
 | <a id="re-e004"></a>RE-E004 | `StateFieldExposed` | 500 | The state field appears in a create/update schema. Use transitions. |
+| <a id="re-e005"></a>RE-E005 | `VersioningNotSupported` | 500 | A resource with `version_field` uses a repository without `supports_versions` (REST, SOAP). See [concurrency](concurrency.md). |
+| <a id="re-e007"></a>RE-E007 | `TransactionDoomed` | 500 | An operation failed inside `manager.transaction()`; it can only roll back. `details` has the original `code` and `message`. See [lifecycle](lifecycle.md#grouping-operations). |
 | <a id="re-e101"></a>RE-E101 | `ValidationFailed` | 422 | Input does not match the schema; `details` holds Pydantic errors. |
 | <a id="re-e102"></a>RE-E102 | `EntityNotFound` | 404 | No entity with that id. |
 | <a id="re-e103"></a>RE-E103 | `InvalidQuery` | 400 | Filter/order field not allowed, or paging out of bounds. |
 | <a id="re-e104"></a>RE-E104 | `ExternalEffectInTransaction` | 500 | An `@external_effect` hook is registered before `after_commit`. |
+| <a id="re-e105"></a>RE-E105 | `VersionConflict` | 409 | The record changed since the client read it; `details.expected` and `details.current`. Reload and retry. |
+| <a id="re-e106"></a>RE-E106 | `VersionRequired` | 428 | The resource has `require_version`; send `If-Match` (or `expected_version=`). |
 | <a id="re-e201"></a>RE-E201 | `TransitionNotAllowed` | 409 | Transition not possible from the current state (or a guard failed); `details.allowed` lists valid ones. |
 | <a id="re-e202"></a>RE-E202 | `UnknownTransition` | 404 | The resource has no such transition (or no state machine). |
 | <a id="re-e301"></a>RE-E301 | `ActionNotFound` | 404 | The resource has no such action. |
@@ -36,7 +40,7 @@ them as `{"error": {...}}`.
 | <a id="re-e702"></a>RE-E702 | `PermissionDenied` | 403 | The principal may not perform the action; `details.action` and `reason`. |
 | <a id="re-e703"></a>RE-E703 | `InvalidPolicy` | 422 | A policy, role or assignment is not valid; `details.problems` lists JSON paths and messages. |
 | <a id="re-e704"></a>RE-E704 | `PrivilegeEscalation` | 403 | An editor tried to grant actions they do not hold. |
-| <a id="re-e705"></a>RE-E705 | `ConditionNotSupported` | 500 | A row-level filter is needed but the repository cannot apply it (fails closed). |
+| <a id="re-e705"></a>RE-E705 | `ConditionNotSupported` | 500 | A row-level filter is needed but cannot be applied (fails closed): the repository has no condition support, or an external policy engine's rule cannot be translated ([authorizers](authorizers.md)). |
 | <a id="re-e706"></a>RE-E706 | `FieldNotWritable` | 403 | The input sets fields the principal may not write; `details.fields`. Nothing is saved. |
 | <a id="re-e707"></a>RE-E707 | `FieldNotReadable` | 403 | A `list` filters or sorts by fields the principal may not read; `details.fields`. |
 | <a id="re-e708"></a>RE-E708 | `TenantRequired` | 403 | A tenant-scoped resource needs a tenant: the caller has none, or a cross-tenant caller did not name one to create. |

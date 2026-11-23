@@ -110,6 +110,8 @@ class ResourceDoc:
     documents: list[SlotDoc] = field(default_factory=list)
     restricted_fields: list[str] = field(default_factory=list)
     tenant_field: str | None = None
+    version_field: str | None = None
+    require_version: bool = False
     audit: bool = True
     audit_reads: bool = False
     audit_exclude: list[str] = field(default_factory=list)

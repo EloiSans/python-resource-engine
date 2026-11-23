@@ -26,6 +26,7 @@ class Invoice:
     notes: str | None = None
     status: str | None = None
     rejection_reason: str | None = None
+    version: int | None = None
     id: int | None = field(default=None)
 
     def ensure_editable(self) -> None:

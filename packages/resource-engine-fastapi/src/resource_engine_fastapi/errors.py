@@ -22,6 +22,8 @@ STATUS_BY_ERROR: list[tuple[type[ResourceEngineError], int]] = [
     (e.ActionNotFound, 404),
     (e.OperationNotEnabled, 405),
     (e.TransitionNotAllowed, 409),
+    (e.VersionConflict, 409),
+    (e.VersionRequired, 428),
     (e.DocumentSlotNotFound, 404),
     (e.BlobNotFound, 404),
     (e.ContentTypeNotAllowed, 415),

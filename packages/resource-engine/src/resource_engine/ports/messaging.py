@@ -115,3 +115,13 @@ class SupportsInbox(Protocol):
     """A unit of work that exposes the inbox table."""
 
     def inbox(self) -> InboxStore: ...
+
+
+class MessageObserver(Protocol):
+    """Metrics hook: called after every message a consumer processes, with the
+    consumer name, the message, its ``ProcessResult`` and the duration in
+    seconds. May be sync or async; failures never change the outcome."""
+
+    def __call__(
+        self, consumer: str, message: ReceivedMessage, result: Any, seconds: float
+    ) -> Awaitable[None] | None: ...

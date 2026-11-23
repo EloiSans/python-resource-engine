@@ -28,6 +28,7 @@ invoices_table = Table(
     Column("notes", Text, nullable=True),
     Column("status", String(32), nullable=False),
     Column("rejection_reason", Text, nullable=True),
+    Column("version", Integer, nullable=False, default=1),
 )
 
 documents = documents_table(metadata)

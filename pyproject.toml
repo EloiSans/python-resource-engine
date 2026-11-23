@@ -23,6 +23,9 @@ resource-engine-sap = { workspace = true }
 resource-engine-s3 = { workspace = true }
 resource-engine-rabbitmq = { workspace = true }
 resource-engine-oidc = { workspace = true }
+resource-engine-cedar = { workspace = true }
+resource-engine-opa = { workspace = true }
+resource-engine-openfga = { workspace = true }
 
 [dependency-groups]
 dev = [
@@ -38,6 +41,9 @@ dev = [
     "resource-engine-s3",
     "resource-engine-rabbitmq",
     "resource-engine-oidc",
+    "resource-engine-cedar",
+    "resource-engine-opa",
+    "resource-engine-openfga",
     "pytest>=8",
     "pytest-asyncio>=0.24",
     "httpx>=0.27",
@@ -52,7 +58,7 @@ asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
 testpaths = ["packages", "adapters", "examples"]
 markers = [
-    "emulator(name): needs a running emulator or local service (aws, pubsub, garage, rabbitmq, keycloak); skipped when it is not reachable",
+    "emulator(name): needs a running emulator or local service (aws, pubsub, garage, rabbitmq, keycloak, opa, openfga); skipped when it is not reachable",
 ]
 pythonpath = ["examples"]
 

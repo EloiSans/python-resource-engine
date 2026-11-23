@@ -9,21 +9,32 @@ from __future__ import annotations
 
 import inspect
 import logging
-from collections.abc import Callable
+import time
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from enum import StrEnum
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from resource_engine.domain.exceptions import DomainError
 from resource_engine.errors import (
+    ConfigurationError,
     InboxNotSupported,
     MessageRejected,
     NoHandler,
+    TransactionDoomed,
     ValidationFailed,
 )
 from resource_engine.messaging.consumer import EventRouter
-from resource_engine.ports.messaging import MessageHandler, ReceivedMessage, SupportsInbox
+from resource_engine.ports.messaging import (
+    MessageHandler,
+    MessageObserver,
+    ReceivedMessage,
+    SupportsInbox,
+)
 from resource_engine.ports.unit_of_work import UnitOfWork
+
+if TYPE_CHECKING:
+    from resource_engine.application.manager import ResourceManager
 
 log = logging.getLogger("resource_engine.messaging")
 
@@ -84,13 +95,17 @@ class MessageProcessor:
         handler: An ``EventRouter`` or a single ``async (envelope) -> None``.
         name: Consumer name; inbox entries are kept per consumer, so two consumers
             of the same event each process it once.
-        inbox: Unit of work factory whose units expose ``inbox()``. When given,
-            already-processed envelope ids are acknowledged without running the
-            handler. The mark is written after the handler succeeds, in its own
-            transaction: a crash between the two can still run a handler twice,
-            so keep handlers idempotent where possible.
+        manager: Run each message in ``manager.transaction()``: the inbox check,
+            every manager call of the handler and the inbox mark commit together,
+            so a message has its effect once. Its unit of work needs ``inbox()``.
+        inbox: Without ``manager``: unit of work factory whose units expose
+            ``inbox()``. Already-processed envelope ids are acknowledged without
+            running the handler, but the mark is written after the handler, in
+            its own transaction: a crash between the two can run a handler twice.
         retry: Backoff and delivery limit.
         permanent_errors: Exceptions that dead-letter immediately.
+        observers: Called after every message with ``(consumer, message, result,
+            seconds)`` (metrics); failures are logged and ignored.
     """
 
     def __init__(
@@ -98,15 +113,25 @@ class MessageProcessor:
         handler: EventRouter | MessageHandler,
         *,
         name: str,
+        manager: ResourceManager | None = None,
         inbox: Callable[[], UnitOfWork] | None = None,
         retry: RetryPolicy | None = None,
         permanent_errors: tuple[type[BaseException], ...] = PERMANENT_ERRORS,
+        observers: Sequence[MessageObserver] = (),
     ) -> None:
+        if manager is not None and inbox is not None:
+            raise ConfigurationError(
+                "Pass either manager= (one transaction) or inbox=, not both",
+                hint="With manager=, the inbox of the manager's unit of work is used.",
+                doc="docs/messaging.md#exactly-once-effects",
+            )
         self.dispatch = handler.dispatch if isinstance(handler, EventRouter) else handler
         self.name = name
+        self.manager = manager
         self.inbox = inbox
         self.retry = retry or RetryPolicy()
         self.permanent_errors = permanent_errors
+        self.observers = list(observers)
 
     async def _inbox_call(self, method: str, message_id: str) -> Any:
         assert self.inbox is not None
@@ -123,10 +148,78 @@ class MessageProcessor:
             return result
 
     async def process(self, message: ReceivedMessage) -> ProcessResult:
+        started = time.perf_counter()
+        result = await self._process(message)
+        await self.observe(message, result, time.perf_counter() - started)
+        return result
+
+    async def observe(
+        self, message: ReceivedMessage, result: ProcessResult, seconds: float
+    ) -> None:
+        for observer in self.observers:
+            try:
+                outcome = observer(self.name, message, result, seconds)
+                if inspect.isawaitable(outcome):
+                    await outcome
+            except Exception:
+                log.exception("Message observer %r failed", observer)
+
+    def _failure(self, message: ReceivedMessage, exc: BaseException) -> ProcessResult:
+        envelope = message.envelope
+        assert envelope is not None
+        cause = exc.__cause__ if isinstance(exc, TransactionDoomed) and exc.__cause__ else exc
+        if isinstance(cause, self.permanent_errors):
+            log.error("Message %s (%s) rejected: %s", envelope.id, envelope.type, cause)
+            return ProcessResult(Outcome.DEAD_LETTER, f"{type(cause).__name__}: {cause}")
+        error = f"{type(cause).__name__}: {cause}"
+        if self.retry.exhausted(message.delivery_count):
+            log.error("Message %s failed %s times: %s", envelope.id, message.delivery_count, error)
+            return ProcessResult(Outcome.DEAD_LETTER, error)
+        delay = self.retry.delay(message.delivery_count)
+        log.warning("Message %s failed, retrying in %.1fs: %s", envelope.id, delay, error)
+        return ProcessResult(Outcome.RETRY, error, delay)
+
+    async def _transactional(self, message: ReceivedMessage) -> ProcessResult:
+        """Inbox check, handler and inbox mark in one ``manager.transaction()``."""
+        envelope = message.envelope
+        assert envelope is not None and self.manager is not None
+
+        class _Duplicate(Exception):
+            pass
+
+        try:
+            async with self.manager.transaction() as tx:
+                if not isinstance(tx.uow, SupportsInbox):
+                    raise InboxNotSupported(
+                        f"{type(tx.uow).__name__} has no inbox()",
+                        hint="Pass inbox_table=inbox_table(metadata) to the SQLAlchemy unit "
+                        "of work, or use inbox= without manager=.",
+                    )
+                inbox = tx.uow.inbox()
+                if envelope.id in await inbox.processed(self.name, [envelope.id]):
+                    raise _Duplicate
+                result = self.dispatch(envelope)
+                if inspect.isawaitable(result):
+                    await result
+                # a concurrent consumer may have committed it meanwhile: undo ours
+                if envelope.id in await inbox.processed(self.name, [envelope.id]):
+                    raise _Duplicate
+                await inbox.mark_processed(self.name, [envelope.id])
+        except _Duplicate:
+            return ProcessResult(Outcome.DUPLICATE)
+        except InboxNotSupported:
+            raise
+        except Exception as exc:  # handler, doomed transaction or commit (a racing consumer)
+            return self._failure(message, exc)
+        return ProcessResult(Outcome.ACK)
+
+    async def _process(self, message: ReceivedMessage) -> ProcessResult:
         envelope = message.envelope
         if envelope is None:
             log.error("Undecodable message %s: %s", message.message_id, message.error)
             return ProcessResult(Outcome.DEAD_LETTER, f"undecodable: {message.error}")
+        if self.manager is not None:
+            return await self._transactional(message)
 
         if self.inbox is not None and envelope.id in await self._inbox_call(
             "processed", envelope.id
@@ -137,19 +230,8 @@ class MessageProcessor:
             result = self.dispatch(envelope)
             if inspect.isawaitable(result):
                 await result
-        except self.permanent_errors as exc:
-            log.error("Message %s (%s) rejected: %s", envelope.id, envelope.type, exc)
-            return ProcessResult(Outcome.DEAD_LETTER, f"{type(exc).__name__}: {exc}")
         except Exception as exc:
-            error = f"{type(exc).__name__}: {exc}"
-            if self.retry.exhausted(message.delivery_count):
-                log.error(
-                    "Message %s failed %s times: %s", envelope.id, message.delivery_count, error
-                )
-                return ProcessResult(Outcome.DEAD_LETTER, error)
-            delay = self.retry.delay(message.delivery_count)
-            log.warning("Message %s failed, retrying in %.1fs: %s", envelope.id, delay, error)
-            return ProcessResult(Outcome.RETRY, error, delay)
+            return self._failure(message, exc)
 
         if self.inbox is not None:
             try:
@@ -159,3 +241,28 @@ class MessageProcessor:
             except Exception:  # e.g. a concurrent consumer marked it first
                 log.warning("Could not record %s in the inbox", envelope.id, exc_info=True)
         return ProcessResult(Outcome.ACK)
+
+
+class LoggingObserver:
+    """``MessageObserver`` writing one log line per message (logger
+    ``resource_engine.messaging.metrics``): outcome, type, key, delivery count
+    and duration. A model for metrics adapters (OpenTelemetry, Prometheus)."""
+
+    def __init__(self, logger: logging.Logger | None = None, level: int = logging.INFO) -> None:
+        self.logger = logger or logging.getLogger("resource_engine.messaging.metrics")
+        self.level = level
+
+    def __call__(
+        self, consumer: str, message: ReceivedMessage, result: ProcessResult, seconds: float
+    ) -> None:
+        envelope = message.envelope
+        self.logger.log(
+            self.level,
+            "consumer=%s outcome=%s type=%s key=%s deliveries=%s seconds=%.4f",
+            consumer,
+            result.outcome.value,
+            envelope.type if envelope else None,
+            envelope.key if envelope else None,
+            message.delivery_count,
+            seconds,
+        )

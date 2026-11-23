@@ -11,9 +11,9 @@ This order is part of the public contract and is covered by tests
 | 2 | Tenant scope for tenant-scoped resources (RE-E708, RE-E709) — see [tenancy](tenancy.md); authorization, record unknown (RE-E702) — see [permissions](permissions.md) | – | |
 | 3 | Validate input with the operation's schema (RE-E101) | no | `before_validate`, `after_validate` |
 | 4 | Open the unit of work | yes | |
-| 5 | Load the entity (update, delete, transition, instance action) (RE-E102; other tenants' records too); then authorization on the record (404 if invisible, else RE-E702); on create and update, every field sent must be writable (RE-E706) | yes | |
+| 5 | Load the entity (update, delete, transition, instance action) (RE-E102; other tenants' records too); then authorization on the record (404 if invisible, else RE-E702); on create and update, every field sent must be writable (RE-E706); versioned resources check the version the client sent (RE-E105, RE-E106) — see [concurrency](concurrency.md) | yes | |
 | 6 | Before mutation | yes | `before_create` · `before_update` · `before_delete` · `before_transition[:event]` · `before_action[:name]` · `before_attach[:slot]` · `before_detach[:slot]` |
-| 7 | Mutate: build+`add` / `apply_update`+`update` / `delete` / fire the state machine+`update` / `Action.execute` / store blob + `Document` row | yes | |
+| 7 | Mutate: build+`add` / `apply_update`+`update` / `delete` / fire the state machine+`update` / `Action.execute` / store blob + `Document` row; versioned writes compare and set the version (instance actions claim it before `execute`) | yes | |
 | 8 | After mutation | yes | `after_create` · `after_update` · `after_delete` · `after_transition[:event]` · `after_action[:name]` · `after_attach[:slot]` · `after_detach[:slot]` |
 | 9 | Build the result (read schema, without the fields the caller may not read), write the audit entry, stage events (outbox), commit | yes | |
 | 10 | Post-commit | no | `ctx.on_commit` callbacks, `after_commit` hooks, then event delivery |
@@ -33,6 +33,31 @@ since their transaction rolls back; see [audit](audit.md).
 Any exception in steps 3–9 aborts the operation; from step 4 on it also rolls the
 transaction back, and no events are published. Exceptions raised by hooks get a
 note naming the hook and lifecycle point.
+
+## Grouping operations
+
+```python
+async with manager.transaction():
+    await manager.update("invoices", 7, {"amount": "120"})
+    await manager.transition("invoices", 7, "submit")
+```
+
+Operations inside `manager.transaction()` share one unit of work and commit
+together:
+
+- **Inside the transaction:** steps 4 to 9 run as usual, including the audit
+  entries and outbox events. Reads see the uncommitted writes. Nested calls
+  join the outer transaction. Another manager keeps its own.
+- **After the commit:** step 10 runs for every operation, in order:
+  `ctx.on_commit`, `after_commit` hooks, and direct event delivery.
+- **On rollback:** every operation's `ctx.on_rollback` compensations run.
+- **A failed operation dooms the transaction.** An operation that fails once
+  it has reached step 4 may have written part of its changes, even if your
+  code catches the error. Leaving the block then raises RE-E007 and rolls
+  everything back. Failures before step 4 (validation, permission without the
+  record, tenancy) and failed reads don't doom it.
+
+Message consumers use it for [exactly-once effects](messaging.md#exactly-once-effects).
 
 ## Hook points
 

@@ -3,23 +3,33 @@ from __future__ import annotations
 from typing import Any
 
 from resource_engine import ListQuery, Page
-from resource_engine.errors import ConditionNotSupported
-from sqlalchemy import and_, false, func, literal, not_, or_, select, true
+from resource_engine.errors import ConditionNotSupported, VersionConflict
+from sqlalchemy import and_, delete, false, func, literal, not_, or_, select, true, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 
 class SqlAlchemyRepository[E]:
     """Generic repository for an imperatively mapped domain entity.
 
-    Applies ``ListQuery.condition`` (row-level permissions) as SQL.
+    Applies ``ListQuery.condition`` (row-level permissions) as SQL, and
+    compares and sets versions atomically (``UPDATE ... WHERE version = :expected``).
     """
 
     supports_conditions = True
+    supports_versions = True
 
-    def __init__(self, session: AsyncSession, entity_cls: type[E], id_field: str = "id") -> None:
+    def __init__(
+        self,
+        session: AsyncSession,
+        entity_cls: type[E],
+        id_field: str = "id",
+        *,
+        version_field: str = "version",
+    ) -> None:
         self.session = session
         self.entity_cls = entity_cls
         self.id_field = id_field
+        self.version_field = version_field
 
     async def get(self, entity_id: Any) -> E | None:
         return await self.session.get(self.entity_cls, entity_id)
@@ -43,14 +53,52 @@ class SqlAlchemyRepository[E]:
         await self.session.flush()
         return entity
 
-    async def update(self, entity: E) -> E:
+    async def update(self, entity: E, *, expected_version: int | None = None) -> E:
         self.session.add(entity)
+        if expected_version is not None:
+            await self._claim(entity, expected_version)
         await self.session.flush()
         return entity
 
-    async def delete(self, entity: E) -> None:
+    async def delete(self, entity: E, *, expected_version: int | None = None) -> None:
+        if expected_version is not None:
+            await self._claim(entity, expected_version, remove=True)
+            self.session.expunge(entity)
+            return
         await self.session.delete(entity)
         await self.session.flush()
+
+    async def _claim(self, entity: E, expected: int, *, remove: bool = False) -> None:
+        """Compare and set: the row must still be at ``expected``. A concurrent
+        transaction holding the row makes this wait; once it commits, no row
+        matches and the write fails instead of overwriting."""
+        entity_id = getattr(entity, self.id_field)
+        id_col = getattr(self.entity_cls, self.id_field)
+        version_col = getattr(self.entity_cls, self.version_field)
+        match = (id_col == entity_id, version_col == expected)
+        stmt = (
+            delete(self.entity_cls).where(*match)
+            if remove
+            else update(self.entity_cls).where(*match).values({self.version_field: expected + 1})
+        )
+        with self.session.no_autoflush:
+            result = await self.session.execute(stmt.execution_options(synchronize_session=False))
+        if result.rowcount != 1:
+            with self.session.no_autoflush:
+                current = await self.session.scalar(select(version_col).where(id_col == entity_id))
+            raise VersionConflict(
+                f"{self.entity_cls.__name__} {entity_id!r} changed: version {current}, "
+                f"expected {expected}",
+                hint="Reload the record and apply your change again.",
+                details={
+                    "id": entity_id,
+                    "expected": expected,
+                    "current": current,
+                    "reason": "version conflict",
+                },
+            )
+        if not remove:
+            setattr(entity, self.version_field, expected + 1)
 
 
 def compile_condition(node: Any, entity_cls: Any) -> Any:

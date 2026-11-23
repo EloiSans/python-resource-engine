@@ -92,7 +92,7 @@ first and the broker is the safety net.
 
 | Adapter | Package | Notes | Status |
 |---|---|---|---|
-| SQLAlchemy 2 (async) | `resource-engine-sqlalchemy` | Covers RDS/Aurora, Azure SQL / Database for PostgreSQL, Cloud SQL / AlloyDB. Outbox with `SKIP LOCKED`; tables for documents, permissions and the audit trail. | experimental |
+| SQLAlchemy 2 (async) | `resource-engine-sqlalchemy` | Covers RDS/Aurora, Azure SQL / Database for PostgreSQL, Cloud SQL / AlloyDB. Outbox with `SKIP LOCKED`; tables for documents, permissions and the audit trail; row filters and version compare-and-set in SQL. | experimental |
 | In-memory | `resource-engine` (`resource_engine.testing`) | Tests and prototypes. | experimental |
 | REST API | `resource-engine-http` | `RestRepository` / `rest_unit_of_work_factory`. Not transactional (see below). | experimental |
 | SOAP service | `resource-engine-http[soap]` | `SoapRepository` over `SoapService` (zeep). Not transactional. | experimental |
@@ -160,6 +160,19 @@ without leftovers, deletes, listing and presigned upload/download. Use
 
 See [identity](identity.md).
 
+## Authorization — `PolicyEngine`
+
+| Engine | Package | Class | Row filters | Tested against | Status |
+|---|---|---|---|---|---|
+| Open Policy Agent | `resource-engine-opa` | `OpaEngine` | Compile API (UCAST) | OPA 1.22.4 (compose) | experimental |
+| Cedar | `resource-engine-cedar` | `CedarEngine` | Partial evaluation (cedarpy) | in process | experimental |
+| OpenFGA | `resource-engine-openfga` | `OpenFgaEngine`, `TupleSync` | `list_objects` | OpenFGA 1.22.0 (compose) | experimental |
+| In-memory | `resource-engine` (`resource_engine.testing`) | `ConditionEngine` | Partial evaluation | contract | experimental |
+
+Engines run behind `EngineAuthorizer`. `AuthorizerContract` checks them. The
+built-in `PolicyAuthorizer` needs no engine. See
+[external policy engines](authorizers.md).
+
 ## HTTP runtimes
 
 FastAPI apps run unchanged on Cloud Run, App Service/Container Apps and ECS/App
@@ -219,6 +232,8 @@ uv run pytest -m emulator
 | Garage (S3) | `dxflrs/garage:v2.4.1` | no official UI; S3 on :3910 | Run `uv run python docker/garage/init.py` once (layout, bucket `resource-engine`, dev key); the S3 tests run it too. AGPL, used only as a dev tool. |
 | RabbitMQ | `rabbitmq:4-management` | http://127.0.0.1:15672 (guest/guest) | AMQP on :5672. |
 | Keycloak | `quay.io/keycloak/keycloak:26.4` | http://127.0.0.1:8180 (admin/admin) | Realm imported from `docker/keycloak/`. |
+| OPA | `openpolicyagent/opa:1.22.4` | REST on :8181 | Serves `docker/opa/*.rego` and reloads on change. |
+| OpenFGA | `openfga/openfga:v1.22.0` | playground http://127.0.0.1:3000; API on :8080 | In-memory datastore: tests create a store per test. |
 
 | Provider | Emulator | Notes |
 |---|---|---|
@@ -228,4 +243,4 @@ uv run pytest -m emulator
 | Azure | Service Bus emulator | Not wired: it requires accepting Microsoft's EULAs for the emulator and SQL Server. Run it yourself if you accept them. |
 
 Tests are marked `emulator("<name>")` (`aws`, `pubsub`, `garage`, `rabbitmq`,
-`keycloak`) and each group skips automatically when its service is not reachable.
+`keycloak`, `opa`, `openfga`) and each group skips automatically when its service is not reachable.

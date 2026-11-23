@@ -9,7 +9,13 @@ from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
 
 from resource_engine.application.query import ListQuery
-from resource_engine.authz.catalog import FIELD_KINDS, ActionInfo, Catalog, action_matches
+from resource_engine.authz.base import (  # noqa: F401  (re-exported)
+    RoleBasedAuthorizer,
+    SystemPrincipal,
+    subject_view,
+    system_principal,
+)
+from resource_engine.authz.catalog import FIELD_KINDS, ActionInfo, action_matches
 from resource_engine.authz.conditions import (
     UNKNOWN,
     Env,
@@ -20,25 +26,14 @@ from resource_engine.authz.conditions import (
     partial,
 )
 from resource_engine.authz.config import AuthzConfig
-from resource_engine.authz.roles import IdpRoleSource
 from resource_engine.ports.authz import Decision, FieldAccess
 from resource_engine.ports.identity import Principal
 
 if TYPE_CHECKING:
-    from resource_engine.application.registry import ResourceRegistry
     from resource_engine.authz.model import Policy
     from resource_engine.messaging.consumer import EventRouter
 
 log = logging.getLogger("resource_engine.authz")
-
-
-class SystemPrincipal(Principal):
-    """The engine itself (consumers, pipelines, jobs). Always allowed; cannot be
-    produced from a token."""
-
-
-def system_principal(name: str = "engine") -> SystemPrincipal:
-    return SystemPrincipal(subject=name, issuer="resource-engine", provider="system", service=True)
 
 
 class PolicyStore:
@@ -72,24 +67,7 @@ def _copy(policy: Any) -> Any:
     return dataclasses.replace(policy)
 
 
-def subject_view(principal: Principal, roles: Iterable[str]) -> dict[str, Any]:
-    return {
-        "id": principal.id,
-        "subject": principal.subject,
-        "provider": principal.provider,
-        "roles": sorted(roles),
-        "groups": sorted(principal.groups),
-        "scopes": sorted(principal.scopes),
-        "tenant": principal.tenant,
-        "client_id": principal.client_id,
-        "service": principal.service,
-        "email": principal.email,
-        "name": principal.name,
-        "claims": dict(principal.claims),
-    }
-
-
-class PolicyAuthorizer:
+class PolicyAuthorizer(RoleBasedAuthorizer):
     """``Authorizer`` over system roles (code) and policies (data).
 
     Rules: deny by default; a matching system-role grant allows and cannot be
@@ -108,15 +86,9 @@ class PolicyAuthorizer:
         *,
         policies_resource: str = "authz_policies",
     ) -> None:
-        self.config = config
+        super().__init__(config)
         self.store = PolicyStore(uow_factory, resource=policies_resource)
-        self.role_source = config.role_source or IdpRoleSource(passthrough=True)
-        self.catalog: Catalog | None = None
         self._restricted_cache: tuple[int, frozenset[str]] | None = None
-
-    def bind(self, registry: ResourceRegistry) -> None:
-        """Called by ``ResourceManager``: build the catalogue from the registry."""
-        self.catalog = Catalog.from_registry(registry)
 
     def invalidate(self) -> None:
         self.store.invalidate()
@@ -130,28 +102,6 @@ class PolicyAuthorizer:
         return router
 
     # ------------------------------------------------------------------ roles
-
-    async def roles_of(self, principal: Principal) -> frozenset[str]:
-        roles = set(await self.role_source.roles(principal))
-        for provider_role in principal.roles | principal.groups:
-            if provider_role in self.config.bootstrap:
-                roles.add(self.config.bootstrap[provider_role])
-        return frozenset(roles)
-
-    def _wildcards(self, action: str) -> bool:
-        info = self.catalog.actions.get(action) if self.catalog else None
-        return info.wildcards if info else True
-
-    def _system_grant(self, roles: Iterable[str], action: str) -> str | None:
-        wild = self._wildcards(action)
-        for name in sorted(roles):
-            role = self.config.system_role(name)
-            if role and any(
-                action_matches(g, action, wildcards=wild or role.include_sensitive)
-                for g in role.grants
-            ):
-                return role.name
-        return None
 
     @staticmethod
     def _applies(policy: Policy, principal: Principal, roles: frozenset[str]) -> bool:
@@ -243,21 +193,6 @@ class PolicyAuthorizer:
         denies = [partial(p.condition, env) for p in policies if p.effect == "deny"]
         return conjunction(disjunction(*allows), negation(disjunction(*denies)))
 
-    async def permissions(self, principal: Principal | None) -> dict[str, str]:
-        """Every catalogue action the principal may perform: ``allowed`` or
-        ``conditional`` (depends on the record or the input)."""
-        out: dict[str, str] = {}
-        assert self.catalog is not None
-        for action, info in self.catalog.actions.items():
-            if info.kind in FIELD_KINDS:
-                continue
-            decision = await self.check(principal, action)
-            if decision.allowed is True:
-                out[action] = "allowed"
-            elif decision.allowed is None:
-                out[action] = "conditional"
-        return out
-
     # ----------------------------------------------------------------- fields
 
     def _restricted(self, policies: list[Policy]) -> frozenset[str]:
@@ -346,25 +281,6 @@ class PolicyAuthorizer:
         if applicable or is_restricted:
             return info, applicable, is_restricted
         return None
-
-    async def field_permissions(
-        self, principal: Principal | None
-    ) -> dict[str, dict[str, list[str]]]:
-        """Per resource: fields ``hidden`` (not readable), ``readonly`` (not
-        writable) and ``conditional`` (depends on the record or input)."""
-        assert self.catalog is not None
-        out: dict[str, dict[str, list[str]]] = {}
-        for resource in self.catalog.resource_attributes:
-            read = (await self.field_rules(principal, resource, "read")).decide()
-            write = (await self.field_rules(principal, resource, "write")).decide()
-            entry = {
-                "hidden": sorted(read.denied),
-                "readonly": sorted(write.denied),
-                "conditional": sorted(read.conditional | write.conditional),
-            }
-            if any(entry.values()):
-                out[resource] = entry
-        return out
 
 
 class PolicyFieldRules:

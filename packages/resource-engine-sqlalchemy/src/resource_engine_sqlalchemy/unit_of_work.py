@@ -110,9 +110,10 @@ def unit_of_work_factory(
     """
     repositories: dict[str, RepositoryFactory] = {}
     for definition in registry:
-        model, id_field = definition.model, definition.id_field
-        repositories[definition.name] = lambda session, m=model, f=id_field: SqlAlchemyRepository(
-            session, m, f
+        repositories[definition.name] = (
+            lambda session, m=definition.model, f=definition.id_field, v=definition.version_field: (
+                SqlAlchemyRepository(session, m, f, version_field=v or "version")
+            )
         )
     repositories.update(overrides or {})
     return lambda: SqlAlchemyUnitOfWork(

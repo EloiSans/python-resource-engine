@@ -36,6 +36,8 @@ Facturació
 
 Filtres: `status`, `customer` · Ordenació: `id`, `amount`, `issue_date`
 
+Concurrència optimista: el camp `version` és la versió del registre (capçalera `ETag`); les modificacions envien `If-Match` i una versió antiga es rebutja amb 409.
+
 Camps restringits: `notes` — cal una concessió explícita (`invoices:read:<camp>`, `invoices:write:<camp>`); si no, s'ometen de les respostes.
 
 Auditoria: s'auditen els canvis i els intents denegats; sense valors per a `notes`.
@@ -161,3 +163,4 @@ Desa el document al magatzem de fitxers i emet ``DocumentAttached``.
 | `notes` | `str \| None` | sí | — |
 | `status` | `str` | sí | — |
 | `rejection_reason` | `str \| None` | sí | — |
+| `version` | `int` | sí | Versió del registre (ETag); envia-la a If-Match |

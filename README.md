@@ -27,9 +27,12 @@ moved to its own repository without code changes.
 | `resource-engine-s3` | `resource_engine_s3` | core, aiobotocore | Document storage on S3-compatible stores (AWS S3, Garage, MinIO, R2) |
 | `resource-engine-rabbitmq` | `resource_engine_rabbitmq` | core, aio-pika | RabbitMQ publisher (confirms) and quorum-queue consumer source |
 | `resource-engine-oidc` | `resource_engine_oidc` | core, PyJWT, httpx | Bearer-token authentication: Keycloak, Cognito, Entra ID, Google |
+| `resource-engine-opa` | `resource_engine_opa` | core, httpx | Open Policy Agent decisions and row filters (`OpaEngine`) |
+| `resource-engine-cedar` | `resource_engine_cedar` | core, cedarpy | Cedar policies in process (`CedarEngine`) |
+| `resource-engine-openfga` | `resource_engine_openfga` | core, openfga-sdk | OpenFGA relationships (`OpenFgaEngine`, `TupleSync`) |
 | `resource-engine-sap` | `resource_engine_sap` | core, resource-engine-http | SAP Event Mesh (publisher, queue consumer) and advanced event mesh publisher |
 
-Core packages are in `packages/`, cloud, SAP, storage, identity and HTTP adapters in `adapters/` (see the
+Core packages are in `packages/`, cloud, SAP, storage, identity, policy-engine and HTTP adapters in `adapters/` (see the
 [adapter catalogue](docs/adapters.md)).
 
 Adapters depend on the core, never the other way round.
@@ -83,11 +86,13 @@ uv run uvicorn invoices.app:app --app-dir examples --reload   # then open /docs
 - [Architecture](docs/architecture.md) — layers, packages and repository strategy.
 - [Lifecycle contract](docs/lifecycle.md) — exact order of hooks, validation and commit.
 - [Error catalogue](docs/errors.md) — stable `RE-*` codes.
-- [Messaging](docs/messaging.md) — envelopes, outbox, relay, consumers.
+- [Messaging](docs/messaging.md) — envelopes, outbox, relay, consumers with exactly-once effects.
 - [Adapter catalogue](docs/adapters.md) — cloud adapters, contract tests, emulators.
 - [Documents](docs/documents.md) — slots, uploads, processing, clean-up.
 - [Identity](docs/identity.md) — bearer tokens, providers, `Principal`.
 - [Permissions](docs/permissions.md) — system roles, ABAC policies managed from a front end.
+- [External policy engines](docs/authorizers.md) — OPA, Cedar and OpenFGA behind the same port.
 - [Audit trail](docs/audit.md) — committed changes and refused attempts.
 - [Tenancy](docs/tenancy.md) — tenant-scoped resources, cross-tenant roles.
+- [Concurrency](docs/concurrency.md) — version field, `ETag` / `If-Match`, stale writes refused.
 - [Roadmap](docs/roadmap.md) — what is done and what comes next.

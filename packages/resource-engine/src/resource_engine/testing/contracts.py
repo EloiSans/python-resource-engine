@@ -422,3 +422,170 @@ class ConditionContract(RepositoryContract):
                 ListQuery(filters={"group": "a"}, condition={"gt": [{"attr": "resource.rank"}, 2]})
             )
             assert [i.name for i in page.items] == ["c"]
+
+
+# ------------------------------------------------------------- authorizers
+
+CONTRACT_DOCS = "contract_docs"
+
+
+@dataclass
+class ContractDoc:
+    """Entity of the authorizer contract (in memory: no mapping needed)."""
+
+    title: str
+    owner: str
+    secret: str | None = None
+    id: int | None = None
+
+
+def contract_principals() -> dict[str, Any]:
+    """``ann`` (roles writer, auditor), ``bob`` (writer) and ``eve`` (none)."""
+    from resource_engine.ports.identity import Principal
+
+    return {
+        name: Principal(subject=name, issuer="idp", roles=frozenset(roles))
+        for name, roles in {
+            "ann": {"writer", "auditor"},
+            "bob": {"writer"},
+            "eve": set(),
+        }.items()
+    }
+
+
+class AuthorizerContract:
+    """What a ``PolicyEngine`` must decide, through ``EngineAuthorizer``.
+
+    Provide ``contract_engine``: an engine configured with these rules for the
+    ``contract_docs`` resource (type ``ContractDoc``, id field ``id``)::
+
+        contract_docs:get, :list, :update  when resource.owner == subject.id
+        contract_docs:create               for role "writer"
+        contract_docs:read:secret          for role "auditor" (secret is restricted in code)
+        anything else                      denied; anonymous callers denied
+
+    Engines that need relationship data (OpenFGA) override
+    ``contract_record_created`` to write it.
+    """
+
+    @pytest.fixture
+    def contract_engine(self) -> Any:
+        raise NotImplementedError("Provide a PolicyEngine implementing the contract rules")
+
+    async def contract_record_created(self, engine: Any, doc: ContractDoc) -> None:
+        """Called after each seeded record (e.g. write relationship tuples)."""
+
+    @pytest.fixture
+    async def contract_manager(self, contract_engine):
+        from pydantic import BaseModel, ConfigDict
+
+        from resource_engine.application.manager import ResourceManager
+        from resource_engine.application.registry import ResourceRegistry
+        from resource_engine.application.resource import Resource
+        from resource_engine.authz.external import EngineAuthorizer
+        from resource_engine.testing.memory import InMemoryStore
+
+        class DocIn(BaseModel):
+            title: str
+            owner: str
+            secret: str | None = None
+
+        class DocPatch(BaseModel):
+            title: str | None = None
+
+        class DocOut(DocIn):
+            model_config = ConfigDict(from_attributes=True)
+            id: int
+
+        class ContractDocResource(Resource):
+            name = CONTRACT_DOCS
+            model = ContractDoc
+            schemas = {"create": DocIn, "update": DocPatch, "read": DocOut}
+            operations = ["list", "get", "create", "update"]
+            restricted_fields = ["secret"]
+
+        registry = ResourceRegistry()
+        registry.register(ContractDocResource)
+        store = InMemoryStore.from_registry(registry)
+        return ResourceManager(
+            registry, store.unit_of_work, authorizer=EngineAuthorizer(contract_engine)
+        )
+
+    async def _seed(self, manager: Any, engine: Any) -> dict[str, Any]:
+        from resource_engine.authz.base import system_principal
+
+        people = contract_principals()
+        docs = {}
+        for name in ("ann", "bob"):
+            doc = await manager.create(
+                CONTRACT_DOCS,
+                {"title": f"{name}'s", "owner": people[name].id, "secret": "s"},
+                actor=system_principal(),
+            )
+            await self.contract_record_created(
+                engine, ContractDoc(doc.title, doc.owner, doc.secret, doc.id)
+            )
+            docs[name] = doc
+        return docs
+
+    async def test_owners_get_their_records_only(self, contract_manager, contract_engine):
+        from resource_engine.errors import EntityNotFound
+
+        docs = await self._seed(contract_manager, contract_engine)
+        people = contract_principals()
+        got = await contract_manager.get(CONTRACT_DOCS, docs["bob"].id, actor=people["bob"])
+        assert got.title == "bob's"
+        with pytest.raises(EntityNotFound):
+            await contract_manager.get(CONTRACT_DOCS, docs["ann"].id, actor=people["bob"])
+        authz = contract_manager.authorizer
+        record = ContractDoc("bob's", people["bob"].id, "s", docs["bob"].id)
+        assert (
+            await authz.check(people["bob"], f"{CONTRACT_DOCS}:update", resource=record)
+        ).allowed
+        assert (
+            await authz.check(people["ann"], f"{CONTRACT_DOCS}:update", resource=record)
+        ).allowed is False
+
+    async def test_list_is_filtered_like_single_checks(self, contract_manager, contract_engine):
+        await self._seed(contract_manager, contract_engine)
+        people = contract_principals()
+        for name in ("ann", "bob"):
+            page = await contract_manager.list(CONTRACT_DOCS, actor=people[name])
+            assert [d.owner for d in page.items] == [people[name].id]
+            assert page.total == 1
+        assert (await contract_manager.list(CONTRACT_DOCS, actor=people["eve"])).total == 0
+
+    async def test_create_needs_the_role(self, contract_manager):
+        from resource_engine.errors import PermissionDenied
+
+        people = contract_principals()
+        doc = await contract_manager.create(
+            CONTRACT_DOCS, {"title": "t", "owner": people["bob"].id}, actor=people["bob"]
+        )
+        assert doc.id is not None
+        with pytest.raises(PermissionDenied):
+            await contract_manager.create(
+                CONTRACT_DOCS, {"title": "t", "owner": people["eve"].id}, actor=people["eve"]
+            )
+
+    async def test_restricted_field_needs_the_role(self, contract_manager, contract_engine):
+        docs = await self._seed(contract_manager, contract_engine)
+        people = contract_principals()
+        ann = await contract_manager.get(CONTRACT_DOCS, docs["ann"].id, actor=people["ann"])
+        assert ann.secret == "s"
+        bob = await contract_manager.get(CONTRACT_DOCS, docs["bob"].id, actor=people["bob"])
+        from resource_engine.authz.fields import hidden_fields
+
+        assert hidden_fields(bob) == {"secret"}
+
+    async def test_anonymous_and_system_callers(self, contract_manager, contract_engine):
+        from resource_engine.authz.base import system_principal
+        from resource_engine.errors import PermissionDenied
+
+        await self._seed(contract_manager, contract_engine)
+        with pytest.raises(PermissionDenied):
+            await contract_manager.create(CONTRACT_DOCS, {"title": "t", "owner": "x"})
+        with pytest.raises(PermissionDenied):
+            await contract_manager.list(CONTRACT_DOCS)
+        everything = await contract_manager.list(CONTRACT_DOCS, actor=system_principal())
+        assert everything.total == 2

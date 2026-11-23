@@ -188,7 +188,7 @@ class DocumentManager:
         )
 
     async def _get_document(self, document_id: str) -> Document:
-        async with self.manager.uow_factory() as uow:
+        async with self.manager._reading() as uow:
             doc = await uow.repository(self.resource).get(document_id)
             # a detached copy: ORMs expire instances when the unit of work closes
             doc = dataclasses.replace(doc) if doc is not None else None
@@ -498,8 +498,7 @@ class DocumentManager:
             self.slot(definition, slot)
         ctx = self.manager._context(definition, "get", entity_id=entity_id, actor=actor)
         await self.manager._gate(ctx, "get")
-        async with self.manager.uow_factory() as uow:
-            ctx.uow = uow
+        async with self.manager._reading(ctx):
             await self.manager._load(ctx)
             await self.manager._gate_record(ctx, "get", ctx.entity)
             docs = await self._owned(ctx, slot)
@@ -513,8 +512,7 @@ class DocumentManager:
         ctx = self._owner_context(doc, "get", actor)
         if m.authorizer is None and ctx.resource.tenant_field is None:
             return
-        async with m.uow_factory() as uow:
-            ctx.uow = uow
+        async with m._reading(ctx) as uow:
             owner = await uow.repository(ctx.resource.name).get(ctx.entity_id)
             if owner is None:
                 raise EntityNotFound(f"Document {doc.id!r} does not exist")

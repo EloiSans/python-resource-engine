@@ -3,6 +3,7 @@
 See docs/permissions.md.
 """
 
+from resource_engine.authz.base import RoleBasedAuthorizer, subject_view
 from resource_engine.authz.catalog import ActionInfo, AttributeInfo, Catalog, action_matches
 from resource_engine.authz.conditions import UNKNOWN, Env, evaluate, partial, validate
 from resource_engine.authz.config import AuthzConfig, SystemRole
@@ -13,6 +14,7 @@ from resource_engine.authz.evaluator import (
     SystemPrincipal,
     system_principal,
 )
+from resource_engine.authz.external import EngineAuthorizer, ResidualFieldRules, plain
 from resource_engine.authz.fields import hidden_fields, mask
 from resource_engine.authz.model import Policy, Role, RoleAssignment
 from resource_engine.authz.resources import (
@@ -35,6 +37,7 @@ __all__ = [
     "AuthzConfig",
     "Catalog",
     "CombinedRoleSource",
+    "EngineAuthorizer",
     "Env",
     "IdpRoleSource",
     "Policy",
@@ -43,9 +46,11 @@ __all__ = [
     "PolicyFieldRules",
     "PolicyResource",
     "PolicyStore",
+    "ResidualFieldRules",
     "Role",
     "RoleAssignment",
     "RoleAssignmentResource",
+    "RoleBasedAuthorizer",
     "RoleResource",
     "RoleSource",
     "StoredRoleSource",
@@ -56,6 +61,8 @@ __all__ = [
     "hidden_fields",
     "mask",
     "partial",
+    "plain",
+    "subject_view",
     "system_principal",
     "validate",
 ]

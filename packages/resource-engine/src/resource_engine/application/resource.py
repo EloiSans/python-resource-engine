@@ -77,6 +77,9 @@ class Resource:
             when an authorizer is configured.
         tenant_field: Entity attribute holding the tenant. Every operation is then
             confined to the caller's tenant (see docs/tenancy.md).
+        version_field: Integer attribute for optimistic concurrency: writes check
+            the version the client saw and bump it (see docs/concurrency.md).
+        require_version: Refuse writes that do not send a version (RE-E106).
         audit: ``False`` leaves the resource out of the audit trail.
         audit_reads: Also audit ``get`` and ``list``.
         audit_exclude: Fields recorded as changed without their values (restricted
@@ -103,6 +106,8 @@ class Resource:
     authz_wildcards: ClassVar[bool] = True
     restricted_fields: ClassVar[Sequence[str]] = ()
     tenant_field: ClassVar[str | None] = None
+    version_field: ClassVar[str | None] = None
+    require_version: ClassVar[bool] = False
     audit: ClassVar[bool] = True
     audit_reads: ClassVar[bool] = False
     audit_exclude: ClassVar[Sequence[str]] = ()
@@ -117,7 +122,11 @@ class Resource:
     @classmethod
     def apply_update(cls, entity: Any, data: BaseModel, ctx: OperationContext) -> None:
         """Apply validated ``update`` input to an entity (only fields actually sent)."""
-        protected = {cls.id_field, cls.state_field if cls.state_machine else None}
+        protected = {
+            cls.id_field,
+            cls.state_field if cls.state_machine else None,
+            cls.version_field,
+        }
         for key, value in data.model_dump(exclude_unset=True).items():
             if key not in protected:
                 setattr(entity, key, value)
@@ -173,6 +182,8 @@ class ResourceDefinition:
     expose_transitions: bool
     restricted_fields: tuple[str, ...]
     tenant_field: str | None
+    version_field: str | None
+    require_version: bool
     dispatcher: HookDispatcher = field(repr=False, compare=False)
     machine: MachineRunner | None = field(repr=False, compare=False)
 
@@ -328,6 +339,32 @@ class ResourceDefinition:
                     hint="Records never move between tenants.",
                     doc="docs/tenancy.md",
                 )
+        version_field = resource_cls.version_field
+        if version_field is not None:
+            reserved = {
+                resource_cls.id_field: "id",
+                state_field: "state",
+                tenant_field: "tenant",
+            }
+            if version_field in reserved:
+                raise ConfigurationError(
+                    f"{owner}: the {reserved[version_field]} field cannot be the version field"
+                )
+            if read_fields and version_field not in read_fields:
+                raise ConfigurationError(
+                    f"{owner}: version field {version_field!r} is not part of the read schema",
+                    hint="Expose it so clients can send it back (ETag / If-Match).",
+                    doc="docs/concurrency.md",
+                )
+            if "create" in schemas and version_field in schemas["create"].model_fields:
+                raise ConfigurationError(
+                    f"{owner}: the create schema must not contain the version field "
+                    f"{version_field!r}",
+                    hint="New records start at version 1.",
+                    doc="docs/concurrency.md",
+                )
+        elif resource_cls.require_version:
+            raise ConfigurationError(f"{owner}: require_version needs a version_field")
         for fld in resource_cls.audit_exclude:
             if fld not in known_fields:
                 raise ConfigurationError(
@@ -364,6 +401,8 @@ class ResourceDefinition:
             expose_transitions=resource_cls.expose_transitions,
             restricted_fields=tuple(resource_cls.restricted_fields),
             tenant_field=tenant_field,
+            version_field=version_field,
+            require_version=resource_cls.require_version,
             dispatcher=HookDispatcher(hooks),
             machine=machine,
         )

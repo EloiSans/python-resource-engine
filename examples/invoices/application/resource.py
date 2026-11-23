@@ -69,3 +69,5 @@ class InvoiceResource(Resource):
     sortable = ["id", "amount", "issue_date"]
     # internal notes: only roles granted invoices:read:notes / invoices:write:notes
     restricted_fields = ["notes"]
+    # optimistic concurrency: ETag / If-Match, stale writes are refused (409)
+    version_field = "version"

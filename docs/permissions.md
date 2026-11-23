@@ -7,6 +7,9 @@ Who may do what is decided in two layers:
 - **Policies** (ABAC), stored as data and managed from a front end at runtime
   through the `authz_*` resources.
 
+An organisation that already runs OPA, Cedar or OpenFGA can delegate the
+policies to it instead: see [external policy engines](authorizers.md).
+
 Business rules ("only drafts can be edited") stay in the domain and the state
 machines. Permissions answer whether *this caller* may perform *this action* on
 *this record*.
@@ -200,7 +203,8 @@ set. Policies are data: list them with `GET /authz_policies`.
 
 Refused attempts are stored in the [audit trail](audit.md) when it is enabled.
 
-## Not yet
+## External engines
 
-Adapters for external policy engines (Cedar, OPA,
-OpenFGA) behind the `Authorizer` port.
+`EngineAuthorizer` puts OPA, Cedar or OpenFGA behind the same port, with the same
+actions, system roles, row filters and field rules: see
+[external policy engines](authorizers.md).

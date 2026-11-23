@@ -87,6 +87,21 @@ class ExternalEffectInTransaction(ConfigurationError):
 # --- Input and lookup (RE-E1xx) ---
 
 
+class VersioningNotSupported(ConfigurationError):
+    """A versioned resource (``version_field``) uses a repository that cannot
+    compare and set versions (``supports_versions``)."""
+
+    code = "RE-E005"
+
+
+class TransactionDoomed(ResourceEngineError):
+    """An operation failed inside ``manager.transaction()``: the transaction can
+    only roll back. ``details`` carries the original error's ``code`` and
+    ``message``; the exception is chained to it."""
+
+    code = "RE-E007"
+
+
 class ValidationFailed(ResourceEngineError):
     code = "RE-E101"
 
@@ -100,6 +115,22 @@ class InvalidQuery(ResourceEngineError):
 
 
 # --- State machines (RE-E2xx) ---
+
+
+class VersionConflict(ResourceEngineError):
+    """The record changed since the client read it (optimistic concurrency).
+
+    ``details``: ``resource``, ``id``, ``expected`` (the version the write was
+    based on) and ``current`` (when known). Reload the record and retry.
+    """
+
+    code = "RE-E105"
+
+
+class VersionRequired(ResourceEngineError):
+    """The resource requires the version the client read (``If-Match``)."""
+
+    code = "RE-E106"
 
 
 class TransitionNotAllowed(ResourceEngineError):

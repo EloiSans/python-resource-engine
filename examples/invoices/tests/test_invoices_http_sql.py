@@ -75,3 +75,20 @@ def test_openapi_contains_generated_operations(client):
     } <= set(paths)
     assert "requestBody" in paths["/invoices/{entity_id}/transitions/reject"]["post"]
     assert "requestBody" not in paths["/invoices/{entity_id}/transitions/approve"]["post"]
+
+
+def test_concurrent_edits_are_refused(client):
+    r = client.post("/invoices", json={"customer": "ACME", "amount": "100"})
+    etag = r.headers["etag"]
+    assert etag == '"1"' and r.json()["version"] == 1
+    # two people opened version 1; the first one saves
+    first = client.patch("/invoices/1", json={"amount": "110"}, headers={"If-Match": etag})
+    assert first.status_code == 200 and first.headers["etag"] == '"2"'
+    second = client.patch("/invoices/1", json={"amount": "90"}, headers={"If-Match": etag})
+    assert second.status_code == 409 and second.json()["error"]["code"] == "RE-E105"
+    assert client.get("/invoices/1").json()["amount"] == "110.00"
+    stale = client.post("/invoices/1/transitions/submit", headers={"If-Match": etag})
+    assert stale.status_code == 409
+    fresh = client.post("/invoices/1/transitions/submit", headers={"If-Match": '"2"'})
+    assert fresh.status_code == 200 and fresh.json()["version"] == 3
+    assert client.delete("/invoices/1", headers={"If-Match": etag}).status_code == 409

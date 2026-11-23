@@ -1,5 +1,6 @@
 """In-memory adapters for tests and prototypes."""
 
+from resource_engine.testing.engine import ConditionEngine
 from resource_engine.testing.memory import (
     InMemoryInbox,
     InMemoryQueue,
@@ -12,6 +13,7 @@ from resource_engine.testing.memory import (
 from resource_engine.testing.storage import InMemoryBlobStore
 
 __all__ = [
+    "ConditionEngine",
     "InMemoryBlobStore",
     "InMemoryInbox",
     "InMemoryQueue",

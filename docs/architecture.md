@@ -16,16 +16,18 @@ so the same class is used by the domain, the in-memory adapter and SQLAlchemy.
 
 ## Ports
 
-- `Repository[E]`: `get`, `list(ListQuery) -> Page`, `add`, `update`, `delete`.
+- `Repository[E]`: `get`, `list(ListQuery) -> Page`, `add`, `update`, `delete`; optional `supports_conditions` (row filters) and `supports_versions` (`expected_version` compare-and-set, see [concurrency](concurrency.md)).
 - `UnitOfWork`: async context manager handing out repositories; `commit`/`rollback`.
 - `EventPublisher`: `publish(events)`, called only after commit.
 - `MessagePublisher`: `publish(envelopes)` to a broker (cloud adapters implement it).
 - `OutboxStore` / `SupportsOutbox`: transactional outbox reached through the unit of work.
 - `MessageSource` (+ `SupportsDeadLetter`): pull side of a broker (`receive`, `ack`, `retry`).
 - `InboxStore` / `SupportsInbox`: processed message ids for idempotent consumers.
+- `MessageObserver`: metrics hook called after every processed message.
 - `BlobStore` (+ `SupportsPresignedUrls`): document contents (`put`, `open`, `head`, `delete`, `list`).
 - `Authenticator` → `Principal`: who is calling (identity providers implement it).
 - `Authorizer`: may the principal perform an action (on a record); `scope` gives the row filter. `PolicyAuthorizer` is the built-in one.
+- `PolicyEngine`: `evaluate(AuthzRequest)` → allowed, denied or a residual condition; OPA, Cedar and OpenFGA adapters implement it, and `EngineAuthorizer` turns it into an `Authorizer` ([authorizers](authorizers.md)).
 - `AuditSink`: where audit entries go (`RepositoryAuditSink` writes the `audit_log` resource in the operation's transaction).
 
 ## Infrastructure services and the lifecycle

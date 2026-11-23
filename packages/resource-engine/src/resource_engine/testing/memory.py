@@ -28,14 +28,22 @@ class InMemoryStore:
     is simply discarding the copy. Not meant for concurrent production use.
     """
 
-    def __init__(self, id_fields: dict[str, str] | None = None) -> None:
+    def __init__(
+        self,
+        id_fields: dict[str, str] | None = None,
+        version_fields: dict[str, str] | None = None,
+    ) -> None:
         self.id_fields: dict[str, str] = dict(id_fields or {})
+        self.version_fields: dict[str, str] = dict(version_fields or {})
         self.tables: dict[str, dict[Any, Any]] = {name: {} for name in self.id_fields}
         self._counters: dict[str, itertools.count[int]] = {}
 
     @classmethod
     def from_registry(cls, registry: ResourceRegistry) -> InMemoryStore:
-        return cls({d.name: d.id_field for d in registry})
+        return cls(
+            {d.name: d.id_field for d in registry},
+            {d.name: d.version_field for d in registry if d.version_field},
+        )
 
     def next_id(self, resource: str) -> int:
         counter = self._counters.setdefault(resource, itertools.count(1))
@@ -55,12 +63,26 @@ class InMemoryStore:
 
 class InMemoryRepository[E]:
     supports_conditions = True
+    supports_versions = True
 
-    def __init__(self, store: InMemoryStore, table: dict[Any, E], resource: str) -> None:
+    def __init__(
+        self,
+        store: InMemoryStore,
+        table: dict[Any, E],
+        resource: str,
+        checks: list[tuple[str, Any, int]] | None = None,
+    ) -> None:
         self._store = store
         self._table = table
         self._resource = resource
         self._id_field = store.id_fields.get(resource, "id")
+        self._version_field = store.version_fields.get(resource, "version")
+        self._checks = checks if checks is not None else []
+
+    def _compare(self, entity_id: Any, expected: int) -> None:
+        """Against the committed store; re-checked by the unit of work on commit."""
+        _check_committed(self._store, self._resource, entity_id, expected, self._version_field)
+        self._checks.append((self._resource, entity_id, expected))
 
     async def get(self, entity_id: Any) -> E | None:
         return self._table.get(entity_id)
@@ -91,12 +113,40 @@ class InMemoryRepository[E]:
         self._table[getattr(entity, self._id_field)] = entity
         return entity
 
-    async def update(self, entity: E) -> E:
-        self._table[getattr(entity, self._id_field)] = entity
+    async def update(self, entity: E, *, expected_version: int | None = None) -> E:
+        entity_id = getattr(entity, self._id_field)
+        if expected_version is not None:
+            self._compare(entity_id, expected_version)
+            setattr(entity, self._version_field, expected_version + 1)
+        self._table[entity_id] = entity
         return entity
 
-    async def delete(self, entity: E) -> None:
-        self._table.pop(getattr(entity, self._id_field), None)
+    async def delete(self, entity: E, *, expected_version: int | None = None) -> None:
+        entity_id = getattr(entity, self._id_field)
+        if expected_version is not None:
+            self._compare(entity_id, expected_version)
+        self._table.pop(entity_id, None)
+
+
+def _check_committed(
+    store: InMemoryStore, resource: str, entity_id: Any, expected: int, version_field: str
+) -> None:
+    stored = store.tables.get(resource, {}).get(entity_id)
+    current = getattr(stored, version_field, None) if stored is not None else None
+    if current != expected:
+        from resource_engine.errors import VersionConflict
+
+        raise VersionConflict(
+            f"{resource} {entity_id!r} changed: version {current}, expected {expected}",
+            hint="Reload the record and apply your change again.",
+            details={
+                "resource": resource,
+                "id": entity_id,
+                "expected": expected,
+                "current": current,
+                "reason": "version conflict",
+            },
+        )
 
 
 class InMemoryOutbox:
@@ -142,10 +192,12 @@ class InMemoryUnitOfWork:
     def __init__(self, store: InMemoryStore) -> None:
         self._store = store
         self._working: dict[str, dict[Any, Any]] | None = None
+        self._checks: list[tuple[str, Any, int]] = []
         self.committed = False
 
     async def __aenter__(self) -> Self:
         self._working = copy.deepcopy(self._store.tables)
+        self._checks = []
         self.committed = False
         return self
 
@@ -162,7 +214,7 @@ class InMemoryUnitOfWork:
         if self._working is None:
             raise RuntimeError("Unit of work is not active")
         table = self._working.setdefault(resource_name, {})
-        return InMemoryRepository(self._store, table, resource_name)
+        return InMemoryRepository(self._store, table, resource_name, self._checks)
 
     def outbox(self) -> InMemoryOutbox:
         if self._working is None:
@@ -177,11 +229,16 @@ class InMemoryUnitOfWork:
     async def commit(self) -> None:
         if self._working is None:
             raise RuntimeError("Unit of work is not active")
+        for resource, entity_id, expected in self._checks:  # another unit of work won
+            field_name = self._store.version_fields.get(resource, "version")
+            _check_committed(self._store, resource, entity_id, expected, field_name)
+        self._checks = []
         self._store.tables = self._working
         self._working = copy.deepcopy(self._working)
         self.committed = True
 
     async def rollback(self) -> None:
+        self._checks = []
         self._working = copy.deepcopy(self._store.tables)
 
 
