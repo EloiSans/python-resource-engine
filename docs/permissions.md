@@ -45,6 +45,7 @@ Every operation has a stable name, listed by `resource-engine inspect`:
 | Transition | `invoices:transition:approve` |
 | Action | `invoices:action:render_summary` |
 | Documents | `invoices:attach:<slot>`, `invoices:detach:<slot>`, `invoices:download:<slot>` |
+| Fields | `invoices:read:<field>`, `invoices:write:<field>` (see [Fields](#fields)) |
 
 Patterns: `*` matches one segment and a trailing `*` the rest (`invoices:*`,
 `*:list`, `*:download:*`). Resources with `authz_wildcards = False` (the `authz_*`
@@ -97,12 +98,67 @@ Policies are validated when saved (RE-E703 with `details.problems`: JSON paths
 and messages) against the catalogue: unknown actions or attributes, type
 mismatches, operators on the wrong types.
 
+## Fields
+
+Every field of the read schema has a `read` action, and every field of the
+create/update schemas a `write` action (the id field has none):
+`invoices:read:notes`, `invoices:write:amount`.
+
+Fields are **open** by default: whoever can see the record sees the field, and
+whoever may update it may change the field. A field becomes **restricted** when:
+
+- the code says so: `restricted_fields = ["notes"]` on the resource; or
+- an allow policy names it explicitly (`invoices:read:notes`,
+  `invoices:*:notes`). Patterns like `invoices:*` or `invoices:read:*` do not
+  restrict anything.
+
+| Field | Allowed when |
+|---|---|
+| open | no applicable deny holds |
+| restricted | a system-role grant reaches it, or an allow policy that names it explicitly holds, and no deny holds |
+
+Like sensitive resources, restricted fields are not reached by broad grants: an
+allow on `invoices:*` does not grant `notes`, and the `viewer` role does not see
+them. `admin` (`include_sensitive`) sees everything; system roles are never
+restricted by denies. Conditions work as for actions and are evaluated per
+record:
+
+```json
+{
+  "name": "Amounts are frozen once submitted",
+  "effect": "deny",
+  "subjects": {"everyone": true},
+  "actions": ["invoices:write:amount"],
+  "condition": {"ne": [{"attr": "resource.status"}, "draft"]}
+}
+```
+
+What callers see:
+
+- **reads** (get, list, and the results of create, update, transitions and
+  actions): hidden fields are **omitted**; the key is absent from the JSON, and
+  the attribute is missing on the returned model. A rule that depends on data
+  not known when reading (`input.*`) hides the field.
+- **writes** (create, update): sending a field the caller may not write fails
+  with **RE-E706** (403, `details.fields`), and nothing is saved. Only fields
+  actually sent count.
+- **lists** cannot filter or sort by fields the caller may not read
+  (**RE-E707**), so hidden values cannot be inferred.
+- `GET /authz/me` returns
+  `fields: {resource: {hidden, readonly, conditional}}` to build forms.
+
+Hooks, events and repositories always see full records. OpenAPI keeps the
+declared read schemas; clients of APIs with field rules should treat read fields
+as optional. Granting a field action follows the no-escalation rule: editors
+can grant only fields they hold.
+
 ## The lifecycle
 
 | Step | Check | Result when denied |
 |---|---|---|
 | 2 (before validation) | Can any policy allow it at all? (record unknown) | 403 RE-E702 |
-| 5b (record loaded or built) | `get` on the record, then the action with `resource` and `input` | 404 if the record is not visible, else 403 |
+| 5b (record loaded or built) | `get` on the record, then the action with `resource` and `input`; writable fields on create/update | 404 if the record is not visible, else 403 (RE-E702 / RE-E706) |
+| 9 (result) | readable fields of the record | hidden fields omitted |
 | `list` | Allow conditions on `resource.*` become a row filter (`ListQuery.condition`) | rows outside the scope are not returned; totals are correct |
 
 Transitions listed by `GET /{id}/transitions` are filtered by permission.
@@ -135,11 +191,10 @@ Rules enforced on changes:
 ## Documentation
 
 `resource-engine docs generate` writes `permissions.md`, the matrix of system
-roles × actions, when `[tool.resource-engine] authz = "pkg.bootstrap:authz"` is
+roles × actions (open field actions are left out; restricted ones are listed), when `[tool.resource-engine] authz = "pkg.bootstrap:authz"` is
 set. Policies are data: list them with `GET /authz_policies`.
 
 ## Not yet
 
-Field-level permissions (hiding or protecting fields per role), decision audit
-log storage, and adapters for external policy engines (Cedar, OPA, OpenFGA)
-behind the `Authorizer` port.
+Decision audit log storage, and adapters for external policy engines (Cedar, OPA,
+OpenFGA) behind the `Authorizer` port.

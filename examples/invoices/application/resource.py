@@ -67,3 +67,5 @@ class InvoiceResource(Resource):
     }
     filterable = ["status", "customer"]
     sortable = ["id", "amount", "issue_date"]
+    # internal notes: only roles granted invoices:read:notes / invoices:write:notes
+    restricted_fields = ["notes"]

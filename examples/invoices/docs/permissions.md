@@ -30,6 +30,8 @@ Els rols de sistema es defineixen al codi i no es poden modificar des del front-
 | `invoices:attach:summary` | ✓ |  |
 | `invoices:detach:summary` | ✓ |  |
 | `invoices:download:summary` | ✓ | ✓ |
+| `invoices:read:notes` | ✓ |  |
+| `invoices:write:notes` | ✓ |  |
 | `documents:list` | ✓ |  |
 | `documents:get` | ✓ |  |
 | `documents:transition:confirm` | ✓ |  |

@@ -47,6 +47,14 @@ def render_resource(r: ResourceDoc) -> str:
             f"Filtres: {', '.join(f'`{f}`' for f in r.filterable) or '—'} · "
             f"Ordenació: {', '.join(f'`{f}`' for f in r.sortable) or '—'}",
         ]
+    if r.restricted_fields:
+        out += [
+            "",
+            "Camps restringits: "
+            + ", ".join(f"`{f}`" for f in r.restricted_fields)
+            + f" — cal una concessió explícita (`{r.name}:read:<camp>`, "
+            f"`{r.name}:write:<camp>`); si no, s'ometen de les respostes.",
+        ]
 
     if r.state_machine:
         sm = r.state_machine

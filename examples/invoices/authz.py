@@ -19,6 +19,19 @@ APPROVER_POLICIES: list[dict[str, Any]] = [
         "actions": ["invoices:transition:approve", "invoices:transition:reject"],
         "condition": {"lt": [{"attr": "resource.amount"}, 10000]},
     },
+    {
+        "name": "Approvers read internal notes",
+        "effect": "allow",
+        "subjects": {"roles": ["approver"]},
+        "actions": ["invoices:read:notes"],
+    },
+    {
+        "name": "Amounts are frozen once submitted",
+        "effect": "deny",
+        "subjects": {"everyone": True},
+        "actions": ["invoices:write:amount"],
+        "condition": {"ne": [{"attr": "resource.status"}, "draft"]},
+    },
 ]
 
 

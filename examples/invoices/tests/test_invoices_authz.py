@@ -7,7 +7,7 @@ from invoices.authz import seed
 from invoices.bootstrap import authz, registry
 from resource_engine import ResourceManager
 from resource_engine.authz import PolicyAuthorizer, system_principal
-from resource_engine.errors import EntityNotFound, PermissionDenied
+from resource_engine.errors import EntityNotFound, FieldNotWritable, PermissionDenied
 from resource_engine.ports.identity import Principal
 from resource_engine.testing import InMemoryBlobStore, InMemoryStore
 
@@ -75,3 +75,36 @@ async def test_engine_jobs_run_as_the_system_principal(manager):
         "invoices", {"customer": "ACME", "amount": 1}, actor=system_principal("billing-job")
     )
     assert inv.id
+
+
+async def test_internal_notes_are_restricted(manager):
+    invoice = await manager.create(
+        "invoices", {"customer": "ACME", "amount": 10, "notes": "call first"}, actor=ADMIN
+    )
+    await manager.transition("invoices", invoice.id, "submit", actor=ADMIN)
+    assert "notes" not in (await manager.get("invoices", invoice.id, actor=ACCOUNTANT)).model_dump()
+    assert (await manager.get("invoices", invoice.id, actor=APPROVER)).notes == "call first"
+    assert (await manager.get("invoices", invoice.id, actor=ADMIN)).notes == "call first"
+    fields = await manager.authorizer.field_permissions(ACCOUNTANT)
+    assert "notes" in fields["invoices"]["hidden"]
+
+
+async def test_conditional_field_rule(manager, monkeypatch):
+    clerk = Principal(subject="cl", issuer="https://sso", roles=frozenset({"clerk"}))
+    monkeypatch.setitem(manager.authorizer.role_source.mapping, "clerk", "clerk")
+    await manager.create("authz_roles", {"name": "clerk"}, actor=ADMIN)
+    await manager.create(
+        "authz_policies",
+        {
+            "name": "Clerks edit invoices",
+            "effect": "allow",
+            "subjects": {"roles": ["clerk"]},
+            "actions": ["invoices:get", "invoices:update", "invoices:transition:submit"],
+        },
+        actor=ADMIN,
+    )
+    invoice = await manager.create("invoices", {"customer": "ACME", "amount": 10}, actor=ADMIN)
+    await manager.update("invoices", invoice.id, {"amount": 20}, actor=clerk)  # draft: allowed
+    await manager.transition("invoices", invoice.id, "submit", actor=clerk)
+    with pytest.raises(FieldNotWritable):
+        await manager.update("invoices", invoice.id, {"amount": 30}, actor=clerk)

@@ -37,6 +37,8 @@ them as `{"error": {...}}`.
 | <a id="re-e703"></a>RE-E703 | `InvalidPolicy` | 422 | A policy, role or assignment is not valid; `details.problems` lists JSON paths and messages. |
 | <a id="re-e704"></a>RE-E704 | `PrivilegeEscalation` | 403 | An editor tried to grant actions they do not hold. |
 | <a id="re-e705"></a>RE-E705 | `ConditionNotSupported` | 500 | A row-level filter is needed but the repository cannot apply it (fails closed). |
+| <a id="re-e706"></a>RE-E706 | `FieldNotWritable` | 403 | The input sets fields the principal may not write; `details.fields`. Nothing is saved. |
+| <a id="re-e707"></a>RE-E707 | `FieldNotReadable` | 403 | A `list` filters or sorts by fields the principal may not read; `details.fields`. |
 
 `DomainError` (business rule violations raised by your code) maps to HTTP 422 and
 carries your own `code`.

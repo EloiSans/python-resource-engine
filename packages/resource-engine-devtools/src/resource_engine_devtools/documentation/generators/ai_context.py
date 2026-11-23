@@ -16,6 +16,8 @@ def render_ai_context(model: DocumentationModel) -> str:
         out.append(f"  ops: {', '.join(crud) or '-'}")
         if r.filterable:
             out.append(f"  filterable: {', '.join(r.filterable)}")
+        if r.restricted_fields:
+            out.append(f"  restricted_fields: {', '.join(r.restricted_fields)}")
         if r.state_machine:
             sm = r.state_machine
             edges = "; ".join(f"{t.source}-{t.event}->{t.target}" for t in sm.transitions)
@@ -41,4 +43,8 @@ def render_ai_context(model: DocumentationModel) -> str:
         out += ["", "## Permissions", "Action names: <resource>:<operation>[:<qualifier>]."]
         out += [f"- system role {r.name}: {', '.join(r.grants)}" for r in model.system_roles]
         out.append("- other permissions are ABAC policies stored in authz_policies (data)")
+        out.append(
+            "- fields: <resource>:read|write:<field>; hidden fields are omitted, writing a "
+            "protected field fails with RE-E706, filtering/sorting by one with RE-E707"
+        )
     return "\n".join(out) + "\n"

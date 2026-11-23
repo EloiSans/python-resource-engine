@@ -288,3 +288,17 @@ class ConditionNotSupported(ResourceEngineError):
     """A repository cannot apply a row-level filter; the operation fails closed."""
 
     code = "RE-E705"
+
+
+class FieldNotWritable(ResourceEngineError):
+    """The input sets fields the principal may not write; ``details.fields``
+    lists them. Nothing is saved."""
+
+    code = "RE-E706"
+
+
+class FieldNotReadable(ResourceEngineError):
+    """A query filters or sorts by fields the principal may not read;
+    ``details.fields`` lists them."""
+
+    code = "RE-E707"

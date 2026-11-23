@@ -12,8 +12,10 @@ from collections.abc import Callable
 from typing import Any
 
 from fastapi import APIRouter, Body, Depends, FastAPI, Path, Query, Response, status
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel, create_model
 from resource_engine import ListQuery, ResourceDefinition, ResourceManager, ResourceRegistry
+from resource_engine.authz.fields import hidden_fields
 
 from resource_engine_fastapi.documents import (
     add_owner_document_routes,
@@ -44,6 +46,25 @@ def _endpoint(
 
 def _summary(text: str | None) -> str | None:
     return text.strip().splitlines()[0] if text and text.strip() else None
+
+
+def _dump(value: Any) -> Any:
+    return value.model_dump(mode="json", by_alias=True, exclude=set(hidden_fields(value)))
+
+
+def _respond(value: Any, status_code: int = 200) -> Any:
+    """Results with hidden fields (field-level permissions) are serialized without
+    them, bypassing response-model validation, which would require them."""
+    if hidden_fields(value):
+        return JSONResponse(_dump(value), status_code=status_code)
+    return value
+
+
+def _respond_page(page: dict[str, Any]) -> Any:
+    items = page["items"]
+    if not any(hidden_fields(i) for i in items):
+        return page
+    return JSONResponse({**page, "items": [_dump(i) for i in items]})
 
 
 def _page_model(read: type[BaseModel]) -> type[BaseModel]:
@@ -90,12 +111,14 @@ def build_resource_router(
                 filters={k: v for k, v in kw.items() if k != "actor" and v is not None},
             )
             page = await manager.list(name, query, actor=kw.get("actor"))
-            return {
-                "items": page.items,
-                "total": page.total,
-                "offset": page.offset,
-                "limit": page.limit,
-            }
+            return _respond_page(
+                {
+                    "items": page.items,
+                    "total": page.total,
+                    "offset": page.offset,
+                    "limit": page.limit,
+                }
+            )
 
         router.add_api_route(
             "",
@@ -125,7 +148,7 @@ def build_resource_router(
     if definition.enabled("get"):
 
         async def get_endpoint(entity_id: Any, actor: Any) -> Any:
-            return await manager.get(name, entity_id, actor=actor)
+            return _respond(await manager.get(name, entity_id, actor=actor))
 
         router.add_api_route(
             "/{entity_id}",
@@ -139,7 +162,7 @@ def build_resource_router(
     if definition.enabled("create"):
 
         async def create_endpoint(payload: Any, actor: Any) -> Any:
-            return await manager.create(name, payload, actor=actor)
+            return _respond(await manager.create(name, payload, actor=actor), 201)
 
         router.add_api_route(
             "",
@@ -158,7 +181,7 @@ def build_resource_router(
     if definition.enabled("update"):
 
         async def update_endpoint(entity_id: Any, payload: BaseModel, actor: Any) -> Any:
-            return await manager.update(name, entity_id, payload, actor=actor)
+            return _respond(await manager.update(name, entity_id, payload, actor=actor))
 
         router.add_api_route(
             "/{entity_id}",
@@ -220,8 +243,10 @@ def build_resource_router(
             instance: bool = action.instance,
         ) -> Callable[..., Any]:
             async def action_endpoint(**kw: Any) -> Any:
-                return await manager.run_action(
-                    name, action_name, kw.get("entity_id"), kw.get("payload"), actor=kw["actor"]
+                return _respond(
+                    await manager.run_action(
+                        name, action_name, kw.get("entity_id"), kw.get("payload"), actor=kw["actor"]
+                    )
                 )
 
             params = [id_param] if instance else []
@@ -259,8 +284,10 @@ def _transition_endpoint(
     schema = definition.transition_schemas.get(event)
 
     async def transition_endpoint(**kw: Any) -> Any:
-        return await manager.transition(
-            definition.name, kw["entity_id"], event, kw.get("payload"), actor=kw["actor"]
+        return _respond(
+            await manager.transition(
+                definition.name, kw["entity_id"], event, kw.get("payload"), actor=kw["actor"]
+            )
         )
 
     params = [id_param]

@@ -5,7 +5,8 @@ machines and business actions on a hexagonal architecture, with functional
 documentation and AI-agent context generated from the same definitions.
 
 > Status: early development (`0.1.0.dev0`). The public API may change.
-> Authorization (gates/policies) is not implemented yet; its design is pending.
+> Permissions: system roles in code, ABAC policies managed from front ends, with
+> operation, row and field rules (see [docs/permissions.md](docs/permissions.md)).
 
 ## Packages
 

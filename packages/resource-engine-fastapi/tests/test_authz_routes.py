@@ -37,6 +37,30 @@ class NoteResource(Resource):
     operations = ["list", "get", "create"]
 
 
+@dataclass
+class Profile:
+    name: str
+    phone: str
+    id: int | None = None
+
+
+class ProfileIn(BaseModel):
+    name: str
+    phone: str
+
+
+class ProfileOut(ProfileIn):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+
+
+class ProfileResource(Resource):
+    model = Profile
+    schemas = {"create": ProfileIn, "read": ProfileOut}
+    operations = ["list", "get", "create"]
+    restricted_fields = ["phone"]
+
+
 USERS = {
     "admin": Principal(subject="admin", issuer="idp", roles=frozenset({"admins"})),
     "viewer": Principal(subject="vera", issuer="idp", roles=frozenset({"viewers"})),
@@ -55,6 +79,7 @@ async def actor(request: Request) -> Principal:
 def api():
     registry = ResourceRegistry()
     registry.register(NoteResource)
+    registry.register(ProfileResource)
     registry.register_authz()
     store = InMemoryStore.from_registry(registry)
     config = AuthzConfig(
@@ -122,3 +147,34 @@ async def test_front_end_manages_policies(api):
     r = await admin.post("/authz_policies", json=bad)
     assert r.status_code == 422 and r.json()["error"]["details"]["problems"][0]["path"]
     assert (await viewer.post("/authz_policies", json=policy)).status_code == 403
+
+
+async def test_hidden_fields_are_omitted_over_http(api):
+    admin, viewer, writer = api("admin"), api("viewer"), api("writer")
+    r = await admin.post("/profiles", json={"name": "Ada", "phone": "555"})
+    assert r.status_code == 201 and r.json()["phone"] == "555"
+    assert (await viewer.get("/profiles/1")).json() == {"id": 1, "name": "Ada"}
+    listed = (await viewer.get("/profiles")).json()
+    assert listed["total"] == 1 and listed["items"] == [{"id": 1, "name": "Ada"}]
+    r = await viewer.get("/profiles", params={"order_by": "phone"})
+    assert r.status_code in (400, 403)  # phone is not sortable at all here
+
+    await admin.post(
+        "/authz_policies",
+        json={
+            "name": "Writers create profiles",
+            "effect": "allow",
+            "subjects": {"roles": ["writer"]},
+            "actions": ["profiles:*"],
+        },
+    )
+    r = await writer.post("/profiles", json={"name": "Bo", "phone": "1"})
+    assert r.status_code == 403 and r.json()["error"]["code"] == "RE-E706"
+    assert r.json()["error"]["details"]["fields"] == ["phone"]
+    me = (await writer.get("/authz/me")).json()
+    assert me["fields"]["profiles"] == {
+        "hidden": ["phone"],
+        "readonly": ["phone"],
+        "conditional": [],
+    }
+    assert "profiles:read:name" not in me["actions"]

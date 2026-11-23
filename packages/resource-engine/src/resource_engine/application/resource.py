@@ -72,6 +72,9 @@ class Resource:
             (``*:list``) do not match their actions, only explicit ones.
         expose_transitions: Publish transitions through entry adapters (HTTP).
             ``False`` keeps them internal to the engine and its handlers.
+        restricted_fields: Fields that need an explicit grant to be read or
+            written (``<resource>:read:<field>`` / ``<resource>:write:<field>``)
+            when an authorizer is configured.
     """
 
     name: ClassVar[str | None] = None
@@ -92,6 +95,7 @@ class Resource:
     documents: ClassVar[Sequence[DocumentSlot]] = ()
     expose_transitions: ClassVar[bool] = True
     authz_wildcards: ClassVar[bool] = True
+    restricted_fields: ClassVar[Sequence[str]] = ()
 
     # --- Mapping between schemas and entities. Override when needed. ---
 
@@ -157,6 +161,7 @@ class ResourceDefinition:
     description: str | None
     document_slots: Mapping[str, DocumentSlot]
     expose_transitions: bool
+    restricted_fields: tuple[str, ...]
     dispatcher: HookDispatcher = field(repr=False, compare=False)
     machine: MachineRunner | None = field(repr=False, compare=False)
 
@@ -293,6 +298,18 @@ class ResourceDefinition:
                         f"{owner}: {attr} field {fld!r} is not part of the read schema"
                     )
 
+        known_fields = set(read_fields)
+        for role in ("create", "update"):
+            if role in schemas:
+                known_fields |= set(schemas[role].model_fields)
+        for fld in resource_cls.restricted_fields:
+            if fld == resource_cls.id_field:
+                raise ConfigurationError(f"{owner}: the id field cannot be restricted")
+            if fld not in known_fields:
+                raise ConfigurationError(
+                    f"{owner}: restricted field {fld!r} is not part of the read or write schemas"
+                )
+
         description = resource_cls.__doc__ and inspect.cleandoc(resource_cls.__doc__)
         return cls(
             name=name,
@@ -314,6 +331,7 @@ class ResourceDefinition:
             description=description or None,
             document_slots=slots,
             expose_transitions=resource_cls.expose_transitions,
+            restricted_fields=tuple(resource_cls.restricted_fields),
             dispatcher=HookDispatcher(hooks),
             machine=machine,
         )

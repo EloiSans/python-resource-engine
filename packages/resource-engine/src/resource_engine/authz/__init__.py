@@ -8,10 +8,12 @@ from resource_engine.authz.conditions import UNKNOWN, Env, evaluate, partial, va
 from resource_engine.authz.config import AuthzConfig, SystemRole
 from resource_engine.authz.evaluator import (
     PolicyAuthorizer,
+    PolicyFieldRules,
     PolicyStore,
     SystemPrincipal,
     system_principal,
 )
+from resource_engine.authz.fields import hidden_fields, mask
 from resource_engine.authz.model import Policy, Role, RoleAssignment
 from resource_engine.authz.resources import (
     PolicyChanged,
@@ -38,6 +40,7 @@ __all__ = [
     "Policy",
     "PolicyAuthorizer",
     "PolicyChanged",
+    "PolicyFieldRules",
     "PolicyResource",
     "PolicyStore",
     "Role",
@@ -50,6 +53,8 @@ __all__ = [
     "SystemRole",
     "action_matches",
     "evaluate",
+    "hidden_fields",
+    "mask",
     "partial",
     "system_principal",
     "validate",

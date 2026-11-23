@@ -60,6 +60,23 @@ async def _require_held(ctx: OperationContext, actions: list[str]) -> None:
         )
 
 
+async def _granted(authz: Any, patterns: list[str]) -> set[str]:
+    """Actions an allow policy effectively grants: restricted fields only through
+    patterns that name them."""
+    from resource_engine.authz.catalog import FIELD_KINDS
+    from resource_engine.authz.evaluator import names_field
+
+    restricted = authz._restricted(await authz.store.policies())
+    out: set[str] = set()
+    for pattern in patterns:
+        for name in authz.catalog.matching(pattern):
+            info = authz.catalog.actions[name]
+            is_restricted = info.kind in FIELD_KINDS and (info.restricted or name in restricted)
+            if not is_restricted or names_field(pattern):
+                out.add(name)
+    return out
+
+
 async def validate_policy(ctx: OperationContext) -> None:
     """Checks actions, subjects and the condition against the catalogue, and that
     the editor does not grant more than they hold."""
@@ -94,7 +111,7 @@ async def validate_policy(ctx: OperationContext) -> None:
             details={"problems": problems},
         )
     if entity.effect == "allow":
-        await _require_held(ctx, sorted(set(matched)))
+        await _require_held(ctx, sorted(await _granted(authz, entity.actions)))
 
 
 def stamp_created(ctx: OperationContext) -> None:

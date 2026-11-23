@@ -167,6 +167,7 @@ def _resource_doc(d: ResourceDefinition) -> ResourceDoc:
         state_machine=sm_doc,
         filterable=list(d.filterable),
         sortable=list(d.sortable),
+        restricted_fields=list(d.restricted_fields),
         documents=[
             SlotDoc(
                 name=slot.name,
@@ -185,9 +186,16 @@ def _resource_doc(d: ResourceDefinition) -> ResourceDoc:
 
 def introspect(registry: ResourceRegistry, authz: Any = None) -> DocumentationModel:
     """``authz``: an ``AuthzConfig`` to document system roles (permission matrix)."""
-    from resource_engine.authz.catalog import Catalog
+    from resource_engine.authz.catalog import FIELD_KINDS, Catalog
+    from resource_engine.authz.evaluator import names_field
 
     catalog = Catalog.from_registry(registry)
+    # open fields follow their record: only restricted ones are worth a row
+    documented = [
+        name
+        for name, info in catalog.actions.items()
+        if info.kind not in FIELD_KINDS or info.restricted
+    ]
     roles = []
     for role in getattr(authz, "system_roles", ()):
         covered = sorted(
@@ -195,12 +203,14 @@ def introspect(registry: ResourceRegistry, authz: Any = None) -> DocumentationMo
                 a
                 for g in role.grants
                 for a in catalog.matching(g, include_sensitive=role.include_sensitive)
+                if a in documented
+                and (not catalog.actions[a].restricted or role.include_sensitive or names_field(g))
             }
         )
         roles.append(SystemRoleDoc(role.name, role.description, list(role.grants), covered))
     return DocumentationModel(
         resources=[_resource_doc(d) for d in registry],
         engine_version=resource_engine.__version__,
-        actions=list(catalog.actions),
+        actions=documented,
         system_roles=roles,
     )

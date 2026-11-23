@@ -35,11 +35,15 @@ class AttributeInfo:
 class ActionInfo:
     name: str
     resource: str
-    kind: str  # crud, transition, action, attach, detach, download
+    kind: str  # crud, transition, action, attach, detach, download, read, write
     qualifier: str | None = None
     description: str | None = None
     wildcards: bool = True  # False: only explicit grants match (sensitive resources)
     input: list[AttributeInfo] = field(default_factory=list)
+    restricted: bool = False  # field actions: restricted in code (needs a grant)
+
+
+FIELD_KINDS = ("read", "write")
 
 
 SUBJECT_ATTRIBUTES = [
@@ -169,8 +173,28 @@ class Catalog:
                     description=slot.description,
                     wildcards=wild,
                 )
+        restricted = set(d.restricted_fields)
+        for kind, names in (("read", _read_fields(d)), ("write", _write_fields(d))):
+            for name, description in names.items():
+                yield ActionInfo(
+                    f"{d.name}:{kind}:{name}",
+                    d.name,
+                    kind,
+                    name,
+                    description=description,
+                    wildcards=wild,
+                    restricted=name in restricted,
+                )
 
     # ------------------------------------------------------------- queries
+
+    def field_actions(self, resource: str, kind: str) -> dict[str, ActionInfo]:
+        """Field actions of ``resource`` (``kind`` ``read`` or ``write``), by field."""
+        return {
+            a.qualifier: a
+            for a in self.actions.values()
+            if a.resource == resource and a.kind == kind and a.qualifier
+        }
 
     def matching(self, pattern: str, *, include_sensitive: bool = False) -> list[str]:
         return [
@@ -206,6 +230,23 @@ class Catalog:
                 for name, attrs in self.resource_attributes.items()
             },
         }
+
+
+def _read_fields(d: ResourceDefinition) -> dict[str, str | None]:
+    schema = d.schemas.get("read")
+    if schema is None:
+        return {}
+    return {n: f.description for n, f in schema.model_fields.items() if n != d.id_field}
+
+
+def _write_fields(d: ResourceDefinition) -> dict[str, str | None]:
+    out: dict[str, str | None] = {}
+    for role in ("create", "update"):
+        schema = d.schemas.get(role) if d.enabled(role) else None
+        for n, f in (schema.model_fields if schema else {}).items():
+            if n != d.id_field:
+                out.setdefault(n, f.description)
+    return out
 
 
 def action_matches(pattern: str, action: str, *, wildcards: bool = True) -> bool:

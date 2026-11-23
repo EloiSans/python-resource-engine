@@ -108,6 +108,7 @@ class ResourceDoc:
     filterable: list[str] = field(default_factory=list)
     sortable: list[str] = field(default_factory=list)
     documents: list[SlotDoc] = field(default_factory=list)
+    restricted_fields: list[str] = field(default_factory=list)
 
 
 @dataclass

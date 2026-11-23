@@ -79,8 +79,11 @@ def _describe(registry: ResourceRegistry, name: str | None) -> list[dict[str, An
                     for a in d.actions.values()
                 ],
                 "permissions": [
-                    a for a in Catalog.from_registry(registry).actions if a.startswith(f"{d.name}:")
+                    a.name
+                    for a in Catalog.from_registry(registry).actions.values()
+                    if a.resource == d.name and a.kind not in ("read", "write")
                 ],
+                "restricted_fields": list(d.restricted_fields),
                 "documents": [
                     {
                         "slot": s.name,
@@ -118,6 +121,8 @@ def cmd_inspect(args: argparse.Namespace) -> int:
         for a in r["actions"]:
             lines.append(f"  action:     {a['name']} (input {a['input']})")
         lines.append(f"  permissions: {', '.join(r['permissions'])}")
+        if r["restricted_fields"]:
+            lines.append(f"  restricted fields: {', '.join(r['restricted_fields'])}")
         for s in r["documents"]:
             required = f", required for {'/'.join(s['required_for'])}" if s["required_for"] else ""
             lines.append(f"  document:   {s['slot']} ({', '.join(s['content_types'])}{required})")

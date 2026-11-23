@@ -35,12 +35,14 @@
   (`authz_*` resources, catalogue, `/authz/me`, `/authz/explain`), checks at steps
   2 and 5b, row-level filters compiled to SQL, no privilege escalation, role
   sources (identity provider, stored, combined), permission matrix in the docs.
+- Field-level permissions: `<resource>:read|write:<field>` actions, restricted
+  fields (code or front end), hidden fields omitted, protected writes rejected
+  (RE-E706), no filtering or sorting by hidden fields (RE-E707).
 
 ## Next
 
-- Permissions: field-level rules, decision audit log storage, Cedar / OPA /
-  OpenFGA adapters behind the `Authorizer` port. Slot reserved at
-  step 2 of the lifecycle; `actor` already flows from the HTTP adapter to the context.
+- Permissions: decision audit log storage, Cedar / OPA / OpenFGA adapters behind
+  the `Authorizer` port.
 - `check`: hook/effect mismatches.
 - AI skill packaged with devtools (`SKILL.md`, references, anti-patterns) and
   `resource-engine ai install` / `ai sync` with managed `AGENTS.md` block and lock file.

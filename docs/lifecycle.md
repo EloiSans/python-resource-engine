@@ -11,11 +11,11 @@ This order is part of the public contract and is covered by tests
 | 2 | Authorization, record unknown (RE-E702) — see [permissions](permissions.md) | – | |
 | 3 | Validate input with the operation's schema (RE-E101) | no | `before_validate`, `after_validate` |
 | 4 | Open the unit of work | yes | |
-| 5 | Load the entity (update, delete, transition, instance action) (RE-E102); then authorization on the record (404 if invisible, else RE-E702) | yes | |
+| 5 | Load the entity (update, delete, transition, instance action) (RE-E102); then authorization on the record (404 if invisible, else RE-E702); on create and update, every field sent must be writable (RE-E706) | yes | |
 | 6 | Before mutation | yes | `before_create` · `before_update` · `before_delete` · `before_transition[:event]` · `before_action[:name]` · `before_attach[:slot]` · `before_detach[:slot]` |
 | 7 | Mutate: build+`add` / `apply_update`+`update` / `delete` / fire the state machine+`update` / `Action.execute` / store blob + `Document` row | yes | |
 | 8 | After mutation | yes | `after_create` · `after_update` · `after_delete` · `after_transition[:event]` · `after_action[:name]` · `after_attach[:slot]` · `after_detach[:slot]` |
-| 9 | Build the result (read schema), stage events (outbox), commit | yes | |
+| 9 | Build the result (read schema, without the fields the caller may not read), stage events (outbox), commit | yes | |
 | 10 | Post-commit | no | `ctx.on_commit` callbacks, `after_commit` hooks, then event delivery |
 
 Before a transition's hooks (step 6), slots with `required_for` that event need an
@@ -23,7 +23,9 @@ available document (RE-E606); deleting an entity discards its documents in step 
 See [documents](documents.md).
 
 On create, a resource with a state machine gets its initial state before step 6,
-and the built entity is authorized then. `list` applies the caller's row filter.
+and the built entity is authorized then. `list` applies the caller's row filter,
+refuses filters and sorting on fields the caller may not read (RE-E707) and omits
+hidden fields row by row. Hooks, events and repositories always see full records.
 
 Any exception in steps 3–9 aborts the operation; from step 4 on it also rolls the
 transaction back, and no events are published. Exceptions raised by hooks get a

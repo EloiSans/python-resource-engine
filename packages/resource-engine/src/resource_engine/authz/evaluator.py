@@ -9,7 +9,7 @@ from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
 
 from resource_engine.application.query import ListQuery
-from resource_engine.authz.catalog import Catalog, action_matches
+from resource_engine.authz.catalog import FIELD_KINDS, ActionInfo, Catalog, action_matches
 from resource_engine.authz.conditions import (
     UNKNOWN,
     Env,
@@ -21,7 +21,7 @@ from resource_engine.authz.conditions import (
 )
 from resource_engine.authz.config import AuthzConfig
 from resource_engine.authz.roles import IdpRoleSource
-from resource_engine.ports.authz import Decision
+from resource_engine.ports.authz import Decision, FieldAccess
 from resource_engine.ports.identity import Principal
 
 if TYPE_CHECKING:
@@ -112,6 +112,7 @@ class PolicyAuthorizer:
         self.store = PolicyStore(uow_factory, resource=policies_resource)
         self.role_source = config.role_source or IdpRoleSource(passthrough=True)
         self.catalog: Catalog | None = None
+        self._restricted_cache: tuple[int, frozenset[str]] | None = None
 
     def bind(self, registry: ResourceRegistry) -> None:
         """Called by ``ResourceManager``: build the catalogue from the registry."""
@@ -188,6 +189,9 @@ class PolicyAuthorizer:
             return Decision(True, "system principal")
         if not isinstance(principal, Principal):
             return Decision(False, "not authenticated")
+        info = self.catalog.actions.get(action) if self.catalog else None
+        if info is not None and info.kind in FIELD_KINDS:
+            return await self._check_field(principal, info, resource=resource, input=input)
         roles = await self.roles_of(principal)
         system = self._system_grant(roles, action)
         if system:
@@ -202,25 +206,24 @@ class PolicyAuthorizer:
             namespaces["input"] = _plain(input)
         env = Env(**namespaces)
         policies = await self._applicable(principal, roles, action)
-        pending_deny: list[str] = []
-        for p in (p for p in policies if p.effect == "deny"):
-            result = evaluate(p.condition, env)
-            if result is True:
-                return Decision(False, f"denied by policy {p.name!r}", (p.id,))
-            if result is UNKNOWN:
-                pending_deny.append(p.id)
-        unknown_allow: list[str] = []
-        for p in (p for p in policies if p.effect == "allow"):
-            result = evaluate(p.condition, env)
-            if result is True:
-                if pending_deny:
-                    return Decision(None, "depends on the record", (p.id, *pending_deny))
-                return Decision(True, f"allowed by policy {p.name!r}", (p.id,))
-            if result is UNKNOWN:
-                unknown_allow.append(p.id)
-        if unknown_allow:
-            return Decision(None, "depends on the record", tuple(unknown_allow))
-        return Decision(False, "no policy allows it")
+        allowed, reason, ids = _decide(policies, env, open_=False)
+        return Decision(allowed, reason, ids)
+
+    async def _check_field(
+        self, principal: Principal, info: ActionInfo, *, resource: Any, input: Any
+    ) -> Decision:
+        roles = await self.roles_of(principal)
+        policies = await self.store.policies()
+        entry = self._field_entry(principal, roles, info, policies, self._restricted(policies))
+        if entry is None:
+            return Decision(True, "field allowed")
+        rules = PolicyFieldRules(
+            {info.qualifier or info.name: entry}, subject_view(principal, roles)
+        )
+        _, ok_policies, restricted = entry
+        env = rules.env(info, resource=resource, input=input)
+        allowed, reason, ids = _decide(ok_policies, env, open_=not restricted)
+        return Decision(allowed, reason, ids)
 
     async def scope(self, principal: Principal | None, action: str) -> Any:
         if isinstance(principal, SystemPrincipal):
@@ -245,13 +248,203 @@ class PolicyAuthorizer:
         ``conditional`` (depends on the record or the input)."""
         out: dict[str, str] = {}
         assert self.catalog is not None
-        for action in self.catalog.actions:
+        for action, info in self.catalog.actions.items():
+            if info.kind in FIELD_KINDS:
+                continue
             decision = await self.check(principal, action)
             if decision.allowed is True:
                 out[action] = "allowed"
             elif decision.allowed is None:
                 out[action] = "conditional"
         return out
+
+    # ----------------------------------------------------------------- fields
+
+    def _restricted(self, policies: list[Policy]) -> frozenset[str]:
+        """Field actions named explicitly by an enabled allow policy."""
+        if self._restricted_cache and self._restricted_cache[0] == id(policies):
+            return self._restricted_cache[1]
+        assert self.catalog is not None
+        fields = [a for a in self.catalog.actions.values() if a.kind in FIELD_KINDS]
+        found: set[str] = set()
+        for policy in policies:
+            if policy.effect != "allow":
+                continue
+            for pattern in policy.actions:
+                if not names_field(pattern):
+                    continue
+                found.update(
+                    a.name for a in fields if action_matches(pattern, a.name, wildcards=a.wildcards)
+                )
+        result = frozenset(found)
+        self._restricted_cache = (id(policies), result)
+        return result
+
+    async def field_rules(
+        self, principal: Principal | None, resource: str, mode: str
+    ) -> PolicyFieldRules:
+        """Field decisions of ``principal`` on ``resource`` for ``mode`` (``read`` or
+        ``write``), prepared once and evaluated per record with ``decide``.
+
+        A field is open unless it is *restricted* (``restricted_fields`` in code,
+        or named explicitly by an allow policy): open fields are allowed unless a
+        deny applies, restricted ones need a system-role grant or an allow.
+        """
+        assert self.catalog is not None, "bind() the authorizer to a registry first"
+        if isinstance(principal, SystemPrincipal):
+            return PolicyFieldRules({}, {})
+        actions = self.catalog.field_actions(resource, mode)
+        policies = await self.store.policies()
+        restricted = self._restricted(policies)
+        known = isinstance(principal, Principal)
+        roles = await self.roles_of(principal) if known else frozenset()
+        rules: dict[str, tuple[ActionInfo, list[Policy], bool]] = {}
+        for name, info in actions.items():
+            entry = self._field_entry(principal, roles, info, policies, restricted)
+            if entry is not None:
+                rules[name] = entry
+        subject = subject_view(principal, roles) if known else {}
+        return PolicyFieldRules(rules, subject)
+
+    def _field_entry(
+        self,
+        principal: Principal | None,
+        roles: frozenset[str],
+        info: ActionInfo,
+        policies: list[Policy],
+        restricted: frozenset[str],
+    ) -> tuple[ActionInfo, list[Policy], bool] | None:
+        """Policies that decide one field action, or ``None`` when it is allowed
+        outright (system role) or open with no policy about it.
+
+        Restricted fields are only granted by patterns that name them explicitly:
+        broad grants (``invoices:*``) do not reach them, like sensitive resources.
+        """
+        is_restricted = info.restricted or info.name in restricted
+        known = isinstance(principal, Principal)
+        if known:
+            for role_name in sorted(roles):
+                role = self.config.system_role(role_name)
+                if role and any(
+                    action_matches(g, info.name, wildcards=info.wildcards or role.include_sensitive)
+                    and (not is_restricted or role.include_sensitive or names_field(g))
+                    for g in role.grants
+                ):
+                    return None
+        applicable: list[Policy] = []
+        if known:
+            for p in policies:
+                if not self._applies(p, principal, roles):
+                    continue
+                hits = [
+                    a for a in p.actions if action_matches(a, info.name, wildcards=info.wildcards)
+                ]
+                if p.effect == "allow" and is_restricted:
+                    hits = [a for a in hits if names_field(a)]
+                if hits:
+                    applicable.append(p)
+        if applicable or is_restricted:
+            return info, applicable, is_restricted
+        return None
+
+    async def field_permissions(
+        self, principal: Principal | None
+    ) -> dict[str, dict[str, list[str]]]:
+        """Per resource: fields ``hidden`` (not readable), ``readonly`` (not
+        writable) and ``conditional`` (depends on the record or input)."""
+        assert self.catalog is not None
+        out: dict[str, dict[str, list[str]]] = {}
+        for resource in self.catalog.resource_attributes:
+            read = (await self.field_rules(principal, resource, "read")).decide()
+            write = (await self.field_rules(principal, resource, "write")).decide()
+            entry = {
+                "hidden": sorted(read.denied),
+                "readonly": sorted(write.denied),
+                "conditional": sorted(read.conditional | write.conditional),
+            }
+            if any(entry.values()):
+                out[resource] = entry
+        return out
+
+
+class PolicyFieldRules:
+    """Prepared field decisions (see ``PolicyAuthorizer.field_rules``)."""
+
+    def __init__(
+        self,
+        rules: dict[str, tuple[ActionInfo, list[Policy], bool]],
+        subject: dict[str, Any],
+    ) -> None:
+        self.rules = rules
+        self.subject = subject
+
+    @property
+    def empty(self) -> bool:
+        """No field can be blocked: callers can skip per-record evaluation."""
+        return not self.rules
+
+    def env(self, info: ActionInfo, *, resource: Any = ..., input: Any = ...) -> Env:
+        namespaces: dict[str, Any] = {
+            "subject": self.subject,
+            "context": {"action": info.name, "now": datetime.now(UTC)},
+        }
+        if resource is not ...:
+            namespaces["resource"] = resource
+        if input is not ...:
+            namespaces["input"] = _plain(input)
+        return Env(**namespaces)
+
+    def decide(self, *, resource: Any = ..., input: Any = ...) -> FieldAccess:
+        if not self.rules:
+            return FieldAccess()
+        denied: set[str] = set()
+        conditional: set[str] = set()
+        for name, (info, policies, restricted) in self.rules.items():
+            env = self.env(info, resource=resource, input=input)
+            allowed, _, _ = _decide(policies, env, open_=not restricted)
+            if allowed is False:
+                denied.add(name)
+            elif allowed is None:
+                conditional.add(name)
+        return FieldAccess(frozenset(denied), frozenset(conditional))
+
+
+def names_field(pattern: str) -> bool:
+    """Whether ``pattern`` names a field explicitly (``res:read:salary``,
+    ``res:*:salary``), as restricted fields require."""
+    parts = pattern.split(":")
+    return len(parts) == 3 and parts[2] != "*" and parts[1] in (*FIELD_KINDS, "*")
+
+
+def _decide(
+    policies: Iterable[Policy], env: Env, *, open_: bool
+) -> tuple[bool | None, str, tuple[str, ...]]:
+    """Deny overrides allow. ``open_``: allowed when no deny applies (open fields);
+    otherwise an allow is needed (actions, restricted fields)."""
+    policies = list(policies)
+    pending_deny: list[str] = []
+    for p in (p for p in policies if p.effect == "deny"):
+        result = evaluate(p.condition, env)
+        if result is True:
+            return False, f"denied by policy {p.name!r}", (p.id,)
+        if result is UNKNOWN:
+            pending_deny.append(p.id)
+    if open_:
+        if pending_deny:
+            return None, "depends on the record", tuple(pending_deny)
+        return True, "open field", ()
+    unknown_allow: list[str] = []
+    for p in (p for p in policies if p.effect == "allow"):
+        result = evaluate(p.condition, env)
+        if result is True:
+            if pending_deny:
+                return None, "depends on the record", (p.id, *pending_deny)
+            return True, f"allowed by policy {p.name!r}", (p.id,)
+        if result is UNKNOWN:
+            unknown_allow.append(p.id)
+    if unknown_allow:
+        return None, "depends on the record", tuple(unknown_allow)
+    return False, "no policy allows it", ()
 
 
 def _plain(value: Any) -> Any:

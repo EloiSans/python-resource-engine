@@ -46,6 +46,8 @@ from resource_engine.errors import (
     ConditionNotSupported,
     ConfigurationError,
     EntityNotFound,
+    FieldNotReadable,
+    FieldNotWritable,
     InvalidQuery,
     OperationNotEnabled,
     PermissionDenied,
@@ -257,6 +259,59 @@ class ResourceManager:
                 return False
             return (await self.authorizer.check(actor, name, resource=entity)).allowed is True
 
+    async def _field_rules(self, ctx: OperationContext, mode: str) -> Any:
+        """Prepared field rules (``None`` when no field can be blocked)."""
+        prepare = getattr(self.authorizer, "field_rules", None)
+        if prepare is None:
+            return None
+        rules = await prepare(ctx.actor, ctx.resource.name, mode)
+        return None if getattr(rules, "empty", False) else rules
+
+    def _to_read(self, ctx: OperationContext, entity: Any, rules: Any = None) -> Any:
+        """Step 9 result: the read schema, without the fields the caller may not
+        read (omitted)."""
+        result = ctx.resource.resource_cls.to_read(entity, ctx)
+        if rules is None:
+            return result
+        hidden = rules.decide(resource=entity).blocked
+        if hidden:
+            from resource_engine.authz.fields import mask
+
+            ctx.extras["hidden_fields"] = hidden
+            return mask(result, hidden)
+        return result
+
+    async def _read_rules(self, ctx: OperationContext) -> Any:
+        return await self._field_rules(ctx, "read") if self.authorizer is not None else None
+
+    async def _gate_fields(self, ctx: OperationContext, entity: Any, data: Any) -> None:
+        """Step 5b for writes: every field sent must be writable (RE-E706)."""
+        if self.authorizer is None or data is None:
+            return
+        rules = await self._field_rules(ctx, "write")
+        if rules is None:
+            return
+        sent = set(data.model_dump(exclude_unset=True)) if isinstance(data, BaseModel) else set()
+        blocked = sorted(sent & rules.decide(resource=entity, input=data).blocked)
+        if blocked:
+            raise FieldNotWritable(
+                f"Not allowed to write {', '.join(blocked)} of {ctx.resource.name}",
+                hint="GET /authz/me lists the fields you may write.",
+                details={"resource": ctx.resource.name, "fields": blocked},
+            )
+
+    async def _gate_query(self, ctx: OperationContext, query: ListQuery, rules: Any) -> None:
+        """Filtering or sorting by hidden fields would reveal them (RE-E707)."""
+        if rules is None:
+            return
+        used = set(query.filters) | {o.lstrip("-") for o in query.order_by}
+        blocked = sorted(used & rules.decide().blocked)
+        if blocked:
+            raise FieldNotReadable(
+                f"Not allowed to filter or sort {ctx.resource.name} by {', '.join(blocked)}",
+                details={"resource": ctx.resource.name, "fields": blocked},
+            )
+
     @asynccontextmanager
     async def _transaction(self, ctx: OperationContext) -> AsyncIterator[UnitOfWork]:
         """Steps 4-9: open the unit of work; on failure run staged-effect compensations."""
@@ -328,13 +383,15 @@ class ResourceManager:
             )
         ctx = self._context(definition, "list", actor=actor, raw_input=query)
         await self._gate(ctx, "list")
+        rules = await self._read_rules(ctx)
+        await self._gate_query(ctx, query, rules)
         async with self.uow_factory() as uow:
             ctx.uow = uow
             scoped = await self._scoped(ctx, query)
             if scoped is None:
                 return Page([], 0, query.offset, query.limit)
             page = await ctx.repository().list(scoped)
-            return page.map(lambda e: definition.resource_cls.to_read(e, ctx))
+            return page.map(lambda e: self._to_read(ctx, e, rules))
 
     async def get(self, resource: ResourceRef, entity_id: Any, *, actor: Any = None) -> Any:
         definition = self.registry.get(resource)
@@ -345,7 +402,7 @@ class ResourceManager:
             ctx.uow = uow
             entity = await self._load(ctx)
             await self._gate_record(ctx, "get", entity)
-            return definition.resource_cls.to_read(entity, ctx)
+            return self._to_read(ctx, entity, await self._read_rules(ctx))
 
     # -------------------------------------------------------------------- write
 
@@ -362,13 +419,14 @@ class ResourceManager:
             if definition.machine:
                 await definition.machine.initialize(entity)
             await self._gate(ctx, "create", resource=entity, input=ctx.data)
+            await self._gate_fields(ctx, entity, ctx.data)
             await hooks.run(HookPoint.BEFORE_CREATE, ctx)
             entity = await ctx.repository().add(ctx.entity)
             ctx.entity = entity
             ctx.entity_id = self._id_of(ctx, entity)
             ctx.record_event(ResourceCreated(resource=definition.name, entity_id=ctx.entity_id))
             await hooks.run(HookPoint.AFTER_CREATE, ctx)
-            ctx.result = definition.resource_cls.to_read(ctx.entity, ctx)
+            ctx.result = self._to_read(ctx, ctx.entity, await self._read_rules(ctx))
             await self.delivery.before_commit(ctx, uow)
             await uow.commit()
         await self._after_commit(ctx)
@@ -386,6 +444,7 @@ class ResourceManager:
         async with self._transaction(ctx) as uow:
             entity = await self._load(ctx)
             await self._gate_record(ctx, "update", entity, input=ctx.data)
+            await self._gate_fields(ctx, entity, ctx.data)
             await hooks.run(HookPoint.BEFORE_UPDATE, ctx)
             sent = ctx.data.model_dump(exclude_unset=True)
             before = {k: getattr(entity, k, None) for k in sent}
@@ -400,7 +459,7 @@ class ResourceManager:
                 ResourceUpdated(resource=definition.name, entity_id=entity_id, changes=changes)
             )
             await hooks.run(HookPoint.AFTER_UPDATE, ctx)
-            ctx.result = definition.resource_cls.to_read(ctx.entity, ctx)
+            ctx.result = self._to_read(ctx, ctx.entity, await self._read_rules(ctx))
             await self.delivery.before_commit(ctx, uow)
             await uow.commit()
         await self._after_commit(ctx)
@@ -482,7 +541,7 @@ class ResourceManager:
                 )
             )
             await hooks.run(HookPoint.AFTER_TRANSITION, ctx, event)
-            ctx.result = definition.resource_cls.to_read(ctx.entity, ctx)
+            ctx.result = self._to_read(ctx, ctx.entity, await self._read_rules(ctx))
             await self.delivery.before_commit(ctx, uow)
             await uow.commit()
         await self._after_commit(ctx, event)
@@ -556,7 +615,7 @@ class ResourceManager:
                     else action_def.output_schema.model_validate(result, from_attributes=True)
                 )
             elif result is None and action_def.instance and "read" in definition.schemas:
-                ctx.result = definition.resource_cls.to_read(ctx.entity, ctx)
+                ctx.result = self._to_read(ctx, ctx.entity, await self._read_rules(ctx))
             else:
                 ctx.result = result
             await self.delivery.before_commit(ctx, uow)

@@ -56,11 +56,13 @@ def build_authz_router(manager: ResourceManager, *, actor_dependency: Any) -> AP
     @router.get("/me", summary="The caller's roles and permitted actions")
     async def me(actor: Any = Depends(actor_dependency)) -> dict[str, Any]:
         if not isinstance(actor, Principal):
-            return {"principal": None, "roles": [], "actions": {}}
+            return {"principal": None, "roles": [], "actions": {}, "fields": {}}
+        fields = getattr(authz, "field_permissions", None)
         return {
             "principal": actor.id,
             "roles": sorted(await authz.roles_of(actor)),
             "actions": await authz.permissions(actor),
+            "fields": await fields(actor) if fields else {},
         }
 
     @router.post("/explain", summary="Why an action is allowed or denied")

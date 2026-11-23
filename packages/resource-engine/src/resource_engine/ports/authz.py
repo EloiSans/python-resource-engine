@@ -30,6 +30,28 @@ class Decision:
         }
 
 
+@dataclass(frozen=True)
+class FieldAccess:
+    """Field-level outcome for one record: ``denied`` fields are hidden (read) or
+    protected (write); ``conditional`` ones depend on data not known yet (the
+    record or the input). Callers treat conditional as denied once both are known.
+    """
+
+    denied: frozenset[str] = frozenset()
+    conditional: frozenset[str] = frozenset()
+
+    @property
+    def blocked(self) -> frozenset[str]:
+        return self.denied | self.conditional
+
+
+class FieldRules(Protocol):
+    """Field decisions for one principal, resource and mode, prepared once and
+    evaluated per record (cheap, synchronous)."""
+
+    def decide(self, *, resource: Any = ..., input: Any = ...) -> FieldAccess: ...
+
+
 class Authorizer(Protocol):
     async def check(
         self,
@@ -47,3 +69,6 @@ class Authorizer(Protocol):
         """Row filter for ``action`` (a ``list``): ``True`` (all rows), ``False``
         (none) or a condition over ``resource.*``."""
         ...
+
+    # Optional: authorizers without field rules leave every field open.
+    # async def field_rules(self, principal, resource: str, mode: str) -> FieldRules
