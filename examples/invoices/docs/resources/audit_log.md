@@ -18,7 +18,7 @@ Audit
 | `list` | crud | `GET /audit_log` |  | AuditEntryRead | Lists audit entries; filter by resource and entity_id for a record's history. |
 | `get` | crud | `GET /audit_log/{id}` |  | AuditEntryRead | Returns an audit entry. |
 
-Filtres: `resource`, `entity_id`, `actor`, `outcome`, `operation`, `correlation_id` · Ordenació: `at`
+Filtres: `resource`, `entity_id`, `tenant`, `actor`, `outcome`, `operation`, `correlation_id` · Ordenació: `at`
 
 ## Schemas
 
@@ -32,6 +32,7 @@ Filtres: `resource`, `entity_id`, `actor`, `outcome`, `operation`, `correlation_
 | `actor_roles` | `list[str]` | sí | Application roles of the actor at the time |
 | `resource` | `str` | sí | Resource name |
 | `entity_id` | `str \| None` | no | Target record |
+| `tenant` | `str \| None` | no | Tenant of the record or operation |
 | `operation` | `str` | sí | create, update, delete, transition, action, attach... |
 | `action` | `str` | sí | Permission action, e.g. transition:approve |
 | `outcome` | `str` | sí | ok or denied |

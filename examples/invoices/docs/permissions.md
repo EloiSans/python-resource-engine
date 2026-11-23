@@ -4,7 +4,7 @@ Els rols de sistema es defineixen al codi i no es poden modificar des del front-
 
 | Rol | Descripció | Concessions |
 |---|---|---|
-| `admin` | Full access, including permission management | `*` |
+| `admin` | Full access, including permission management, across tenants | `*` |
 | `viewer` | Read-only access | `*:list`, `*:get`, `*:download:*` |
 
 | Acció | `admin` | `viewer` |

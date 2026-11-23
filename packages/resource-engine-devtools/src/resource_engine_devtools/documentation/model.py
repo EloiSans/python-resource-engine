@@ -109,6 +109,7 @@ class ResourceDoc:
     sortable: list[str] = field(default_factory=list)
     documents: list[SlotDoc] = field(default_factory=list)
     restricted_fields: list[str] = field(default_factory=list)
+    tenant_field: str | None = None
     audit: bool = True
     audit_reads: bool = False
     audit_exclude: list[str] = field(default_factory=list)

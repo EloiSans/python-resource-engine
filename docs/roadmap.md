@@ -41,12 +41,14 @@
 - Audit trail: `AuditSink` port; read-only `audit_log` resource written in the
   same transaction as each change; refused attempts; opt-in reads; masking of
   restricted and excluded fields; SQLAlchemy table; logging and composite sinks.
+- Tenancy: `tenant_field` confines every operation to `Principal.tenant`
+  (independent of policies); cross-tenant admin and engine jobs; `?tenant=`.
 
 ## Next
 
 - Permissions: Cedar / OPA / OpenFGA adapters behind the `Authorizer` port.
 - Audit: retention and purge, tamper evidence, external sinks (OpenTelemetry, SIEM).
-- Tenant scoping enforced by repositories, independent of policies.
+- Example app with authentication (Keycloak) so `invoices` can be tenant-scoped.
 - `check`: hook/effect mismatches.
 - AI skill packaged with devtools (`SKILL.md`, references, anti-patterns) and
   `resource-engine ai install` / `ai sync` with managed `AGENTS.md` block and lock file.

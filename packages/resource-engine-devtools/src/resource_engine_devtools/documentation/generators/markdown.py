@@ -47,6 +47,12 @@ def render_resource(r: ResourceDoc, audit_resource: str | None = None) -> str:
             f"Filtres: {', '.join(f'`{f}`' for f in r.filterable) or '—'} · "
             f"Ordenació: {', '.join(f'`{f}`' for f in r.sortable) or '—'}",
         ]
+    if r.tenant_field:
+        out += [
+            "",
+            f"Multi-inquilí: cada registre pertany a l'inquilí del camp `{r.tenant_field}`; "
+            "les operacions es limiten a l'inquilí de qui crida.",
+        ]
     if r.restricted_fields:
         out += [
             "",

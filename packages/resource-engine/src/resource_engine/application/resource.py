@@ -75,6 +75,8 @@ class Resource:
         restricted_fields: Fields that need an explicit grant to be read or
             written (``<resource>:read:<field>`` / ``<resource>:write:<field>``)
             when an authorizer is configured.
+        tenant_field: Entity attribute holding the tenant. Every operation is then
+            confined to the caller's tenant (see docs/tenancy.md).
         audit: ``False`` leaves the resource out of the audit trail.
         audit_reads: Also audit ``get`` and ``list``.
         audit_exclude: Fields recorded as changed without their values (restricted
@@ -100,6 +102,7 @@ class Resource:
     expose_transitions: ClassVar[bool] = True
     authz_wildcards: ClassVar[bool] = True
     restricted_fields: ClassVar[Sequence[str]] = ()
+    tenant_field: ClassVar[str | None] = None
     audit: ClassVar[bool] = True
     audit_reads: ClassVar[bool] = False
     audit_exclude: ClassVar[Sequence[str]] = ()
@@ -169,6 +172,7 @@ class ResourceDefinition:
     document_slots: Mapping[str, DocumentSlot]
     expose_transitions: bool
     restricted_fields: tuple[str, ...]
+    tenant_field: str | None
     dispatcher: HookDispatcher = field(repr=False, compare=False)
     machine: MachineRunner | None = field(repr=False, compare=False)
 
@@ -309,6 +313,21 @@ class ResourceDefinition:
         for role in ("create", "update"):
             if role in schemas:
                 known_fields |= set(schemas[role].model_fields)
+        tenant_field = resource_cls.tenant_field
+        if tenant_field is not None:
+            if tenant_field == resource_cls.id_field:
+                raise ConfigurationError(f"{owner}: the id field cannot be the tenant field")
+            if read_fields and tenant_field not in read_fields:
+                raise ConfigurationError(
+                    f"{owner}: tenant field {tenant_field!r} is not part of the read schema"
+                )
+            if "update" in schemas and tenant_field in schemas["update"].model_fields:
+                raise ConfigurationError(
+                    f"{owner}: the update schema must not contain the tenant field "
+                    f"{tenant_field!r}",
+                    hint="Records never move between tenants.",
+                    doc="docs/tenancy.md",
+                )
         for fld in resource_cls.audit_exclude:
             if fld not in known_fields:
                 raise ConfigurationError(
@@ -344,6 +363,7 @@ class ResourceDefinition:
             document_slots=slots,
             expose_transitions=resource_cls.expose_transitions,
             restricted_fields=tuple(resource_cls.restricted_fields),
+            tenant_field=tenant_field,
             dispatcher=HookDispatcher(hooks),
             machine=machine,
         )

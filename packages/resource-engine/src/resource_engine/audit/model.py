@@ -21,6 +21,7 @@ class AuditEntry:
     actor: str | None = None
     actor_roles: list[str] = field(default_factory=list)
     entity_id: str | None = None
+    tenant: str | None = None
     changes: dict[str, Any] = field(default_factory=dict)
     details: dict[str, Any] = field(default_factory=dict)
     correlation_id: str | None = None
@@ -41,6 +42,7 @@ class AuditEntryRead(BaseModel):
     actor_roles: list[str] = Field(description="Application roles of the actor at the time")
     resource: str = Field(description="Resource name")
     entity_id: str | None = Field(default=None, description="Target record")
+    tenant: str | None = Field(default=None, description="Tenant of the record or operation")
     operation: str = Field(description="create, update, delete, transition, action, attach...")
     action: str = Field(description="Permission action, e.g. transition:approve")
     outcome: str = Field(description="ok or denied")

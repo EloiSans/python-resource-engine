@@ -84,6 +84,7 @@ def _describe(registry: ResourceRegistry, name: str | None) -> list[dict[str, An
                     if a.resource == d.name and a.kind not in ("read", "write")
                 ],
                 "restricted_fields": list(d.restricted_fields),
+                "tenant_field": d.tenant_field,
                 "audit": {
                     "enabled": getattr(d.resource_cls, "audit", True),
                     "reads": getattr(d.resource_cls, "audit_reads", False),
@@ -126,6 +127,8 @@ def cmd_inspect(args: argparse.Namespace) -> int:
         for a in r["actions"]:
             lines.append(f"  action:     {a['name']} (input {a['input']})")
         lines.append(f"  permissions: {', '.join(r['permissions'])}")
+        if r["tenant_field"]:
+            lines.append(f"  tenant field: {r['tenant_field']}")
         if r["restricted_fields"]:
             lines.append(f"  restricted fields: {', '.join(r['restricted_fields'])}")
         audit = r["audit"]

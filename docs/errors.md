@@ -39,6 +39,8 @@ them as `{"error": {...}}`.
 | <a id="re-e705"></a>RE-E705 | `ConditionNotSupported` | 500 | A row-level filter is needed but the repository cannot apply it (fails closed). |
 | <a id="re-e706"></a>RE-E706 | `FieldNotWritable` | 403 | The input sets fields the principal may not write; `details.fields`. Nothing is saved. |
 | <a id="re-e707"></a>RE-E707 | `FieldNotReadable` | 403 | A `list` filters or sorts by fields the principal may not read; `details.fields`. |
+| <a id="re-e708"></a>RE-E708 | `TenantRequired` | 403 | A tenant-scoped resource needs a tenant: the caller has none, or a cross-tenant caller did not name one to create. |
+| <a id="re-e709"></a>RE-E709 | `TenantMismatch` | 403 | The operation names a tenant other than the caller's. |
 
 `DomainError` (business rule violations raised by your code) maps to HTTP 422 and
 carries your own `code`.

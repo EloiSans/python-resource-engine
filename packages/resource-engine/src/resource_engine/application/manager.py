@@ -51,6 +51,8 @@ from resource_engine.errors import (
     InvalidQuery,
     OperationNotEnabled,
     PermissionDenied,
+    TenantMismatch,
+    TenantRequired,
     UnknownTransition,
     ValidationFailed,
 )
@@ -133,11 +135,17 @@ class ResourceManager:
     # ------------------------------------------------------------------ helpers
 
     def _context(
-        self, definition: ResourceDefinition, operation: str, **kw: Any
+        self,
+        definition: ResourceDefinition,
+        operation: str,
+        *,
+        tenant: str | None = None,
+        **kw: Any,
     ) -> OperationContext:
         ctx = OperationContext(
             resource=definition, operation=operation, services=self.services, **kw
         )
+        ctx.extras["requested_tenant"] = tenant
         if self.documents is not None:
             from resource_engine.documents.manager import ContextDocuments
 
@@ -182,8 +190,87 @@ class ResourceManager:
                 f"{ctx.resource.name} {ctx.entity_id!r} does not exist",
                 details={"resource": ctx.resource.name, "id": ctx.entity_id},
             )
+        await self._check_tenant(ctx, entity)
         ctx.entity = entity
         return entity
+
+    # ------------------------------------------------------------------ tenancy
+
+    async def _ensure_tenant(self, ctx: OperationContext) -> None:
+        """Resolve the caller's tenant scope once per operation (tenant-scoped
+        resources only): RE-E708 without a tenant, RE-E709 for another one."""
+        if ctx.resource.tenant_field is None or ctx._tenant_scope is not None:
+            return
+        from resource_engine.tenancy import resolve_tenant
+
+        try:
+            scope = await resolve_tenant(
+                ctx.actor, self.authorizer, ctx.extras.get("requested_tenant")
+            )
+        except (TenantRequired, TenantMismatch) as error:
+            await self._audit_denied(ctx, ctx.operation, error)
+            raise
+        ctx._tenant_scope = scope
+        ctx.tenant = scope.tenant
+
+    async def _check_tenant(self, ctx: OperationContext, entity: Any) -> None:
+        """Records of other tenants do not exist for the caller (404)."""
+        field_name = ctx.resource.tenant_field
+        if field_name is None:
+            return
+        await self._ensure_tenant(ctx)
+        if ctx.tenant is not None and getattr(entity, field_name, None) != ctx.tenant:
+            await self._audit_denied(
+                ctx,
+                ctx.operation,
+                PermissionDenied("other tenant", details={"reason": "other tenant"}),
+            )
+            raise EntityNotFound(
+                f"{ctx.resource.name} {ctx.entity_id!r} does not exist",
+                details={"resource": ctx.resource.name, "id": ctx.entity_id},
+            )
+
+    async def _stamp_tenant(self, ctx: OperationContext, entity: Any) -> None:
+        """Create: the new record belongs to the scope's tenant."""
+        try:
+            self._stamp(ctx, entity)
+        except (TenantRequired, TenantMismatch) as error:
+            await self._audit_denied(ctx, "create", error)
+            raise
+
+    def _stamp(self, ctx: OperationContext, entity: Any) -> None:
+        field_name = ctx.resource.tenant_field
+        if field_name is None:
+            return
+        sent = getattr(entity, field_name, None)
+        scope = ctx._tenant_scope
+        target = ctx.tenant or sent
+        if sent is not None and target is not None and sent != target:
+            raise TenantMismatch(
+                f"Not allowed to create {ctx.resource.name} for tenant {sent!r}",
+                details={"reason": "other tenant", "tenant": sent},
+                doc="docs/tenancy.md",
+            )
+        if target is None:
+            raise TenantRequired(
+                f"Creating {ctx.resource.name} needs a tenant",
+                hint=f"Cross-tenant callers pass tenant=... (or set {field_name!r}).",
+                details={"reason": "no tenant", "cross_tenant": bool(scope and scope.cross)},
+                doc="docs/tenancy.md",
+            )
+        setattr(entity, field_name, target)
+        ctx.tenant = target
+
+    def _tenant_query(self, ctx: OperationContext, query: ListQuery) -> ListQuery | None:
+        """``list``: only the scope's tenant (``None`` when the client asked for
+        another one)."""
+        field_name = ctx.resource.tenant_field
+        if field_name is None or ctx.tenant is None:
+            return query
+        asked = query.filters.get(field_name)
+        if asked is not None and asked != ctx.tenant:
+            return None
+        return dataclasses.replace(query, filters={**query.filters, field_name: ctx.tenant})
 
     def _id_of(self, ctx: OperationContext, entity: Any) -> Any:
         return getattr(entity, ctx.resource.id_field, None)
@@ -193,7 +280,9 @@ class ResourceManager:
     async def _gate(
         self, ctx: OperationContext, action: str, *, resource: Any = ..., input: Any = ...
     ) -> None:
-        """Step 2 (``resource`` unknown) or 5b (record known): raise when denied."""
+        """Step 2 (``resource`` unknown) or 5b (record known): raise when denied.
+        Tenant-scoped resources resolve the caller's tenant first."""
+        await self._ensure_tenant(ctx)
         if self.authorizer is None:
             return
         decision = await self.authorizer.check(
@@ -264,21 +353,41 @@ class ResourceManager:
         return dataclasses.replace(query, condition=conjunction(query.condition, scope))
 
     async def can(
-        self, actor: Any, resource: ResourceRef, action: str, entity_id: Any = None
+        self,
+        actor: Any,
+        resource: ResourceRef,
+        action: str,
+        entity_id: Any = None,
+        *,
+        tenant: str | None = None,
     ) -> bool:
         """Whether ``actor`` may perform ``action`` (``"update"``,
-        ``"transition:approve"``...), on ``entity_id`` if given. Always ``True``
-        without an authorizer."""
-        if self.authorizer is None:
-            return True
+        ``"transition:approve"``...), on ``entity_id`` if given. Without an
+        authorizer only tenant scoping applies."""
         definition = self.registry.get(resource)
         name = f"{definition.name}:{action}"
+        ctx = self._context(definition, "get", actor=actor, entity_id=entity_id, tenant=tenant)
+        try:
+            await self._ensure_tenant(ctx)
+        except (TenantRequired, TenantMismatch):
+            return False
         if entity_id is None:
+            if self.authorizer is None:
+                return True
             return (await self.authorizer.check(actor, name)).allowed is not False
         async with self.uow_factory() as uow:
             entity = await uow.repository(definition.name).get(entity_id)
             if entity is None:
                 return False
+            field_name = definition.tenant_field
+            if (
+                field_name
+                and ctx.tenant is not None
+                and getattr(entity, field_name, None) != ctx.tenant
+            ):
+                return False
+            if self.authorizer is None:
+                return True
             return (await self.authorizer.check(actor, name, resource=entity)).allowed is True
 
     # -------------------------------------------------------------------- audit
@@ -443,7 +552,12 @@ class ResourceManager:
     # --------------------------------------------------------------------- read
 
     async def list(
-        self, resource: ResourceRef, query: ListQuery | None = None, *, actor: Any = None
+        self,
+        resource: ResourceRef,
+        query: ListQuery | None = None,
+        *,
+        actor: Any = None,
+        tenant: str | None = None,
     ) -> Page[Any]:
         definition = self.registry.get(resource)
         self._require(definition, "list")
@@ -472,8 +586,12 @@ class ResourceManager:
             raise InvalidQuery(
                 f"limit must be between 1 and {definition.max_page_size} and offset >= 0",
             )
-        ctx = self._context(definition, "list", actor=actor, raw_input=query)
+        ctx = self._context(definition, "list", actor=actor, raw_input=query, tenant=tenant)
         await self._gate(ctx, "list")
+        tenant_query = self._tenant_query(ctx, query)
+        if tenant_query is None:
+            return Page([], 0, query.offset, query.limit)
+        query = tenant_query
         rules = await self._read_rules(ctx)
         await self._gate_query(ctx, query, rules)
         async with self.uow_factory() as uow:
@@ -495,10 +613,12 @@ class ResourceManager:
         )
         return result
 
-    async def get(self, resource: ResourceRef, entity_id: Any, *, actor: Any = None) -> Any:
+    async def get(
+        self, resource: ResourceRef, entity_id: Any, *, actor: Any = None, tenant: str | None = None
+    ) -> Any:
         definition = self.registry.get(resource)
         self._require(definition, "get")
-        ctx = self._context(definition, "get", actor=actor, entity_id=entity_id)
+        ctx = self._context(definition, "get", actor=actor, entity_id=entity_id, tenant=tenant)
         await self._gate(ctx, "get")
         async with self.uow_factory() as uow:
             ctx.uow = uow
@@ -510,10 +630,12 @@ class ResourceManager:
 
     # -------------------------------------------------------------------- write
 
-    async def create(self, resource: ResourceRef, data: Any, *, actor: Any = None) -> Any:
+    async def create(
+        self, resource: ResourceRef, data: Any, *, actor: Any = None, tenant: str | None = None
+    ) -> Any:
         definition = self.registry.get(resource)
         self._require(definition, "create")
-        ctx = self._context(definition, "create", actor=actor, raw_input=data)
+        ctx = self._context(definition, "create", actor=actor, raw_input=data, tenant=tenant)
         await self._gate(ctx, "create")
         await self._validate(ctx, definition.schemas["create"])
         hooks = definition.dispatcher
@@ -522,6 +644,7 @@ class ResourceManager:
             ctx.entity = entity
             if definition.machine:
                 await definition.machine.initialize(entity)
+            await self._stamp_tenant(ctx, entity)
             await self._gate(ctx, "create", resource=entity, input=ctx.data)
             await self._gate_fields(ctx, entity, ctx.data)
             await hooks.run(HookPoint.BEFORE_CREATE, ctx)
@@ -537,11 +660,19 @@ class ResourceManager:
         return ctx.result
 
     async def update(
-        self, resource: ResourceRef, entity_id: Any, data: Any, *, actor: Any = None
+        self,
+        resource: ResourceRef,
+        entity_id: Any,
+        data: Any,
+        *,
+        actor: Any = None,
+        tenant: str | None = None,
     ) -> Any:
         definition = self.registry.get(resource)
         self._require(definition, "update")
-        ctx = self._context(definition, "update", actor=actor, raw_input=data, entity_id=entity_id)
+        ctx = self._context(
+            definition, "update", actor=actor, raw_input=data, entity_id=entity_id, tenant=tenant
+        )
         await self._gate(ctx, "update")
         await self._validate(ctx, definition.schemas["update"])
         hooks = definition.dispatcher
@@ -569,10 +700,12 @@ class ResourceManager:
         await self._after_commit(ctx)
         return ctx.result
 
-    async def delete(self, resource: ResourceRef, entity_id: Any, *, actor: Any = None) -> None:
+    async def delete(
+        self, resource: ResourceRef, entity_id: Any, *, actor: Any = None, tenant: str | None = None
+    ) -> None:
         definition = self.registry.get(resource)
         self._require(definition, "delete")
-        ctx = self._context(definition, "delete", actor=actor, entity_id=entity_id)
+        ctx = self._context(definition, "delete", actor=actor, entity_id=entity_id, tenant=tenant)
         await self._gate(ctx, "delete")
         hooks = definition.dispatcher
         async with self._transaction(ctx) as uow:
@@ -596,6 +729,7 @@ class ResourceManager:
         data: Any = None,
         *,
         actor: Any = None,
+        tenant: str | None = None,
     ) -> Any:
         definition = self.registry.get(resource)
         machine = definition.machine
@@ -616,6 +750,7 @@ class ResourceManager:
             actor=actor,
             raw_input=data,
             entity_id=entity_id,
+            tenant=tenant,
         )
         await self._gate(ctx, f"transition:{event}")
         await self._validate(ctx, definition.transition_schemas.get(event), event)
@@ -652,12 +787,12 @@ class ResourceManager:
         return ctx.result
 
     async def allowed_transitions(
-        self, resource: ResourceRef, entity_id: Any, *, actor: Any = None
+        self, resource: ResourceRef, entity_id: Any, *, actor: Any = None, tenant: str | None = None
     ) -> list[str]:
         definition = self.registry.get(resource)
         if definition.machine is None:
             return []
-        ctx = self._context(definition, "get", actor=actor, entity_id=entity_id)
+        ctx = self._context(definition, "get", actor=actor, entity_id=entity_id, tenant=tenant)
         async with self.uow_factory() as uow:
             ctx.uow = uow
             entity = await self._load(ctx)
@@ -682,6 +817,7 @@ class ResourceManager:
         data: Any = None,
         *,
         actor: Any = None,
+        tenant: str | None = None,
     ) -> Any:
         definition = self.registry.get(resource)
         action_def = definition.actions.get(action)
@@ -693,7 +829,13 @@ class ResourceManager:
         if action_def.instance and entity_id is None:
             raise ValidationFailed(f"Action {action!r} requires an entity id")
         ctx = self._context(
-            definition, "action", action=action, actor=actor, raw_input=data, entity_id=entity_id
+            definition,
+            "action",
+            action=action,
+            actor=actor,
+            raw_input=data,
+            entity_id=entity_id,
+            tenant=tenant,
         )
         await self._gate(ctx, f"action:{action}")
         await self._validate(ctx, action_def.input_schema, action)

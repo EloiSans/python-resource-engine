@@ -11,6 +11,8 @@ STATUS_BY_ERROR: list[tuple[type[ResourceEngineError], int]] = [
     (e.PrivilegeEscalation, 403),
     (e.FieldNotWritable, 403),
     (e.FieldNotReadable, 403),
+    (e.TenantRequired, 403),
+    (e.TenantMismatch, 403),
     (e.InvalidPolicy, 422),
     (e.ValidationFailed, 422),
     (e.InvalidQuery, 400),

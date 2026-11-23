@@ -302,3 +302,16 @@ class FieldNotReadable(ResourceEngineError):
     ``details.fields`` lists them."""
 
     code = "RE-E707"
+
+
+class TenantRequired(ResourceEngineError):
+    """A tenant-scoped resource needs a tenant: the caller has none, or a
+    cross-tenant caller did not name one where it is required (create)."""
+
+    code = "RE-E708"
+
+
+class TenantMismatch(ResourceEngineError):
+    """The operation names a tenant other than the caller's."""
+
+    code = "RE-E709"

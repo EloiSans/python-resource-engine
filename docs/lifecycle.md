@@ -8,10 +8,10 @@ This order is part of the public contract and is covered by tests
 | # | Step | Transactional | Hook points |
 |---|---|---|---|
 | 1 | Resolve resource and operation (RE-E002, RE-E003, RE-E202, RE-E301) | – | |
-| 2 | Authorization, record unknown (RE-E702) — see [permissions](permissions.md) | – | |
+| 2 | Tenant scope for tenant-scoped resources (RE-E708, RE-E709) — see [tenancy](tenancy.md); authorization, record unknown (RE-E702) — see [permissions](permissions.md) | – | |
 | 3 | Validate input with the operation's schema (RE-E101) | no | `before_validate`, `after_validate` |
 | 4 | Open the unit of work | yes | |
-| 5 | Load the entity (update, delete, transition, instance action) (RE-E102); then authorization on the record (404 if invisible, else RE-E702); on create and update, every field sent must be writable (RE-E706) | yes | |
+| 5 | Load the entity (update, delete, transition, instance action) (RE-E102; other tenants' records too); then authorization on the record (404 if invisible, else RE-E702); on create and update, every field sent must be writable (RE-E706) | yes | |
 | 6 | Before mutation | yes | `before_create` · `before_update` · `before_delete` · `before_transition[:event]` · `before_action[:name]` · `before_attach[:slot]` · `before_detach[:slot]` |
 | 7 | Mutate: build+`add` / `apply_update`+`update` / `delete` / fire the state machine+`update` / `Action.execute` / store blob + `Document` row | yes | |
 | 8 | After mutation | yes | `after_create` · `after_update` · `after_delete` · `after_transition[:event]` · `after_action[:name]` · `after_attach[:slot]` · `after_detach[:slot]` |

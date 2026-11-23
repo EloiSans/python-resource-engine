@@ -25,7 +25,15 @@ class AuditLogResource(Resource):
         "list": "Lists audit entries; filter by resource and entity_id for a record's history.",
         "get": "Returns an audit entry.",
     }
-    filterable = ["resource", "entity_id", "actor", "outcome", "operation", "correlation_id"]
+    filterable = [
+        "resource",
+        "entity_id",
+        "tenant",
+        "actor",
+        "outcome",
+        "operation",
+        "correlation_id",
+    ]
     sortable = ["at"]
     max_page_size = 500
     authz_wildcards = False

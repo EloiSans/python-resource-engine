@@ -93,6 +93,18 @@ def build_resource_router(
     router = APIRouter(prefix=f"/{name}", tags=[name])
     id_param = _param("entity_id", definition.id_type, Path(...))
     actor_param = _param("actor", Any, Depends(actor_dependency))
+    # tenant-scoped resources: cross-tenant callers may name a tenant
+    tenant_params = (
+        [
+            _param(
+                "tenant",
+                str | None,
+                Query(None, description="Tenant to act on (cross-tenant callers)"),
+            )
+        ]
+        if definition.tenant_field
+        else []
+    )
     read = definition.schemas.get("read")
     docs = definition.operation_docs
 
@@ -117,7 +129,7 @@ def build_resource_router(
                     if k.startswith("filter__") and v is not None
                 },
             )
-            page = await manager.list(name, query, actor=kw.get("actor"))
+            page = await manager.list(name, query, actor=kw.get("actor"), tenant=kw.get("tenant"))
             return _respond_page(
                 {
                     "items": page.items,
@@ -142,6 +154,7 @@ def build_resource_router(
                         ),
                     ),
                     *filter_params,
+                    *tenant_params,
                     actor_param,
                 ],
                 f"list_{name}",
@@ -154,12 +167,12 @@ def build_resource_router(
 
     if definition.enabled("get"):
 
-        async def get_endpoint(entity_id: Any, actor: Any) -> Any:
-            return _respond(await manager.get(name, entity_id, actor=actor))
+        async def get_endpoint(entity_id: Any, actor: Any, tenant: Any = None) -> Any:
+            return _respond(await manager.get(name, entity_id, actor=actor, tenant=tenant))
 
         router.add_api_route(
             "/{entity_id}",
-            _endpoint(get_endpoint, [id_param, actor_param], f"get_{name}"),
+            _endpoint(get_endpoint, [id_param, *tenant_params, actor_param], f"get_{name}"),
             methods=["GET"],
             response_model=read,
             summary=_summary(docs.get("get")) or f"Get one of {name}",
@@ -168,14 +181,18 @@ def build_resource_router(
 
     if definition.enabled("create"):
 
-        async def create_endpoint(payload: Any, actor: Any) -> Any:
-            return _respond(await manager.create(name, payload, actor=actor), 201)
+        async def create_endpoint(payload: Any, actor: Any, tenant: Any = None) -> Any:
+            return _respond(await manager.create(name, payload, actor=actor, tenant=tenant), 201)
 
         router.add_api_route(
             "",
             _endpoint(
                 create_endpoint,
-                [_param("payload", definition.schemas["create"], Body(...)), actor_param],
+                [
+                    _param("payload", definition.schemas["create"], Body(...)),
+                    *tenant_params,
+                    actor_param,
+                ],
                 f"create_{name}",
             ),
             methods=["POST"],
@@ -187,14 +204,23 @@ def build_resource_router(
 
     if definition.enabled("update"):
 
-        async def update_endpoint(entity_id: Any, payload: BaseModel, actor: Any) -> Any:
-            return _respond(await manager.update(name, entity_id, payload, actor=actor))
+        async def update_endpoint(
+            entity_id: Any, payload: BaseModel, actor: Any, tenant: Any = None
+        ) -> Any:
+            return _respond(
+                await manager.update(name, entity_id, payload, actor=actor, tenant=tenant)
+            )
 
         router.add_api_route(
             "/{entity_id}",
             _endpoint(
                 update_endpoint,
-                [id_param, _param("payload", definition.schemas["update"], Body(...)), actor_param],
+                [
+                    id_param,
+                    _param("payload", definition.schemas["update"], Body(...)),
+                    *tenant_params,
+                    actor_param,
+                ],
                 f"update_{name}",
             ),
             methods=["PATCH"],
@@ -205,13 +231,13 @@ def build_resource_router(
 
     if definition.enabled("delete"):
 
-        async def delete_endpoint(entity_id: Any, actor: Any) -> Response:
-            await manager.delete(name, entity_id, actor=actor)
+        async def delete_endpoint(entity_id: Any, actor: Any, tenant: Any = None) -> Response:
+            await manager.delete(name, entity_id, actor=actor, tenant=tenant)
             return Response(status_code=status.HTTP_204_NO_CONTENT)
 
         router.add_api_route(
             "/{entity_id}",
-            _endpoint(delete_endpoint, [id_param, actor_param], f"delete_{name}"),
+            _endpoint(delete_endpoint, [id_param, *tenant_params, actor_param], f"delete_{name}"),
             methods=["DELETE"],
             status_code=status.HTTP_204_NO_CONTENT,
             response_class=Response,
@@ -222,12 +248,16 @@ def build_resource_router(
     if definition.machine is not None and definition.expose_transitions:
         sm_doc = inspect.getdoc(definition.state_machine) or ""
 
-        async def allowed_endpoint(entity_id: Any, actor: Any) -> list[str]:
-            return await manager.allowed_transitions(name, entity_id, actor=actor)
+        async def allowed_endpoint(entity_id: Any, actor: Any, tenant: Any = None) -> list[str]:
+            return await manager.allowed_transitions(name, entity_id, actor=actor, tenant=tenant)
 
         router.add_api_route(
             "/{entity_id}/transitions",
-            _endpoint(allowed_endpoint, [id_param, actor_param], f"allowed_transitions_{name}"),
+            _endpoint(
+                allowed_endpoint,
+                [id_param, *tenant_params, actor_param],
+                f"allowed_transitions_{name}",
+            ),
             methods=["GET"],
             response_model=list[str],
             summary="Transitions allowed from the current state",
@@ -235,7 +265,9 @@ def build_resource_router(
         for event in definition.machine.info.events:
             router.add_api_route(
                 f"/{{entity_id}}/transitions/{event}",
-                _transition_endpoint(definition, manager, event, id_param, actor_param),
+                _transition_endpoint(
+                    definition, manager, event, id_param, [*tenant_params, actor_param]
+                ),
                 methods=["POST"],
                 response_model=read,
                 summary=f"Transition: {event}",
@@ -252,14 +284,19 @@ def build_resource_router(
             async def action_endpoint(**kw: Any) -> Any:
                 return _respond(
                     await manager.run_action(
-                        name, action_name, kw.get("entity_id"), kw.get("payload"), actor=kw["actor"]
+                        name,
+                        action_name,
+                        kw.get("entity_id"),
+                        kw.get("payload"),
+                        actor=kw["actor"],
+                        tenant=kw.get("tenant"),
                     )
                 )
 
             params = [id_param] if instance else []
             if schema is not None:
                 params.append(_param("payload", schema, Body(...)))
-            params.append(actor_param)
+            params += [*tenant_params, actor_param]
             return _endpoint(action_endpoint, params, f"{name}_{action_name}")
 
         path = (
@@ -286,21 +323,26 @@ def _transition_endpoint(
     manager: ResourceManager,
     event: str,
     id_param: inspect.Parameter,
-    actor_param: inspect.Parameter,
+    tail: list[inspect.Parameter],
 ) -> Callable[..., Any]:
     schema = definition.transition_schemas.get(event)
 
     async def transition_endpoint(**kw: Any) -> Any:
         return _respond(
             await manager.transition(
-                definition.name, kw["entity_id"], event, kw.get("payload"), actor=kw["actor"]
+                definition.name,
+                kw["entity_id"],
+                event,
+                kw.get("payload"),
+                actor=kw["actor"],
+                tenant=kw.get("tenant"),
             )
         )
 
     params = [id_param]
     if schema is not None:
         params.append(_param("payload", schema, Body(...)))
-    params.append(actor_param)
+    params += tail
     return _endpoint(transition_endpoint, params, f"{definition.name}_{event}")
 
 

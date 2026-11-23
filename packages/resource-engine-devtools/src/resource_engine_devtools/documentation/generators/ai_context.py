@@ -16,6 +16,8 @@ def render_ai_context(model: DocumentationModel) -> str:
         out.append(f"  ops: {', '.join(crud) or '-'}")
         if r.filterable:
             out.append(f"  filterable: {', '.join(r.filterable)}")
+        if r.tenant_field:
+            out.append(f"  tenant_field: {r.tenant_field}")
         if r.restricted_fields:
             out.append(f"  restricted_fields: {', '.join(r.restricted_fields)}")
         if model.audit_resource and not r.audit:
@@ -53,6 +55,14 @@ def render_ai_context(model: DocumentationModel) -> str:
             "- fields: <resource>:read|write:<field>; hidden fields are omitted, writing a "
             "protected field fails with RE-E706, filtering/sorting by one with RE-E707"
         )
+    if any(r.tenant_field for r in model.resources):
+        out += [
+            "",
+            "## Tenancy",
+            "- resources with tenant_field are confined to Principal.tenant (other tenants' "
+            "records are 404); no tenant -> RE-E708, another tenant -> RE-E709; admin and "
+            "system_principal act across tenants and pass tenant= to create",
+        ]
     if model.audit_resource:
         out += [
             "",

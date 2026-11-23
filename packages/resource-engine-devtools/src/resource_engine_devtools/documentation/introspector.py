@@ -168,6 +168,7 @@ def _resource_doc(d: ResourceDefinition) -> ResourceDoc:
         filterable=list(d.filterable),
         sortable=list(d.sortable),
         restricted_fields=list(d.restricted_fields),
+        tenant_field=d.tenant_field,
         audit=getattr(d.resource_cls, "audit", True),
         audit_reads=getattr(d.resource_cls, "audit_reads", False),
         audit_exclude=list(getattr(d.resource_cls, "audit_exclude", ())),

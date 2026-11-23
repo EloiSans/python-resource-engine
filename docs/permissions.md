@@ -64,6 +64,10 @@ A deployment choice:
 
 `bootstrap` maps provider roles to system roles in every case.
 
+System roles with `cross_tenant=True` (`SystemRole.admin()`) act across tenants on
+tenant-scoped resources; everyone else is confined to their tenant before any
+policy is evaluated (see [tenancy](tenancy.md)).
+
 ## Policies
 
 ```json

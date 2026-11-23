@@ -23,16 +23,24 @@ class SystemRole:
         description: Shown to administrators.
         include_sensitive: Wildcards also match resources with
             ``authz_wildcards = False`` (only for full administrators).
+        cross_tenant: Holders act across tenants on tenant-scoped resources.
     """
 
     name: str
     grants: Sequence[str]
     description: str | None = None
     include_sensitive: bool = False
+    cross_tenant: bool = False
 
     @classmethod
     def admin(cls, name: str = "admin") -> SystemRole:
-        return cls(name, ["*"], "Full access, including permission management", True)
+        return cls(
+            name,
+            ["*"],
+            "Full access, including permission management, across tenants",
+            include_sensitive=True,
+            cross_tenant=True,
+        )
 
     @classmethod
     def viewer(cls, name: str = "viewer") -> SystemRole:

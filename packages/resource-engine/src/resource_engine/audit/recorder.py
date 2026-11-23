@@ -113,6 +113,8 @@ def entry_for(
 ) -> AuditEntry:
     masked = masked_fields(ctx)
     ok = outcome == "ok"
+    tenant_field = ctx.resource.tenant_field
+    tenant = getattr(ctx.entity, tenant_field, None) if tenant_field and ctx.entity else None
     return AuditEntry(
         resource=ctx.resource.name,
         operation=ctx.operation,
@@ -121,6 +123,7 @@ def entry_for(
         actor=actor_id(ctx.actor),
         actor_roles=roles,
         entity_id=None if ctx.entity_id is None else str(ctx.entity_id),
+        tenant=jsonable(tenant or ctx.tenant),
         changes=changes_of(ctx, masked) if ok else {},
         details={**(details_of(ctx, masked) if ok else {}), **(details or {})},
         correlation_id=ctx.correlation_id,

@@ -42,6 +42,8 @@ class OperationContext:
         documents: Attach/detach documents inside this transaction (``None`` when
             the manager has no blob store).
         decision: The last authorization ``Decision`` for this operation.
+        tenant: Tenant the operation is confined to (tenant-scoped resources);
+            ``None`` for cross-tenant callers acting on all tenants.
     """
 
     resource: ResourceDefinition
@@ -64,6 +66,8 @@ class OperationContext:
     extras: dict[str, Any] = field(default_factory=dict)
     documents: Any = None
     decision: Any = None
+    tenant: str | None = None
+    _tenant_scope: Any = field(default=None, repr=False)
     _on_rollback: list[Callback] = field(default_factory=list, repr=False)
     _on_commit: list[Callback] = field(default_factory=list, repr=False)
 

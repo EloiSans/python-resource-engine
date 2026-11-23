@@ -510,14 +510,18 @@ class DocumentManager:
         """Documents inherit visibility from their owner: ``get`` on it for metadata,
         ``download:<slot>`` for content."""
         m = self.manager
-        if m.authorizer is None:
-            return
         ctx = self._owner_context(doc, "get", actor)
+        if m.authorizer is None and ctx.resource.tenant_field is None:
+            return
         async with m.uow_factory() as uow:
             ctx.uow = uow
             owner = await uow.repository(ctx.resource.name).get(ctx.entity_id)
             if owner is None:
                 raise EntityNotFound(f"Document {doc.id!r} does not exist")
+            try:
+                await m._check_tenant(ctx, owner)
+            except EntityNotFound:
+                raise EntityNotFound(f"Document {doc.id!r} does not exist") from None
             await m._gate_record(ctx, action, owner)
 
     async def get(self, document_id: str, *, actor: Any = None) -> DocumentRead:

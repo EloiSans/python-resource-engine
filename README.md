@@ -89,4 +89,5 @@ uv run uvicorn invoices.app:app --app-dir examples --reload   # then open /docs
 - [Identity](docs/identity.md) — bearer tokens, providers, `Principal`.
 - [Permissions](docs/permissions.md) — system roles, ABAC policies managed from a front end.
 - [Audit trail](docs/audit.md) — committed changes and refused attempts.
+- [Tenancy](docs/tenancy.md) — tenant-scoped resources, cross-tenant roles.
 - [Roadmap](docs/roadmap.md) — what is done and what comes next.

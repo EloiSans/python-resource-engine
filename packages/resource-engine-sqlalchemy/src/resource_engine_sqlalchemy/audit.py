@@ -19,6 +19,7 @@ def audit_table(metadata: MetaData, name: str = "resource_engine_audit_log") -> 
         Column("actor_roles", JSON, nullable=False),
         Column("resource", String(100), nullable=False),
         Column("entity_id", String(200)),
+        Column("tenant", String(200), index=True),
         Column("operation", String(50), nullable=False),
         Column("action", String(200), nullable=False),
         Column("outcome", String(10), nullable=False),
