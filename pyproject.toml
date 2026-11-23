@@ -1,0 +1,80 @@
+[project]
+name = "resource-engine-workspace"
+version = "0.0.0"
+description = "Development workspace for the Resource Engine packages (not published)."
+requires-python = ">=3.12"
+
+[tool.uv]
+package = false
+
+[tool.uv.workspace]
+members = ["packages/*", "adapters/*"]
+
+[tool.uv.sources]
+resource-engine = { workspace = true }
+resource-engine-fastapi = { workspace = true }
+resource-engine-sqlalchemy = { workspace = true }
+resource-engine-devtools = { workspace = true }
+resource-engine-aws = { workspace = true }
+resource-engine-azure = { workspace = true }
+resource-engine-gcp = { workspace = true }
+resource-engine-http = { workspace = true }
+resource-engine-sap = { workspace = true }
+resource-engine-s3 = { workspace = true }
+resource-engine-rabbitmq = { workspace = true }
+resource-engine-oidc = { workspace = true }
+
+[dependency-groups]
+dev = [
+    "resource-engine",
+    "resource-engine-fastapi",
+    "resource-engine-sqlalchemy",
+    "resource-engine-devtools",
+    "resource-engine-aws[all]",
+    "resource-engine-azure[all]",
+    "resource-engine-gcp[all]",
+    "resource-engine-http[all]",
+    "resource-engine-sap[all]",
+    "resource-engine-s3",
+    "resource-engine-rabbitmq",
+    "resource-engine-oidc",
+    "pytest>=8",
+    "pytest-asyncio>=0.24",
+    "httpx>=0.27",
+    "aiosqlite>=0.20",
+    "uvicorn>=0.30",
+    "ruff>=0.6",
+]
+
+[tool.pytest.ini_options]
+addopts = "--import-mode=importlib"
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+testpaths = ["packages", "adapters", "examples"]
+markers = [
+    "emulator(name): needs a running emulator or local service (aws, pubsub, garage, rabbitmq, keycloak); skipped when it is not reachable",
+]
+pythonpath = ["examples"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+
+[tool.resource-engine]
+registry = "invoices.bootstrap:registry"
+authz = "invoices.bootstrap:authz"
+paths = ["examples"]
+
+[tool.ruff.lint.flake8-bugbear]
+# FastAPI dependency markers are meant to be used as defaults.
+extend-immutable-calls = [
+    "fastapi.Body",
+    "fastapi.Depends",
+    "fastapi.File",
+    "fastapi.Header",
+    "fastapi.Path",
+    "fastapi.Query",
+]

@@ -1,0 +1,42 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python: ["3.12", "3.13", "3.14"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: ${{ matrix.python }}
+      - run: uv sync --locked
+      - run: uv run ruff check .
+      - run: uv run ruff format --check .
+      - run: uv run pytest -m "not emulator"
+      - run: uv run resource-engine check examples packages adapters
+      - run: uv run resource-engine docs validate --strict
+      - run: uv build --all-packages
+
+  emulators:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.13"
+      - name: Start emulators and local services (AWS, Pub/Sub, Garage, RabbitMQ, Keycloak)
+        run: |
+          mkdir -p .emulators/aws && chmod 777 .emulators/aws
+          docker compose -f compose.emulators.yaml up -d --build --wait
+      - run: uv sync --locked
+      - run: uv run python docker/garage/init.py
+      - run: uv run pytest -m emulator -rs
+      - if: failure()
+        run: docker compose -f compose.emulators.yaml logs

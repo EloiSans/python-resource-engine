@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<definitions name="Items" targetNamespace="urn:items"
+    xmlns="http://schemas.xmlsoap.org/wsdl/"
+    xmlns:soap="http://schemas.xmlsoap.org/wsdl/soap/"
+    xmlns:tns="urn:items"
+    xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+  <types>
+    <xsd:schema targetNamespace="urn:items" elementFormDefault="qualified">
+      <xsd:complexType name="Item">
+        <xsd:sequence>
+          <xsd:element name="id" type="xsd:int" minOccurs="0"/>
+          <xsd:element name="name" type="xsd:string"/>
+          <xsd:element name="rank" type="xsd:int"/>
+          <xsd:element name="group" type="xsd:string"/>
+        </xsd:sequence>
+      </xsd:complexType>
+      <xsd:element name="GetItem"><xsd:complexType><xsd:sequence>
+        <xsd:element name="id" type="xsd:int"/>
+      </xsd:sequence></xsd:complexType></xsd:element>
+      <xsd:element name="GetItemResponse"><xsd:complexType><xsd:sequence>
+        <xsd:element name="item" type="tns:Item"/>
+      </xsd:sequence></xsd:complexType></xsd:element>
+      <xsd:element name="ListItems"><xsd:complexType><xsd:sequence>
+        <xsd:element name="offset" type="xsd:int"/>
+        <xsd:element name="limit" type="xsd:int"/>
+        <xsd:element name="group" type="xsd:string" minOccurs="0"/>
+        <xsd:element name="orderBy" type="xsd:string" minOccurs="0"/>
+      </xsd:sequence></xsd:complexType></xsd:element>
+      <xsd:element name="ListItemsResponse"><xsd:complexType><xsd:sequence>
+        <xsd:element name="total" type="xsd:int"/>
+        <xsd:element name="item" type="tns:Item" minOccurs="0" maxOccurs="unbounded"/>
+      </xsd:sequence></xsd:complexType></xsd:element>
+      <xsd:element name="SaveItem"><xsd:complexType><xsd:sequence>
+        <xsd:element name="item" type="tns:Item"/>
+      </xsd:sequence></xsd:complexType></xsd:element>
+      <xsd:element name="SaveItemResponse"><xsd:complexType><xsd:sequence>
+        <xsd:element name="item" type="tns:Item"/>
+      </xsd:sequence></xsd:complexType></xsd:element>
+      <xsd:element name="DeleteItem"><xsd:complexType><xsd:sequence>
+        <xsd:element name="id" type="xsd:int"/>
+      </xsd:sequence></xsd:complexType></xsd:element>
+      <xsd:element name="DeleteItemResponse"><xsd:complexType><xsd:sequence>
+        <xsd:element name="ok" type="xsd:boolean"/>
+      </xsd:sequence></xsd:complexType></xsd:element>
+    </xsd:schema>
+  </types>
+  <message name="GetItemIn"><part name="parameters" element="tns:GetItem"/></message>
+  <message name="GetItemOut"><part name="parameters" element="tns:GetItemResponse"/></message>
+  <message name="ListItemsIn"><part name="parameters" element="tns:ListItems"/></message>
+  <message name="ListItemsOut"><part name="parameters" element="tns:ListItemsResponse"/></message>
+  <message name="SaveItemIn"><part name="parameters" element="tns:SaveItem"/></message>
+  <message name="SaveItemOut"><part name="parameters" element="tns:SaveItemResponse"/></message>
+  <message name="DeleteItemIn"><part name="parameters" element="tns:DeleteItem"/></message>
+  <message name="DeleteItemOut"><part name="parameters" element="tns:DeleteItemResponse"/></message>
+  <portType name="ItemsPort">
+    <operation name="GetItem"><input message="tns:GetItemIn"/><output message="tns:GetItemOut"/></operation>
+    <operation name="ListItems"><input message="tns:ListItemsIn"/><output message="tns:ListItemsOut"/></operation>
+    <operation name="SaveItem"><input message="tns:SaveItemIn"/><output message="tns:SaveItemOut"/></operation>
+    <operation name="DeleteItem"><input message="tns:DeleteItemIn"/><output message="tns:DeleteItemOut"/></operation>
+  </portType>
+  <binding name="ItemsBinding" type="tns:ItemsPort">
+    <soap:binding style="document" transport="http://schemas.xmlsoap.org/soap/http"/>
+    <operation name="GetItem"><soap:operation soapAction="urn:items#GetItem"/>
+      <input><soap:body use="literal"/></input><output><soap:body use="literal"/></output></operation>
+    <operation name="ListItems"><soap:operation soapAction="urn:items#ListItems"/>
+      <input><soap:body use="literal"/></input><output><soap:body use="literal"/></output></operation>
+    <operation name="SaveItem"><soap:operation soapAction="urn:items#SaveItem"/>
+      <input><soap:body use="literal"/></input><output><soap:body use="literal"/></output></operation>
+    <operation name="DeleteItem"><soap:operation soapAction="urn:items#DeleteItem"/>
+      <input><soap:body use="literal"/></input><output><soap:body use="literal"/></output></operation>
+  </binding>
+  <service name="ItemsService">
+    <port name="ItemsPort" binding="tns:ItemsBinding">
+      <soap:address location="http://soap.test/items"/>
+    </port>
+  </service>
+</definitions>

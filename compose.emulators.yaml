@@ -1,0 +1,80 @@
+# Cloud emulators for integration tests:  docker compose -f compose.emulators.yaml up -d --build
+# Then: uv run pytest -m emulator
+# Open-source services with UIs: Garage (S3), RabbitMQ (:15672) and Keycloak (:8180).
+# Azure Service Bus is not included: its official emulator requires accepting
+# Microsoft EULAs (emulator and SQL Server); see docs/adapters.md.
+name: resource-engine-emulators
+
+services:
+  aws:
+    # Official AWS Emulator, built from the recipe in the AWS user guide.
+    build: docker/aws-emulator
+    image: resource-engine/aws-emulator
+    command: ["-p", "9297", "--auth", "off", "--telemetry", "off"]
+    environment:
+      EMULATOR_TELEMETRY: "off"
+    ports:
+      - "127.0.0.1:9297:9297"
+    volumes:
+      # The emulator writes its self-signed CA to <home>/.aws/emulator/9297/ca.pem
+      - ./.emulators/aws:/home/emulator/.aws/emulator
+    mem_limit: 2g
+    healthcheck:
+      test: ["CMD-SHELL", "curl -skf https://127.0.0.1:9297/__admin/health"]
+      interval: 2s
+      retries: 30
+
+  pubsub:
+    # Official Google Cloud CLI emulators image.
+    image: gcr.io/google.com/cloudsdktool/google-cloud-cli:emulators
+    command: ["gcloud", "beta", "emulators", "pubsub", "start", "--host-port=0.0.0.0:8085", "--project=resource-engine-test"]
+    ports:
+      - "127.0.0.1:8085:8085"
+
+  garage:
+    # Garage, S3-compatible object storage (AGPL; used as a dev tool only).
+    # After start: uv run python docker/garage/init.py (the S3 tests run it too).
+    image: dxflrs/garage:v2.4.1
+    ports:
+      - "127.0.0.1:3910:3900"
+    volumes:
+      - ./docker/garage/garage.toml:/etc/garage.toml:ro
+      - garage-meta:/var/lib/garage/meta
+      - garage-data:/var/lib/garage/data
+    healthcheck:
+      test: ["CMD", "/garage", "status"]
+      interval: 2s
+      retries: 30
+
+  rabbitmq:
+    # Management UI: http://127.0.0.1:15672 (guest / guest)
+    image: rabbitmq:4-management
+    ports:
+      - "127.0.0.1:5672:5672"
+      - "127.0.0.1:15672:15672"
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 3s
+      retries: 30
+
+  keycloak:
+    # Admin console: http://127.0.0.1:8180 (admin / admin). Realm "resource-engine".
+    image: quay.io/keycloak/keycloak:26.4
+    command: ["start-dev", "--import-realm", "--http-port=8180"]
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: admin
+      KC_BOOTSTRAP_ADMIN_PASSWORD: admin
+      KC_HEALTH_ENABLED: "true"
+    healthcheck:
+      # The image has no curl: ask the management port with bash's /dev/tcp.
+      test: ["CMD-SHELL", "exec 3<>/dev/tcp/127.0.0.1/9000 && printf 'GET /health/ready HTTP/1.0\r\n\r\n' >&3 && grep -q UP <&3"]
+      interval: 5s
+      retries: 40
+    ports:
+      - "127.0.0.1:8180:8180"
+    volumes:
+      - ./docker/keycloak:/opt/keycloak/data/import:ro
+
+volumes:
+  garage-meta:
+  garage-data:

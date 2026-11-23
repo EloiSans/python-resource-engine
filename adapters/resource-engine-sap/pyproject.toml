@@ -1,0 +1,19 @@
+[project]
+name = "resource-engine-sap"
+version = "0.1.0.dev0"
+description = "SAP BTP adapters for Resource Engine (SAP Event Mesh and Advanced Event Mesh publishers)."
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = ["resource-engine", "resource-engine-http"]
+
+[project.optional-dependencies]
+event-mesh = []
+advanced-event-mesh = []
+all = []
+
+[build-system]
+requires = ["hatchling>=1.25"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/resource_engine_sap"]

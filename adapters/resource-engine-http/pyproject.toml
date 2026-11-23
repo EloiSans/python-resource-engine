@@ -1,0 +1,19 @@
+[project]
+name = "resource-engine-http"
+version = "0.1.0.dev0"
+description = "HTTP adapters for Resource Engine: REST and SOAP repositories, webhook publisher, OAuth2 client credentials."
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = ["resource-engine", "httpx>=0.27"]
+
+[project.optional-dependencies]
+rest = []
+soap = ["zeep>=4.3"]
+all = ["zeep>=4.3"]
+
+[build-system]
+requires = ["hatchling>=1.25"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/resource_engine_http"]

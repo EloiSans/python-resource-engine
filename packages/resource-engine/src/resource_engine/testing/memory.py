@@ -1,0 +1,270 @@
+from __future__ import annotations
+
+import asyncio
+import copy
+import itertools
+import time
+from collections.abc import Sequence
+from dataclasses import dataclass, field
+from types import TracebackType
+from typing import TYPE_CHECKING, Any, Self
+
+from resource_engine.application.query import ListQuery, Page
+from resource_engine.domain.events import DomainEvent
+from resource_engine.messaging.envelope import EventEnvelope
+from resource_engine.ports.messaging import OutboxRecord, ReceivedMessage
+
+OUTBOX_TABLE = "__outbox__"
+INBOX_TABLE = "__inbox__"
+
+if TYPE_CHECKING:
+    from resource_engine.application.registry import ResourceRegistry
+
+
+class InMemoryStore:
+    """Process-local storage shared by the units of work created from it.
+
+    Each unit of work works on a deep copy and swaps it in on commit, so rollback
+    is simply discarding the copy. Not meant for concurrent production use.
+    """
+
+    def __init__(self, id_fields: dict[str, str] | None = None) -> None:
+        self.id_fields: dict[str, str] = dict(id_fields or {})
+        self.tables: dict[str, dict[Any, Any]] = {name: {} for name in self.id_fields}
+        self._counters: dict[str, itertools.count[int]] = {}
+
+    @classmethod
+    def from_registry(cls, registry: ResourceRegistry) -> InMemoryStore:
+        return cls({d.name: d.id_field for d in registry})
+
+    def next_id(self, resource: str) -> int:
+        counter = self._counters.setdefault(resource, itertools.count(1))
+        return next(counter)
+
+    def unit_of_work(self) -> InMemoryUnitOfWork:
+        """Use as ``uow_factory=store.unit_of_work``."""
+        return InMemoryUnitOfWork(self)
+
+    def outbox_records(self, *, published: bool | None = None) -> list[dict[str, Any]]:
+        rows = self.tables.get(OUTBOX_TABLE, {}).values()
+        return [copy.deepcopy(r) for r in rows if published is None or r["published"] == published]
+
+    def all(self, resource: str) -> list[Any]:
+        return [copy.deepcopy(e) for e in self.tables.get(resource, {}).values()]
+
+
+class InMemoryRepository[E]:
+    supports_conditions = True
+
+    def __init__(self, store: InMemoryStore, table: dict[Any, E], resource: str) -> None:
+        self._store = store
+        self._table = table
+        self._resource = resource
+        self._id_field = store.id_fields.get(resource, "id")
+
+    async def get(self, entity_id: Any) -> E | None:
+        return self._table.get(entity_id)
+
+    async def list(self, query: ListQuery) -> Page[E]:
+        from resource_engine.authz.conditions import matches
+
+        items = [
+            e
+            for e in self._table.values()
+            if all(getattr(e, k, None) == v for k, v in query.filters.items())
+            and matches(query.condition, e)
+        ]
+        for key in reversed(list(query.order_by)):
+            desc = key.startswith("-")
+            name = key.lstrip("-")
+            items.sort(
+                key=lambda e: (getattr(e, name, None) is None, getattr(e, name, None)), reverse=desc
+            )
+        total = len(items)
+        return Page(
+            items[query.offset : query.offset + query.limit], total, query.offset, query.limit
+        )
+
+    async def add(self, entity: E) -> E:
+        if getattr(entity, self._id_field, None) is None:
+            setattr(entity, self._id_field, self._store.next_id(self._resource))
+        self._table[getattr(entity, self._id_field)] = entity
+        return entity
+
+    async def update(self, entity: E) -> E:
+        self._table[getattr(entity, self._id_field)] = entity
+        return entity
+
+    async def delete(self, entity: E) -> None:
+        self._table.pop(getattr(entity, self._id_field), None)
+
+
+class InMemoryOutbox:
+    def __init__(self, table: dict[str, dict[str, Any]]) -> None:
+        self._table = table
+
+    async def add(self, envelopes: Sequence[EventEnvelope]) -> None:
+        for env in envelopes:
+            self._table[env.id] = {
+                "envelope": env,
+                "attempts": 0,
+                "last_error": None,
+                "published": False,
+            }
+
+    async def pending(self, limit: int) -> list[OutboxRecord]:
+        rows = [r for r in self._table.values() if not r["published"]][:limit]
+        return [OutboxRecord(r["envelope"], r["attempts"], r["last_error"]) for r in rows]
+
+    async def mark_published(self, ids: Sequence[str]) -> None:
+        for i in ids:
+            self._table[i]["published"] = True
+
+    async def mark_failed(self, ids: Sequence[str], error: str) -> None:
+        for i in ids:
+            self._table[i]["attempts"] += 1
+            self._table[i]["last_error"] = error
+
+
+class InMemoryInbox:
+    def __init__(self, table: dict[tuple[str, str], bool]) -> None:
+        self._table = table
+
+    async def processed(self, consumer: str, message_ids: Sequence[str]) -> set[str]:
+        return {i for i in message_ids if (consumer, i) in self._table}
+
+    async def mark_processed(self, consumer: str, message_ids: Sequence[str]) -> None:
+        for i in message_ids:
+            self._table[(consumer, i)] = True
+
+
+class InMemoryUnitOfWork:
+    def __init__(self, store: InMemoryStore) -> None:
+        self._store = store
+        self._working: dict[str, dict[Any, Any]] | None = None
+        self.committed = False
+
+    async def __aenter__(self) -> Self:
+        self._working = copy.deepcopy(self._store.tables)
+        self.committed = False
+        return self
+
+    async def __aexit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc: BaseException | None,
+        tb: TracebackType | None,
+    ) -> None:
+        if not self.committed:
+            await self.rollback()
+
+    def repository(self, resource_name: str) -> InMemoryRepository[Any]:
+        if self._working is None:
+            raise RuntimeError("Unit of work is not active")
+        table = self._working.setdefault(resource_name, {})
+        return InMemoryRepository(self._store, table, resource_name)
+
+    def outbox(self) -> InMemoryOutbox:
+        if self._working is None:
+            raise RuntimeError("Unit of work is not active")
+        return InMemoryOutbox(self._working.setdefault(OUTBOX_TABLE, {}))
+
+    def inbox(self) -> InMemoryInbox:
+        if self._working is None:
+            raise RuntimeError("Unit of work is not active")
+        return InMemoryInbox(self._working.setdefault(INBOX_TABLE, {}))
+
+    async def commit(self) -> None:
+        if self._working is None:
+            raise RuntimeError("Unit of work is not active")
+        self._store.tables = self._working
+        self._working = copy.deepcopy(self._working)
+        self.committed = True
+
+    async def rollback(self) -> None:
+        self._working = copy.deepcopy(self._store.tables)
+
+
+class RecordingMessagePublisher:
+    """In-memory ``MessagePublisher``. ``fail_ids`` simulates partial failures."""
+
+    def __init__(self) -> None:
+        self.messages: list[EventEnvelope] = []
+        self.fail_ids: set[str] = set()
+
+    async def publish(self, messages: Sequence[EventEnvelope]) -> None:
+        from resource_engine.errors import PublishFailed
+
+        failed = [m.id for m in messages if m.id in self.fail_ids]
+        self.messages.extend(m for m in messages if m.id not in self.fail_ids)
+        if failed:
+            raise PublishFailed(f"{len(failed)} messages rejected", failed_ids=failed)
+
+
+class RecordingEventPublisher:
+    """Keeps published events in ``self.events``; handy for assertions."""
+
+    def __init__(self) -> None:
+        self.events: list[DomainEvent] = []
+
+    async def publish(self, events: Sequence[DomainEvent]) -> None:
+        self.events.extend(events)
+
+    def names(self) -> list[str]:
+        return [e.name for e in self.events]
+
+
+@dataclass
+class _Queued:
+    envelope: EventEnvelope
+    deliveries: int = 0
+    visible_at: float = 0.0
+    in_flight: bool = False
+
+
+@dataclass
+class InMemoryQueue:
+    """In-process broker: a ``MessagePublisher`` and a ``MessageSource`` with
+    dead-lettering, delivery counts and retry delays. For tests and prototypes.
+
+    ``dead_letters`` keeps ``(envelope, reason)`` for dead-lettered messages.
+    """
+
+    messages: list[_Queued] = field(default_factory=list)
+    dead_letters: list[tuple[EventEnvelope, str]] = field(default_factory=list)
+
+    async def publish(self, messages: Sequence[EventEnvelope]) -> None:
+        self.messages.extend(_Queued(m) for m in messages)
+
+    def _ready(self) -> list[_Queued]:
+        now = time.monotonic()
+        return [q for q in self.messages if not q.in_flight and q.visible_at <= now]
+
+    async def receive(self, max_messages: int, wait_seconds: float) -> list[ReceivedMessage]:
+        deadline = time.monotonic() + wait_seconds
+        while not (ready := self._ready()) and time.monotonic() < deadline:
+            await asyncio.sleep(min(0.01, wait_seconds))
+        batch = ready[:max_messages]
+        for q in batch:
+            q.in_flight = True
+            q.deliveries += 1
+        return [ReceivedMessage(q.envelope, q, q.deliveries, None, q.envelope.id) for q in batch]
+
+    async def ack(self, messages: Sequence[ReceivedMessage]) -> None:
+        for m in messages:
+            if m.handle in self.messages:
+                self.messages.remove(m.handle)
+
+    async def retry(self, messages: Sequence[ReceivedMessage], delay_seconds: float) -> None:
+        for m in messages:
+            m.handle.in_flight = False
+            m.handle.visible_at = time.monotonic() + delay_seconds
+
+    async def dead_letter(self, messages: Sequence[ReceivedMessage], reason: str) -> None:
+        for m in messages:
+            await self.ack([m])
+            self.dead_letters.append((m.handle.envelope, reason))
+
+    @property
+    def pending(self) -> int:
+        return len(self.messages)

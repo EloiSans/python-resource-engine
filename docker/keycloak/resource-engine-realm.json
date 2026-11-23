@@ -1,0 +1,44 @@
+{
+  "realm": "resource-engine",
+  "enabled": true,
+  "accessTokenLifespan": 300,
+  "roles": {
+    "realm": [
+      {"name": "accountant", "description": "Dev role used by the tests"}
+    ]
+  },
+  "clients": [
+    {
+      "clientId": "resource-engine-service",
+      "name": "Resource Engine test service (DEV ONLY)",
+      "enabled": true,
+      "publicClient": false,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "resource-engine-dev-secret",
+      "serviceAccountsEnabled": true,
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "protocol": "openid-connect",
+      "protocolMappers": [
+        {
+          "name": "audience-resource-engine-api",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "config": {
+            "included.custom.audience": "resource-engine-api",
+            "access.token.claim": "true",
+            "id.token.claim": "false"
+          }
+        }
+      ]
+    }
+  ],
+  "users": [
+    {
+      "username": "service-account-resource-engine-service",
+      "enabled": true,
+      "serviceAccountClientId": "resource-engine-service",
+      "realmRoles": ["default-roles-resource-engine", "accountant"]
+    }
+  ]
+}

@@ -1,0 +1,14 @@
+[project]
+name = "resource-engine-rabbitmq"
+version = "0.1.0.dev0"
+description = "RabbitMQ adapters for Resource Engine (publisher with confirms, quorum-queue consumer source)."
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = ["resource-engine", "aio-pika>=9.4"]
+
+[build-system]
+requires = ["hatchling>=1.25"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/resource_engine_rabbitmq"]
