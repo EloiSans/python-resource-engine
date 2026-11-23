@@ -18,6 +18,12 @@ def render_ai_context(model: DocumentationModel) -> str:
             out.append(f"  filterable: {', '.join(r.filterable)}")
         if r.restricted_fields:
             out.append(f"  restricted_fields: {', '.join(r.restricted_fields)}")
+        if model.audit_resource and not r.audit:
+            out.append("  audit: off")
+        elif model.audit_resource and (r.audit_reads or r.audit_exclude):
+            flags = ["reads"] if r.audit_reads else []
+            flags += [f"exclude={'+'.join(r.audit_exclude)}"] if r.audit_exclude else []
+            out.append(f"  audit: {', '.join(flags)}")
         if r.state_machine:
             sm = r.state_machine
             edges = "; ".join(f"{t.source}-{t.event}->{t.target}" for t in sm.transitions)
@@ -47,4 +53,11 @@ def render_ai_context(model: DocumentationModel) -> str:
             "- fields: <resource>:read|write:<field>; hidden fields are omitted, writing a "
             "protected field fails with RE-E706, filtering/sorting by one with RE-E707"
         )
+    if model.audit_resource:
+        out += [
+            "",
+            "## Audit",
+            f"- every committed change and refused attempt is stored in {model.audit_resource} "
+            "(read-only, sensitive); restricted and audit_exclude fields are logged without values",
+        ]
     return "\n".join(out) + "\n"

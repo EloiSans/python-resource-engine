@@ -25,6 +25,7 @@ async def manager():
         authorizer=PolicyAuthorizer(authz, store.unit_of_work),
         blob_store=InMemoryBlobStore(),
         services={"notifier": _Silent()},
+        audit=True,
     )
     await seed(manager, ADMIN)
     return manager
@@ -108,3 +109,26 @@ async def test_conditional_field_rule(manager, monkeypatch):
     await manager.transition("invoices", invoice.id, "submit", actor=clerk)
     with pytest.raises(FieldNotWritable):
         await manager.update("invoices", invoice.id, {"amount": 30}, actor=clerk)
+
+
+async def test_audit_trail(manager):
+    from resource_engine import ListQuery
+
+    invoice_id = await submitted(manager, 50_000)
+    with pytest.raises(PermissionDenied):  # above the approvers' limit
+        await manager.transition("invoices", invoice_id, "approve", actor=APPROVER)
+    await manager.transition("invoices", invoice_id, "approve", actor=ADMIN)
+    history = await manager.list(
+        "audit_log",
+        ListQuery(filters={"resource": "invoices", "entity_id": str(invoice_id)}, order_by=["at"]),
+        actor=ADMIN,
+    )
+    rows = [(e.operation, e.action, e.outcome, e.actor) for e in history.items]
+    assert rows[-2:] == [
+        ("transition", "transition:approve", "denied", APPROVER.id),
+        ("transition", "transition:approve", "ok", ADMIN.id),
+    ]
+    assert ("attach", "attach:signed_pdf", "ok", ADMIN.id) in rows
+    assert history.items[-1].changes == {"status": {"from": "pending", "to": "approved"}}
+    with pytest.raises(PermissionDenied):
+        await manager.list("audit_log", actor=ACCOUNTANT)

@@ -92,7 +92,7 @@ first and the broker is the safety net.
 
 | Adapter | Package | Notes | Status |
 |---|---|---|---|
-| SQLAlchemy 2 (async) | `resource-engine-sqlalchemy` | Covers RDS/Aurora, Azure SQL / Database for PostgreSQL, Cloud SQL / AlloyDB. Outbox with `SKIP LOCKED`. | experimental |
+| SQLAlchemy 2 (async) | `resource-engine-sqlalchemy` | Covers RDS/Aurora, Azure SQL / Database for PostgreSQL, Cloud SQL / AlloyDB. Outbox with `SKIP LOCKED`; tables for documents, permissions and the audit trail. | experimental |
 | In-memory | `resource-engine` (`resource_engine.testing`) | Tests and prototypes. | experimental |
 | REST API | `resource-engine-http` | `RestRepository` / `rest_unit_of_work_factory`. Not transactional (see below). | experimental |
 | SOAP service | `resource-engine-http[soap]` | `SoapRepository` over `SoapService` (zeep). Not transactional. | experimental |

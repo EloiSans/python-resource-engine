@@ -27,6 +27,8 @@ Documents
 
 Filtres: `owner_resource`, `owner_id`, `slot`, `status` · Ordenació: `created_at`, `filename`, `size`
 
+Auditoria: s'auditen els canvis i els intents denegats.
+
 ## Màquina d'estats
 
 `resource_engine.documents.machine.DocumentStateMachine` — camp `status`

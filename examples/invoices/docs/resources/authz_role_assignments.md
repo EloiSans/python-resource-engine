@@ -21,6 +21,8 @@ Permissions
 
 Filtres: `role`, `principal`, `group` · Ordenació: —
 
+Auditoria: s'auditen els canvis i els intents denegats.
+
 ## Hooks del cicle de vida
 
 | Punt | Hook | Efectes externs | Descripció |

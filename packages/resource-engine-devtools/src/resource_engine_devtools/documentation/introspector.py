@@ -168,6 +168,9 @@ def _resource_doc(d: ResourceDefinition) -> ResourceDoc:
         filterable=list(d.filterable),
         sortable=list(d.sortable),
         restricted_fields=list(d.restricted_fields),
+        audit=getattr(d.resource_cls, "audit", True),
+        audit_reads=getattr(d.resource_cls, "audit_reads", False),
+        audit_exclude=list(getattr(d.resource_cls, "audit_exclude", ())),
         documents=[
             SlotDoc(
                 name=slot.name,
@@ -212,5 +215,6 @@ def introspect(registry: ResourceRegistry, authz: Any = None) -> DocumentationMo
         resources=[_resource_doc(d) for d in registry],
         engine_version=resource_engine.__version__,
         actions=documented,
+        audit_resource="audit_log" if "audit_log" in registry else None,
         system_roles=roles,
     )

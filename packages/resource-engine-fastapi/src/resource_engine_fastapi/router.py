@@ -100,7 +100,10 @@ def build_resource_router(
         filter_params = []
         for fld in definition.filterable:
             annotation = read.model_fields[fld].annotation if read else str
-            filter_params.append(_param(fld, annotation | None, Query(None)))  # type: ignore[operator]
+            # internal name, public alias: a field may be called like a parameter (actor)
+            filter_params.append(
+                _param(f"filter__{fld}", annotation | None, Query(None, alias=fld))  # type: ignore[operator]
+            )
 
         async def list_endpoint(**kw: Any) -> Any:
             order = kw.pop("order_by")
@@ -108,7 +111,11 @@ def build_resource_router(
                 offset=kw.pop("offset"),
                 limit=kw.pop("limit"),
                 order_by=[o for o in (order or "").split(",") if o],
-                filters={k: v for k, v in kw.items() if k != "actor" and v is not None},
+                filters={
+                    k.removeprefix("filter__"): v
+                    for k, v in kw.items()
+                    if k.startswith("filter__") and v is not None
+                },
             )
             page = await manager.list(name, query, actor=kw.get("actor"))
             return _respond_page(

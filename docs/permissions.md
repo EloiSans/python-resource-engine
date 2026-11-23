@@ -194,7 +194,9 @@ Rules enforced on changes:
 roles × actions (open field actions are left out; restricted ones are listed), when `[tool.resource-engine] authz = "pkg.bootstrap:authz"` is
 set. Policies are data: list them with `GET /authz_policies`.
 
+Refused attempts are stored in the [audit trail](audit.md) when it is enabled.
+
 ## Not yet
 
-Decision audit log storage, and adapters for external policy engines (Cedar, OPA,
+Adapters for external policy engines (Cedar, OPA,
 OpenFGA) behind the `Authorizer` port.

@@ -2,7 +2,14 @@
 
 from __future__ import annotations
 
-from resource_engine_sqlalchemy import authz_tables, documents_table, map_authz, map_documents
+from resource_engine_sqlalchemy import (
+    audit_table,
+    authz_tables,
+    documents_table,
+    map_audit,
+    map_authz,
+    map_documents,
+)
 from sqlalchemy import Column, Date, Integer, MetaData, Numeric, String, Table, Text
 from sqlalchemy.orm import registry as orm_registry
 
@@ -25,6 +32,7 @@ invoices_table = Table(
 
 documents = documents_table(metadata)
 authz = authz_tables(metadata)
+audit_log = audit_table(metadata)
 
 _mapped = False
 
@@ -36,4 +44,5 @@ def map_entities() -> None:
         mapper_registry.map_imperatively(Invoice, invoices_table)
         map_documents(mapper_registry, documents)
         map_authz(mapper_registry, authz)
+        map_audit(mapper_registry, audit_log)
         _mapped = True

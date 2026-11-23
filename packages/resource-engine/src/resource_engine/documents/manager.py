@@ -352,7 +352,7 @@ class DocumentManager:
             )
             await hooks.run(HookPoint.AFTER_ATTACH, ctx, slot)
             ctx.result = DocumentRead.model_validate(doc)
-            await m.delivery.before_commit(ctx, uow)
+            await m._before_commit(ctx, uow)
             await uow.commit()
         await m._after_commit(ctx, slot)
         return ctx.result
@@ -456,7 +456,7 @@ class DocumentManager:
             await self._repo(ctx).update(doc)
             await ctx.resource.dispatcher.run(HookPoint.AFTER_ATTACH, ctx, slot_def.name)
             ctx.result = DocumentRead.model_validate(doc)
-            await m.delivery.before_commit(ctx, uow)
+            await m._before_commit(ctx, uow)
             await uow.commit()
         await m._after_commit(ctx, slot_def.name)
         return ctx.result
@@ -485,7 +485,7 @@ class DocumentManager:
             await definition.dispatcher.run(HookPoint.BEFORE_DETACH, ctx, doc.slot)
             await self.discard_in(ctx, doc)
             await definition.dispatcher.run(HookPoint.AFTER_DETACH, ctx, doc.slot)
-            await m.delivery.before_commit(ctx, uow)
+            await m._before_commit(ctx, uow)
             await uow.commit()
         await m._after_commit(ctx, doc.slot)
 
@@ -613,7 +613,7 @@ class DocumentManager:
                         slot=doc.slot,
                     )
                 )
-            await m.delivery.before_commit(ctx, uow)
+            await m._before_commit(ctx, uow)
             await uow.commit()
         await m._after_commit(ctx)
         return DocumentRead.model_validate(doc)

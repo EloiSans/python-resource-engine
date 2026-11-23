@@ -75,6 +75,10 @@ class Resource:
         restricted_fields: Fields that need an explicit grant to be read or
             written (``<resource>:read:<field>`` / ``<resource>:write:<field>``)
             when an authorizer is configured.
+        audit: ``False`` leaves the resource out of the audit trail.
+        audit_reads: Also audit ``get`` and ``list``.
+        audit_exclude: Fields recorded as changed without their values (restricted
+            fields always are).
     """
 
     name: ClassVar[str | None] = None
@@ -96,6 +100,9 @@ class Resource:
     expose_transitions: ClassVar[bool] = True
     authz_wildcards: ClassVar[bool] = True
     restricted_fields: ClassVar[Sequence[str]] = ()
+    audit: ClassVar[bool] = True
+    audit_reads: ClassVar[bool] = False
+    audit_exclude: ClassVar[Sequence[str]] = ()
 
     # --- Mapping between schemas and entities. Override when needed. ---
 
@@ -302,6 +309,11 @@ class ResourceDefinition:
         for role in ("create", "update"):
             if role in schemas:
                 known_fields |= set(schemas[role].model_fields)
+        for fld in resource_cls.audit_exclude:
+            if fld not in known_fields:
+                raise ConfigurationError(
+                    f"{owner}: audit_exclude field {fld!r} is not part of the read or write schemas"
+                )
         for fld in resource_cls.restricted_fields:
             if fld == resource_cls.id_field:
                 raise ConfigurationError(f"{owner}: the id field cannot be restricted")

@@ -15,7 +15,7 @@ This order is part of the public contract and is covered by tests
 | 6 | Before mutation | yes | `before_create` · `before_update` · `before_delete` · `before_transition[:event]` · `before_action[:name]` · `before_attach[:slot]` · `before_detach[:slot]` |
 | 7 | Mutate: build+`add` / `apply_update`+`update` / `delete` / fire the state machine+`update` / `Action.execute` / store blob + `Document` row | yes | |
 | 8 | After mutation | yes | `after_create` · `after_update` · `after_delete` · `after_transition[:event]` · `after_action[:name]` · `after_attach[:slot]` · `after_detach[:slot]` |
-| 9 | Build the result (read schema, without the fields the caller may not read), stage events (outbox), commit | yes | |
+| 9 | Build the result (read schema, without the fields the caller may not read), write the audit entry, stage events (outbox), commit | yes | |
 | 10 | Post-commit | no | `ctx.on_commit` callbacks, `after_commit` hooks, then event delivery |
 
 Before a transition's hooks (step 6), slots with `required_for` that event need an
@@ -26,6 +26,9 @@ On create, a resource with a state machine gets its initial state before step 6,
 and the built entity is authorized then. `list` applies the caller's row filter,
 refuses filters and sorting on fields the caller may not read (RE-E707) and omits
 hidden fields row by row. Hooks, events and repositories always see full records.
+
+Refused attempts (steps 2 and 5) are written to the audit trail on their own,
+since their transaction rolls back; see [audit](audit.md).
 
 Any exception in steps 3–9 aborts the operation; from step 4 on it also rolls the
 transaction back, and no events are published. Exceptions raised by hooks get a

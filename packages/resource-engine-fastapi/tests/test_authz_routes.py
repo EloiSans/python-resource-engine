@@ -81,13 +81,17 @@ def api():
     registry.register(NoteResource)
     registry.register(ProfileResource)
     registry.register_authz()
+    registry.register_audit()
     store = InMemoryStore.from_registry(registry)
     config = AuthzConfig(
         system_roles=[SystemRole.admin(), SystemRole.viewer()],
         role_source=IdpRoleSource({"admins": "admin", "viewers": "viewer", "writers": "writer"}),
     )
     manager = ResourceManager(
-        registry, store.unit_of_work, authorizer=PolicyAuthorizer(config, store.unit_of_work)
+        registry,
+        store.unit_of_work,
+        authorizer=PolicyAuthorizer(config, store.unit_of_work),
+        audit=True,
     )
     from fastapi import FastAPI
 
@@ -178,3 +182,15 @@ async def test_hidden_fields_are_omitted_over_http(api):
         "conditional": [],
     }
     assert "profiles:read:name" not in me["actions"]
+
+
+async def test_record_history_over_http(api):
+    admin, viewer, writer = api("admin"), api("viewer"), api("writer")
+    await admin.post("/notes", json={"text": "hi", "owner": "admin"})
+    await writer.post("/notes", json={"text": "no", "owner": "wil"})  # refused
+    history = (await admin.get("/audit_log", params={"resource": "notes", "entity_id": "1"})).json()
+    assert [e["operation"] for e in history["items"]] == ["create"]
+    assert history["items"][0]["changes"]["text"] == {"to": "hi"}
+    denied = (await admin.get("/audit_log", params={"outcome": "denied"})).json()
+    assert denied["items"][0]["actor"] == USERS["writer"].id
+    assert (await viewer.get("/audit_log")).status_code == 403

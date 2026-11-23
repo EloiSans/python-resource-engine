@@ -55,6 +55,7 @@ from resource_engine.errors import (
     ValidationFailed,
 )
 from resource_engine.messaging.delivery import AfterCommitDelivery, EventDelivery
+from resource_engine.ports.audit import AuditSink
 from resource_engine.ports.authz import Authorizer
 from resource_engine.ports.event_publisher import EventPublisher, NullEventPublisher
 from resource_engine.ports.storage import BlobStore
@@ -86,6 +87,7 @@ class ResourceManager:
         blob_store: BlobStore | None = None,
         documents_resource: str = "documents",
         authorizer: Authorizer | None = None,
+        audit: AuditSink | bool | None = None,
     ) -> None:
         self.registry = registry
         self.uow_factory = uow_factory
@@ -101,6 +103,18 @@ class ResourceManager:
             if bind is not None:
                 bind(registry)
             self.services.setdefault("authz", authorizer)
+        if audit is True:
+            from resource_engine.audit.sink import RepositoryAuditSink
+
+            audit = RepositoryAuditSink(uow_factory)
+        self.audit: AuditSink | None = audit or None
+        target = getattr(self.audit, "resource", None)
+        if target is not None and target not in {d.name for d in registry}:
+            raise ConfigurationError(
+                f"The audit sink writes to {target!r}, which is not registered",
+                hint="Call registry.register_audit() (and map its table with SQLAlchemy).",
+                doc="docs/audit.md#setup",
+            )
         self.documents: DocumentManager | None = None
         if blob_store is not None:
             from resource_engine.documents.manager import DocumentManager
@@ -198,11 +212,13 @@ class ResourceManager:
                 getattr(ctx.actor, "id", None),
                 decision.reason,
             )
-            raise PermissionDenied(
+            error = PermissionDenied(
                 f"Not allowed: {ctx.resource.name}:{action}",
                 hint="Ask an administrator for a role or policy that grants it.",
                 details={"action": f"{ctx.resource.name}:{action}", "reason": decision.reason},
             )
+            await self._audit_denied(ctx, action, error)
+            raise error
 
     async def _gate_record(
         self, ctx: OperationContext, action: str, entity: Any, *, input: Any = ...
@@ -215,10 +231,16 @@ class ResourceManager:
                 ctx.actor, f"{ctx.resource.name}:get", resource=entity
             )
             if visible.allowed is not True:
-                raise EntityNotFound(
+                error = EntityNotFound(
                     f"{ctx.resource.name} {ctx.entity_id!r} does not exist",
                     details={"resource": ctx.resource.name, "id": ctx.entity_id},
                 )
+                await self._audit_denied(
+                    ctx,
+                    action,
+                    PermissionDenied("record not visible", details={"reason": "not visible"}),
+                )
+                raise error
         if action != "get":
             await self._gate(ctx, action, resource=entity, input=input)
 
@@ -259,6 +281,71 @@ class ResourceManager:
                 return False
             return (await self.authorizer.check(actor, name, resource=entity)).allowed is True
 
+    # -------------------------------------------------------------------- audit
+
+    def _audited(self, ctx: OperationContext) -> bool:
+        return self.audit is not None and getattr(ctx.resource.resource_cls, "audit", True)
+
+    async def _actor_roles(self, actor: Any) -> list[str]:
+        from resource_engine.authz.evaluator import SystemPrincipal
+        from resource_engine.ports.identity import Principal
+
+        if isinstance(actor, SystemPrincipal) or not isinstance(actor, Principal):
+            return []
+        roles_of = getattr(self.authorizer, "roles_of", None)
+        try:
+            return sorted(await roles_of(actor)) if roles_of else sorted(actor.roles)
+        except Exception:  # pragma: no cover - roles are informative here
+            logger.exception("Could not resolve roles of %s for the audit trail", actor.id)
+            return sorted(actor.roles)
+
+    async def _before_commit(self, ctx: OperationContext, uow: UnitOfWork) -> None:
+        """Step 9, before commit: the audit entry (same transaction), then events."""
+        if self._audited(ctx):
+            from resource_engine.audit.recorder import entry_for
+
+            entry = entry_for(ctx, roles=await self._actor_roles(ctx.actor))
+            await self.audit.record([entry], uow=uow)  # type: ignore[union-attr]
+        await self.delivery.before_commit(ctx, uow)
+
+    async def _audit_alone(self, ctx: OperationContext, **kw: Any) -> None:
+        """Entries outside the operation's transaction (denials, reads): best
+        effort, never changes the operation's outcome."""
+        if not self._audited(ctx):
+            return
+        from resource_engine.audit.recorder import entry_for
+
+        try:
+            entry = entry_for(ctx, roles=await self._actor_roles(ctx.actor), **kw)
+            await self.audit.record([entry])  # type: ignore[union-attr]
+        except Exception:
+            logger.exception(
+                "Writing the audit entry failed for %s (correlation_id=%s)",
+                ctx.resource.name,
+                ctx.correlation_id,
+            )
+
+    async def _audit_denied(self, ctx: OperationContext, action: str, error: Exception) -> None:
+        await self._audit_alone(
+            ctx,
+            outcome="denied",
+            action=action,
+            details={
+                "code": getattr(error, "code", type(error).__name__),
+                "reason": (getattr(error, "details", None) or {}).get("reason") or str(error),
+                **(
+                    {"fields": error.details["fields"]}
+                    if isinstance(getattr(error, "details", None), dict)
+                    and "fields" in error.details
+                    else {}
+                ),
+            },
+        )
+
+    async def _audit_read(self, ctx: OperationContext, details: dict[str, Any]) -> None:
+        if getattr(ctx.resource.resource_cls, "audit_reads", False):
+            await self._audit_alone(ctx, details=details)
+
     async def _field_rules(self, ctx: OperationContext, mode: str) -> Any:
         """Prepared field rules (``None`` when no field can be blocked)."""
         prepare = getattr(self.authorizer, "field_rules", None)
@@ -294,11 +381,13 @@ class ResourceManager:
         sent = set(data.model_dump(exclude_unset=True)) if isinstance(data, BaseModel) else set()
         blocked = sorted(sent & rules.decide(resource=entity, input=data).blocked)
         if blocked:
-            raise FieldNotWritable(
+            error = FieldNotWritable(
                 f"Not allowed to write {', '.join(blocked)} of {ctx.resource.name}",
                 hint="GET /authz/me lists the fields you may write.",
                 details={"resource": ctx.resource.name, "fields": blocked},
             )
+            await self._audit_denied(ctx, ctx.operation, error)
+            raise error
 
     async def _gate_query(self, ctx: OperationContext, query: ListQuery, rules: Any) -> None:
         """Filtering or sorting by hidden fields would reveal them (RE-E707)."""
@@ -307,10 +396,12 @@ class ResourceManager:
         used = set(query.filters) | {o.lstrip("-") for o in query.order_by}
         blocked = sorted(used & rules.decide().blocked)
         if blocked:
-            raise FieldNotReadable(
+            error = FieldNotReadable(
                 f"Not allowed to filter or sort {ctx.resource.name} by {', '.join(blocked)}",
                 details={"resource": ctx.resource.name, "fields": blocked},
             )
+            await self._audit_denied(ctx, "list", error)
+            raise error
 
     @asynccontextmanager
     async def _transaction(self, ctx: OperationContext) -> AsyncIterator[UnitOfWork]:
@@ -391,7 +482,18 @@ class ResourceManager:
             if scoped is None:
                 return Page([], 0, query.offset, query.limit)
             page = await ctx.repository().list(scoped)
-            return page.map(lambda e: self._to_read(ctx, e, rules))
+            result = page.map(lambda e: self._to_read(ctx, e, rules))
+        await self._audit_read(
+            ctx,
+            {
+                "filters": {k: str(v) for k, v in query.filters.items()},
+                "order_by": list(query.order_by),
+                "offset": query.offset,
+                "returned": len(result.items),
+                "total": result.total,
+            },
+        )
+        return result
 
     async def get(self, resource: ResourceRef, entity_id: Any, *, actor: Any = None) -> Any:
         definition = self.registry.get(resource)
@@ -402,7 +504,9 @@ class ResourceManager:
             ctx.uow = uow
             entity = await self._load(ctx)
             await self._gate_record(ctx, "get", entity)
-            return self._to_read(ctx, entity, await self._read_rules(ctx))
+            result = self._to_read(ctx, entity, await self._read_rules(ctx))
+        await self._audit_read(ctx, {})
+        return result
 
     # -------------------------------------------------------------------- write
 
@@ -427,7 +531,7 @@ class ResourceManager:
             ctx.record_event(ResourceCreated(resource=definition.name, entity_id=ctx.entity_id))
             await hooks.run(HookPoint.AFTER_CREATE, ctx)
             ctx.result = self._to_read(ctx, ctx.entity, await self._read_rules(ctx))
-            await self.delivery.before_commit(ctx, uow)
+            await self._before_commit(ctx, uow)
             await uow.commit()
         await self._after_commit(ctx)
         return ctx.result
@@ -460,7 +564,7 @@ class ResourceManager:
             )
             await hooks.run(HookPoint.AFTER_UPDATE, ctx)
             ctx.result = self._to_read(ctx, ctx.entity, await self._read_rules(ctx))
-            await self.delivery.before_commit(ctx, uow)
+            await self._before_commit(ctx, uow)
             await uow.commit()
         await self._after_commit(ctx)
         return ctx.result
@@ -480,7 +584,7 @@ class ResourceManager:
                 await self.documents.cascade(ctx)
             ctx.record_event(ResourceDeleted(resource=definition.name, entity_id=entity_id))
             await hooks.run(HookPoint.AFTER_DELETE, ctx)
-            await self.delivery.before_commit(ctx, uow)
+            await self._before_commit(ctx, uow)
             await uow.commit()
         await self._after_commit(ctx)
 
@@ -542,7 +646,7 @@ class ResourceManager:
             )
             await hooks.run(HookPoint.AFTER_TRANSITION, ctx, event)
             ctx.result = self._to_read(ctx, ctx.entity, await self._read_rules(ctx))
-            await self.delivery.before_commit(ctx, uow)
+            await self._before_commit(ctx, uow)
             await uow.commit()
         await self._after_commit(ctx, event)
         return ctx.result
@@ -618,7 +722,7 @@ class ResourceManager:
                 ctx.result = self._to_read(ctx, ctx.entity, await self._read_rules(ctx))
             else:
                 ctx.result = result
-            await self.delivery.before_commit(ctx, uow)
+            await self._before_commit(ctx, uow)
             await uow.commit()
         await self._after_commit(ctx, action)
         return ctx.result

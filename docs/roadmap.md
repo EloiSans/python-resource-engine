@@ -38,11 +38,15 @@
 - Field-level permissions: `<resource>:read|write:<field>` actions, restricted
   fields (code or front end), hidden fields omitted, protected writes rejected
   (RE-E706), no filtering or sorting by hidden fields (RE-E707).
+- Audit trail: `AuditSink` port; read-only `audit_log` resource written in the
+  same transaction as each change; refused attempts; opt-in reads; masking of
+  restricted and excluded fields; SQLAlchemy table; logging and composite sinks.
 
 ## Next
 
-- Permissions: decision audit log storage, Cedar / OPA / OpenFGA adapters behind
-  the `Authorizer` port.
+- Permissions: Cedar / OPA / OpenFGA adapters behind the `Authorizer` port.
+- Audit: retention and purge, tamper evidence, external sinks (OpenTelemetry, SIEM).
+- Tenant scoping enforced by repositories, independent of policies.
 - `check`: hook/effect mismatches.
 - AI skill packaged with devtools (`SKILL.md`, references, anti-patterns) and
   `resource-engine ai install` / `ai sync` with managed `AGENTS.md` block and lock file.

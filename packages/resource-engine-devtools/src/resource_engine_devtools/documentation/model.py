@@ -109,6 +109,9 @@ class ResourceDoc:
     sortable: list[str] = field(default_factory=list)
     documents: list[SlotDoc] = field(default_factory=list)
     restricted_fields: list[str] = field(default_factory=list)
+    audit: bool = True
+    audit_reads: bool = False
+    audit_exclude: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -125,6 +128,7 @@ class DocumentationModel:
     engine_version: str
     actions: list[str] = field(default_factory=list)
     system_roles: list[SystemRoleDoc] = field(default_factory=list)
+    audit_resource: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)

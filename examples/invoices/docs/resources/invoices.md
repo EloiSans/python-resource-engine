@@ -38,6 +38,8 @@ Filtres: `status`, `customer` · Ordenació: `id`, `amount`, `issue_date`
 
 Camps restringits: `notes` — cal una concessió explícita (`invoices:read:<camp>`, `invoices:write:<camp>`); si no, s'ometen de les respostes.
 
+Auditoria: s'auditen els canvis i els intents denegats; sense valors per a `notes`.
+
 ## Màquina d'estats
 
 `invoices.domain.state_machine.InvoiceStateMachine` — camp `status`

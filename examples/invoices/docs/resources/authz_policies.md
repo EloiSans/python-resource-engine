@@ -24,6 +24,8 @@ Permissions
 
 Filtres: `effect`, `enabled`, `name` · Ordenació: `name`, `created_at`, `updated_at`
 
+Auditoria: s'auditen els canvis i els intents denegats.
+
 ## Hooks del cicle de vida
 
 | Punt | Hook | Efectes externs | Descripció |

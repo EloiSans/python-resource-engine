@@ -53,3 +53,5 @@ Els rols de sistema es defineixen al codi i no es poden modificar des del front-
 | `authz_role_assignments:get` | ✓ |  |
 | `authz_role_assignments:create` | ✓ |  |
 | `authz_role_assignments:delete` | ✓ |  |
+| `audit_log:list` | ✓ |  |
+| `audit_log:get` | ✓ |  |

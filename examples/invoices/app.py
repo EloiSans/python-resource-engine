@@ -45,7 +45,10 @@ def create_app(engine: AsyncEngine | None = None) -> FastAPI:
 
     app = FastAPI(title="Invoices (Resource Engine example)", lifespan=lifespan_with_store)
     manager = ResourceManager(
-        registry, unit_of_work_factory(session_factory, registry), blob_store=blob_store
+        registry,
+        unit_of_work_factory(session_factory, registry),
+        blob_store=blob_store,
+        audit=True,  # audit_log table, same transaction as each change
     )
     mount_resources(app, registry, manager)
     return app

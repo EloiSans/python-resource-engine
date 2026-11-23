@@ -1,10 +1,12 @@
-"""SQLAlchemy adapter over ``AsyncSession``: repositories, unit of work, outbox, inbox, documents.
+"""SQLAlchemy adapter over ``AsyncSession``: repositories, unit of work, outbox, inbox,
+documents, permissions and the audit trail.
 
 Domain entities stay plain classes; map them with SQLAlchemy's imperative mapping
 (``registry.map_imperatively(Invoice, invoices_table)``) inside the module's
 infrastructure layer, so the domain never imports SQLAlchemy.
 """
 
+from resource_engine_sqlalchemy.audit import audit_table, map_audit
 from resource_engine_sqlalchemy.authz import AuthzTables, authz_tables, map_authz
 from resource_engine_sqlalchemy.documents import documents_table, map_documents
 from resource_engine_sqlalchemy.inbox import SqlAlchemyInbox, inbox_table
@@ -18,9 +20,11 @@ __all__ = [
     "SqlAlchemyOutbox",
     "SqlAlchemyRepository",
     "SqlAlchemyUnitOfWork",
+    "audit_table",
     "authz_tables",
     "documents_table",
     "inbox_table",
+    "map_audit",
     "map_authz",
     "map_documents",
     "outbox_table",

@@ -26,6 +26,7 @@ so the same class is used by the domain, the in-memory adapter and SQLAlchemy.
 - `BlobStore` (+ `SupportsPresignedUrls`): document contents (`put`, `open`, `head`, `delete`, `list`).
 - `Authenticator` → `Principal`: who is calling (identity providers implement it).
 - `Authorizer`: may the principal perform an action (on a record); `scope` gives the row filter. `PolicyAuthorizer` is the built-in one.
+- `AuditSink`: where audit entries go (`RepositoryAuditSink` writes the `audit_log` resource in the operation's transaction).
 
 ## Infrastructure services and the lifecycle
 

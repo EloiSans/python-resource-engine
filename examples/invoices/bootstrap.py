@@ -11,6 +11,7 @@ registry = ResourceRegistry()
 registry.register(InvoiceResource)
 registry.register_documents()
 registry.register_authz()
+registry.register_audit()
 
 # Permissions: system roles are fixed here; everything else is policies created
 # from the front end (see invoices.authz for the seed used by tests and demos).

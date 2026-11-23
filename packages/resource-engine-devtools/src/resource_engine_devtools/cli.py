@@ -84,6 +84,11 @@ def _describe(registry: ResourceRegistry, name: str | None) -> list[dict[str, An
                     if a.resource == d.name and a.kind not in ("read", "write")
                 ],
                 "restricted_fields": list(d.restricted_fields),
+                "audit": {
+                    "enabled": getattr(d.resource_cls, "audit", True),
+                    "reads": getattr(d.resource_cls, "audit_reads", False),
+                    "exclude": list(getattr(d.resource_cls, "audit_exclude", ())),
+                },
                 "documents": [
                     {
                         "slot": s.name,
@@ -123,6 +128,12 @@ def cmd_inspect(args: argparse.Namespace) -> int:
         lines.append(f"  permissions: {', '.join(r['permissions'])}")
         if r["restricted_fields"]:
             lines.append(f"  restricted fields: {', '.join(r['restricted_fields'])}")
+        audit = r["audit"]
+        if not audit["enabled"] or audit["reads"] or audit["exclude"]:
+            parts = ["off"] if not audit["enabled"] else []
+            parts += ["reads"] if audit["reads"] else []
+            parts += [f"exclude {', '.join(audit['exclude'])}"] if audit["exclude"] else []
+            lines.append(f"  audit:      {'; '.join(parts)}")
         for s in r["documents"]:
             required = f", required for {'/'.join(s['required_for'])}" if s["required_for"] else ""
             lines.append(f"  document:   {s['slot']} ({', '.join(s['content_types'])}{required})")

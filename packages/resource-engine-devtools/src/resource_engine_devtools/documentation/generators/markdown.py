@@ -25,7 +25,7 @@ def _cell(value: str | None) -> str:
     return (value or "").replace("|", "\\|").replace("\n", " ")
 
 
-def render_resource(r: ResourceDoc) -> str:
+def render_resource(r: ResourceDoc, audit_resource: str | None = None) -> str:
     out = [f"# {r.name}", "", f"`{r.qualname}` — entitat `{r.model}`", ""]
     out += _text(r.doc, heading="##")
 
@@ -55,6 +55,18 @@ def render_resource(r: ResourceDoc) -> str:
             + f" — cal una concessió explícita (`{r.name}:read:<camp>`, "
             f"`{r.name}:write:<camp>`); si no, s'ometen de les respostes.",
         ]
+    if audit_resource and r.name != audit_resource:
+        if not r.audit:
+            audit_note = "no s'audita."
+        else:
+            hidden = sorted({*r.restricted_fields, *r.audit_exclude})
+            audit_note = "s'auditen els canvis i els intents denegats" + (
+                ", també les lectures" if r.audit_reads else ""
+            )
+            if hidden:
+                audit_note += f"; sense valors per a {', '.join(f'`{f}`' for f in hidden)}"
+            audit_note += "."
+        out += ["", f"Auditoria: {audit_note}"]
 
     if r.state_machine:
         sm = r.state_machine
@@ -134,7 +146,9 @@ def render_resource(r: ResourceDoc) -> str:
 
 def render_markdown(model: DocumentationModel) -> dict[str, str]:
     """Return ``{relative_path: content}``."""
-    pages = {f"resources/{r.name}.md": render_resource(r) for r in model.resources}
+    pages = {
+        f"resources/{r.name}.md": render_resource(r, model.audit_resource) for r in model.resources
+    }
     index = ["# Catàleg de recursos", "", "| Recurs | Descripció | Operacions |", "|---|---|---|"]
     for r in model.resources:
         ops = ", ".join(f"`{o.name}`" for o in r.operations)

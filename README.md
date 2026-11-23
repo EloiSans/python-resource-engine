@@ -18,7 +18,7 @@ moved to its own repository without code changes.
 |---|---|---|---|
 | `resource-engine` | `resource_engine` | pydantic, python-statemachine | Core: `Resource`, registry, hooks, `ResourceManager`, documents, messaging, ports, in-memory adapters |
 | `resource-engine-fastapi` | `resource_engine_fastapi` | core, FastAPI | HTTP adapter: generated routes, document routes, bearer auth, error mapping, event push endpoint |
-| `resource-engine-sqlalchemy` | `resource_engine_sqlalchemy` | core, SQLAlchemy 2 (async) | Persistence adapter: repository, unit of work, outbox, inbox, documents table |
+| `resource-engine-sqlalchemy` | `resource_engine_sqlalchemy` | core, SQLAlchemy 2 (async) | Persistence adapter: repository, unit of work, outbox, inbox, documents, permission and audit tables |
 | `resource-engine-devtools` | `resource_engine_devtools` | core, docstring-parser | `resource-engine` CLI: inspect, check, docs, AI context |
 | `resource-engine-aws` | `resource_engine_aws` | core, `[sqs,sns]` → aiobotocore | SQS/SNS publishers, SQS consumer source |
 | `resource-engine-azure` | `resource_engine_azure` | core, `[servicebus]` → azure-servicebus | Service Bus publisher and consumer source |
@@ -88,4 +88,5 @@ uv run uvicorn invoices.app:app --app-dir examples --reload   # then open /docs
 - [Documents](docs/documents.md) — slots, uploads, processing, clean-up.
 - [Identity](docs/identity.md) — bearer tokens, providers, `Principal`.
 - [Permissions](docs/permissions.md) — system roles, ABAC policies managed from a front end.
+- [Audit trail](docs/audit.md) — committed changes and refused attempts.
 - [Roadmap](docs/roadmap.md) — what is done and what comes next.
