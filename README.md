@@ -100,4 +100,9 @@ uv run uvicorn invoices.app:app --app-dir examples --reload   # then open /docs
 - [Audit trail](docs/audit.md) — committed changes and refused attempts, tamper-evident seals, retention.
 - [Tenancy](docs/tenancy.md) — tenant-scoped resources, cross-tenant roles.
 - [Concurrency](docs/concurrency.md) — version field, `ETag` / `If-Match`, stale writes refused.
+- [Releasing](docs/releasing.md) — CI, per-package versions, publishing to PyPI.
 - [Roadmap](docs/roadmap.md) — what is done and what comes next.
+
+## Licence
+
+[Apache License 2.0](LICENSE). Every package carries the same licence.

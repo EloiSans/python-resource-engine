@@ -75,6 +75,9 @@
 - Skill evaluation (`evals/`): reference tasks run by an agent with and without
   the skill, scored by `check`, `docs validate --strict`, the project's tests and
   hidden tests; reference solutions keep the harness honest in CI.
+- Apache-2.0 licence for every package; CI on Python 3.12–3.14 with an emulator
+  job that fails when a service is down; per-package releases to PyPI from
+  `<distribution>/v<version>` tags with trusted publishing.
 
 ## Next
 
@@ -93,7 +96,6 @@ what follows builds on it.
 - Transition history view per record (from the audit trail).
 - `resource-engine mcp`: the CLI's inspect, check, docs and scaffold tools as an
   MCP server.
-- Choose and add a licence; CI publishing per package.
 
 ### Later
 

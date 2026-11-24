@@ -59,7 +59,7 @@ dev = [
 addopts = "--import-mode=importlib --ignore-glob=*/ai/skill/examples/* --ignore=evals/fixture --ignore=evals/tasks"
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
-testpaths = ["packages", "adapters", "examples", "evals"]
+testpaths = ["packages", "adapters", "examples", "evals", "scripts"]
 markers = [
     "emulator(name): needs a running emulator or local service (aws, pubsub, garage, rabbitmq, keycloak, opa, openfga); skipped when it is not reachable",
 ]

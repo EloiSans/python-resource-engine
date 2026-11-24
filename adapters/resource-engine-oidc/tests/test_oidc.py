@@ -59,7 +59,7 @@ async def test_rejections(signer, http):
     signer.rotate()  # same kid header, different key: signature check fails
     forged_kid = jwt.get_unverified_header(forged)["kid"]
     signer.keys[forged_kid] = signer.keys[signer.kid]
-    auth.jwks._fetched = 0  # force refresh
+    auth.jwks._fetched -= auth.jwks.ttl + 1  # stale: force a refresh (relative to now)
     assert await reason(auth, forged) == "invalid_signature"
 
 
