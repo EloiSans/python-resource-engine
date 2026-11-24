@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import inspect
+import types
+import typing
 from typing import Any
 
 import resource_engine
@@ -41,8 +43,29 @@ _CRUD_SCHEMAS = {
 
 
 def _type_name(annotation: Any) -> str:
+    """A type as it reads in Python 3.12+ source (``X | None``, ``Literal['a']``),
+    the same on every Python version (``str()`` of typing objects is not)."""
+    if annotation is type(None) or annotation is None:
+        return "None"
+    if annotation is Any:
+        return "Any"
+    if annotation is Ellipsis:
+        return "..."
+    origin, args = typing.get_origin(annotation), typing.get_args(annotation)
+    if origin is typing.Annotated:
+        return _type_name(args[0])
+    if origin in (typing.Union, types.UnionType):
+        parts = [_type_name(a) for a in args if a is not type(None)]
+        return " | ".join(parts + (["None"] if type(None) in args else []))
+    if origin is typing.Literal:
+        return f"Literal[{', '.join(repr(a) for a in args)}]"
+    if origin is not None:
+        name = getattr(origin, "__name__", None) or str(origin).replace("typing.", "")
+        return f"{name}[{', '.join(_type_name(a) for a in args)}]" if args else name
     if inspect.isclass(annotation):
         return annotation.__name__
+    if isinstance(annotation, typing.ForwardRef):
+        return annotation.__forward_arg__
     return str(annotation).replace("typing.", "")
 
 

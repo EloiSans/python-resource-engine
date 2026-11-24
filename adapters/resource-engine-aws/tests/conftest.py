@@ -20,19 +20,21 @@ ENDPOINT = os.getenv("AWS_EMULATOR_ENDPOINT", "https://127.0.0.1:9297")
 CA = os.getenv("AWS_EMULATOR_CA", str(ROOT / ".emulators/aws/9297/ca.pem"))
 
 
-def _emulator_up() -> bool:
+def _emulator_problem() -> str | None:
+    """Why the emulator can't be used (``None`` when it can)."""
     try:
         ctx = ssl.create_default_context(cafile=CA)
         with urllib.request.urlopen(f"{ENDPOINT}/__admin/health", context=ctx, timeout=2) as r:
-            return r.status == 200
-    except Exception:
-        return False
+            return None if r.status == 200 else f"health returned {r.status}"
+    except Exception as exc:
+        return f"{type(exc).__name__}: {exc}"
 
 
 def pytest_collection_modifyitems(config, items):
-    if _emulator_up():
+    problem = _emulator_problem()
+    if problem is None:
         return
-    skip = pytest.mark.skip(reason=f"AWS Emulator not reachable at {ENDPOINT}")
+    skip = pytest.mark.skip(reason=f"AWS Emulator not reachable at {ENDPOINT} ({problem})")
     for item in items:
         marker = item.get_closest_marker("emulator")
         if marker and marker.args[:1] == ("aws",):

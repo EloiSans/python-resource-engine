@@ -285,7 +285,7 @@ uv run pytest -m emulator
 
 | Provider | Emulator | Notes |
 |---|---|---|
-| AWS | [AWS Emulator](https://docs.aws.amazon.com/emulator/latest/userguide/) | No prebuilt image: built from the official recipe in `docker/aws-emulator/`. Runs with `--auth off --telemetry off`; the self-signed CA is written to `.emulators/aws/9297/ca.pem`. It enforces SQS queue policies for SNS delivery, as AWS does. |
+| AWS | [AWS Emulator](https://docs.aws.amazon.com/emulator/latest/userguide/) | No prebuilt image: built from the official recipe in `docker/aws-emulator/`. Runs with `--auth off --telemetry off`; the self-signed CA is written to `.emulators/aws/9297/ca.pem`, readable only by uid 1000 (the container user): if your uid differs, run `sudo chmod -R a+rX .emulators/aws` after start-up, or the tests skip with a `PermissionError`. It enforces SQS queue policies for SNS delivery, as AWS does. |
 | Google Cloud | Pub/Sub emulator (`google-cloud-cli:emulators`) | Set `PUBSUB_EMULATOR_HOST`. |
 | SAP | – | Event Mesh and advanced event mesh have no public emulator; tests check the HTTP requests. A local Solace PubSub+ Standard broker accepts the same REST calls as advanced event mesh, but it has its own licence terms, so it is not wired. |
 | Azure | Service Bus emulator | Not wired: it requires accepting Microsoft's EULAs for the emulator and SQL Server. Run it yourself if you accept them. |

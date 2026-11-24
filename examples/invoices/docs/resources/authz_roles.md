@@ -49,4 +49,4 @@ Auditoria: s'auditen els canvis i els intents denegats.
 |---|---|---|---|
 | `name` | `str` | sí | Role name |
 | `description` | `str \| None` | no | What the role is for |
-| `created_at` | `datetime.datetime \| None` | no | Creation time |
+| `created_at` | `datetime \| None` | no | Creation time |

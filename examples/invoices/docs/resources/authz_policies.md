@@ -59,7 +59,7 @@ Auditoria: s'auditen els canvis i els intents denegats.
 | `name` | `str \| None` | no | — |
 | `description` | `str \| None` | no | — |
 | `effect` | `Literal['allow', 'deny'] \| None` | no | — |
-| `subjects` | `resource_engine.authz.model.Subjects \| None` | no | — |
+| `subjects` | `Subjects \| None` | no | — |
 | `actions` | `list[str] \| None` | no | — |
 | `condition` | `Any` | no | — |
 | `enabled` | `bool \| None` | no | — |
@@ -76,7 +76,7 @@ Auditoria: s'auditen els canvis i els intents denegats.
 | `actions` | `list[str]` | sí | Action patterns |
 | `condition` | `Any` | no | Condition (JSON) |
 | `enabled` | `bool` | sí | Whether it is evaluated |
-| `created_at` | `datetime.datetime \| None` | no | Creation time |
+| `created_at` | `datetime \| None` | no | Creation time |
 | `created_by` | `str \| None` | no | Who created it |
-| `updated_at` | `datetime.datetime \| None` | no | Last change |
+| `updated_at` | `datetime \| None` | no | Last change |
 | `updated_by` | `str \| None` | no | Who changed it last |

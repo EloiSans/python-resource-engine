@@ -61,6 +61,9 @@ jobs:
         run: |
           mkdir -p .emulators/aws && chmod 777 .emulators/aws
           docker compose -f compose.emulators.yaml up -d --build --wait
+          # The AWS Emulator runs as uid 1000 and writes its CA readable by its owner only;
+          # the runner user is another uid, so open the folder up for the tests.
+          sudo chmod -R a+rX .emulators/aws
       - name: Wait for the services without a health check (Pub/Sub, OPA, OpenFGA)
         run: |
           for url in http://127.0.0.1:8085 http://127.0.0.1:8181/health http://127.0.0.1:8080/healthz; do

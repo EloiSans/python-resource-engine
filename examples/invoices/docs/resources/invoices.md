@@ -140,7 +140,7 @@ Desa el document al magatzem de fitxers i emet ``DocumentAttached``.
 |---|---|---|---|
 | `customer` | `str` | sí | Nom del client |
 | `amount` | `Decimal` | sí | Import total |
-| `issue_date` | `datetime.date \| None` | no | Data d'emissió |
+| `issue_date` | `date \| None` | no | Data d'emissió |
 | `notes` | `str \| None` | no | — |
 
 ### InvoiceUpdate (update)
@@ -148,8 +148,8 @@ Desa el document al magatzem de fitxers i emet ``DocumentAttached``.
 | Camp | Tipus | Obligatori | Descripció |
 |---|---|---|---|
 | `customer` | `str \| None` | no | — |
-| `amount` | `decimal.Decimal \| None` | no | — |
-| `issue_date` | `datetime.date \| None` | no | — |
+| `amount` | `Decimal \| None` | no | — |
+| `issue_date` | `date \| None` | no | — |
 | `notes` | `str \| None` | no | — |
 
 ### InvoiceRead (read)
@@ -159,7 +159,7 @@ Desa el document al magatzem de fitxers i emet ``DocumentAttached``.
 | `id` | `int` | sí | — |
 | `customer` | `str` | sí | — |
 | `amount` | `Decimal` | sí | — |
-| `issue_date` | `datetime.date \| None` | sí | — |
+| `issue_date` | `date \| None` | sí | — |
 | `notes` | `str \| None` | sí | — |
 | `status` | `str` | sí | — |
 | `rejection_reason` | `str \| None` | sí | — |

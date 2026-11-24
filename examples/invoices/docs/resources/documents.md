@@ -90,7 +90,7 @@ stateDiagram-v2
 | `content_type` | `str` | sí | MIME type |
 | `size` | `int \| None` | no | Size in bytes |
 | `sha256` | `str \| None` | no | SHA-256 of the content, hex |
-| `created_at` | `datetime.datetime \| None` | no | When it was attached |
+| `created_at` | `datetime \| None` | no | When it was attached |
 | `created_by` | `str \| None` | no | Actor that attached it |
 | `metadata` | `dict[str, Any]` | no | Data from processing |
 | `error` | `str \| None` | no | Why processing rejected it |

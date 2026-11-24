@@ -50,5 +50,5 @@ Auditoria: s'auditen els canvis i els intents denegats.
 | `role` | `str` | sí | Role name |
 | `principal` | `str \| None` | no | Principal id |
 | `group` | `str \| None` | no | Group |
-| `created_at` | `datetime.datetime \| None` | no | Creation time |
+| `created_at` | `datetime \| None` | no | Creation time |
 | `created_by` | `str \| None` | no | Who assigned it |
