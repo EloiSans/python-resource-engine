@@ -1,7 +1,7 @@
 [project]
 name = "resource-engine-gcp"
 version = "0.1.0.dev0"
-description = "Google Cloud adapters for Resource Engine (Pub/Sub message publisher)."
+description = "Google Cloud adapters for Resource Engine: Pub/Sub publisher, pull source and push decoder."
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = ["resource-engine"]

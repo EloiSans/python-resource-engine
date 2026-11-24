@@ -8,6 +8,27 @@ open a PR adding a row below.
 
 Status: **experimental** = API may change · **planned** = not started.
 
+## Naming and packaging
+
+Packages are named after what they talk to:
+
+| Kind | Name | Examples |
+|---|---|---|
+| A provider's own services | `resource-engine-<provider>` | `aws` (SQS, SNS), `azure` (Service Bus), `gcp` (Pub/Sub), `sap` (Event Mesh) |
+| A protocol many vendors implement | `resource-engine-<protocol>` | `s3` (AWS S3, Garage, MinIO, Ceph, R2), `oidc` (Keycloak, Cognito, Entra ID, Google), `http` (REST, SOAP), `rabbitmq` (AMQP) |
+| A product with its own engine | `resource-engine-<product>` | `opa`, `cedar`, `openfga`, `sqlalchemy`, `fastapi` |
+
+Inside a provider package, each service is an extra and a module:
+`resource-engine-aws[sqs]` installs only what SQS needs, from
+`resource_engine_aws.sqs`. New services of a provider become new extras, not
+new packages. EventBridge goes in `aws[eventbridge]`, Azure Blob Storage in
+`azure[blob]`, Google Cloud Storage in `gcp[storage]`.
+
+A service gets a package of its own only when it needs a dependency the
+provider's other services don't, or when it is released or maintained apart.
+A protocol package never carries a provider's name: S3 storage works the same
+on MinIO and R2, so it lives in `resource-engine-s3`, not in `aws`.
+
 ## Messaging — `MessagePublisher`
 
 | Adapter | Package / extra | Class | FIFO / ordering | Tested against | Status |
@@ -140,7 +161,7 @@ the two rollback tests.
 |---|---|---|---|---|---|
 | S3 API (AWS S3, Garage, MinIO, Ceph RGW, Cloudflare R2) | `resource-engine-s3` | `S3BlobStore` | GET and PUT | Garage (compose) | experimental |
 | In-memory | `resource-engine` (`resource_engine.testing`) | `InMemoryBlobStore` | fake (`memory://`) | contract | experimental |
-| Azure Blob Storage, Google Cloud Storage | – | – | – | – | planned |
+| Azure Blob Storage, Google Cloud Storage | `resource-engine-azure[blob]`, `resource-engine-gcp[storage]` | – | – | – | planned |
 
 `BlobStoreContract` checks round trips, sha256, streaming, `max_bytes` aborts
 without leftovers, deletes, listing and presigned upload/download. Use

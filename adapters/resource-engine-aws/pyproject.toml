@@ -1,7 +1,7 @@
 [project]
 name = "resource-engine-aws"
 version = "0.1.0.dev0"
-description = "AWS adapters for Resource Engine (SQS and SNS message publishers)."
+description = "AWS adapters for Resource Engine: SQS publisher and consumer source, SNS publisher."
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = ["resource-engine"]

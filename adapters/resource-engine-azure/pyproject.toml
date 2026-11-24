@@ -1,7 +1,7 @@
 [project]
 name = "resource-engine-azure"
 version = "0.1.0.dev0"
-description = "Azure adapters for Resource Engine (Service Bus message publisher)."
+description = "Azure adapters for Resource Engine: Service Bus publisher and consumer source."
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = ["resource-engine"]

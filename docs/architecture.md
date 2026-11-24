@@ -67,6 +67,10 @@ The workspace is organised so that splitting is a mechanical move:
 4. Cross-package tests live in `examples/`, which depends on all packages, and can
    become an integration repository.
 
+Adapter packages are named after a provider, a protocol or a product, with one
+extra per service in provider packages; see
+[naming and packaging](adapters.md#naming-and-packaging).
+
 Likely split order: cloud adapters (`adapters/` → an adapters repository, once
 the ports are stable; the contract suite makes them verifiable from outside),
 then devtools (fastest release cadence, AI skill).
