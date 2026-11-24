@@ -1,0 +1,26 @@
+[project]
+name = "helpdesk"
+version = "0.1.0"
+description = "Help desk used by the Resource Engine skill evaluation."
+requires-python = ">=3.12"
+dependencies = ["resource-engine", "resource-engine-sqlalchemy", "resource-engine-fastapi"]
+
+[tool.resource-engine]
+registry = "helpdesk.bootstrap:registry"
+authz = "helpdesk.bootstrap:authz"
+policies = "helpdesk.authz:SEED_POLICIES"
+paths = ["src"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+pythonpath = ["src"]
+testpaths = ["src", "tests"]
+addopts = "--import-mode=importlib"
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]

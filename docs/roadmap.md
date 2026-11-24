@@ -70,19 +70,19 @@
   Cursor rule, lock file, `--check` for CI).
 - `check`: operations only `admin` can perform, against the seed policies
   (RE-C004); declarations the engine refuses reported as violations (RE-C005).
+- `resource-engine scaffold resource|action|state-machine`: modules that pass
+  `check` and their own tests, TODO docstrings flagged by `docs validate` (RE-D010).
+- Skill evaluation (`evals/`): reference tasks run by an agent with and without
+  the skill, scored by `check`, `docs validate --strict`, the project's tests and
+  hidden tests; reference solutions keep the harness honest in CI.
 
 ## Next
 
-Ordered by priority. The first block finishes the MVP of the
-[proposal](proposal-v3.md#12-abast-proposat-per-a-una-primera-versió-mvp).
+Ordered by priority. The MVP of the
+[proposal](proposal-v3.md#12-abast-proposat-per-a-una-primera-versió-mvp) is complete;
+what follows builds on it.
 
-### MVP: AI assistance and verification
-
-- Scaffolding (`resource-engine scaffold resource|action|state-machine`).
-- Skill evaluation: reference tasks run by an agent with and without the skill,
-  scored by `check`, `docs validate` and the tests.
-
-### Next
+### Soon
 
 - Idempotency keys for sensitive operations (`Idempotency-Key` on HTTP writes,
   stored results).
@@ -106,6 +106,6 @@ Ordered by priority. The first block finishes the MVP of the
   BTP destination service lookup.
 - Composite unit of work (SQL resources and remote resources in one operation) and
   compensation hooks for remote writes.
-- Azure Blob Storage and Google Cloud Storage blob stores; reference document
+- Azure Blob Storage (`azure[blob]`) and Google Cloud Storage (`gcp[storage]`) blob stores; reference document
   processors (ClamAV scan, text extraction).
 - NoSQL repositories (DynamoDB, Cosmos DB, Firestore) after adding capability flags.

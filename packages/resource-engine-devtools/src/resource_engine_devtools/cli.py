@@ -268,6 +268,69 @@ def cmd_ai_sync(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_scaffold(args: argparse.Namespace) -> int:
+    from resource_engine_devtools import scaffold
+
+    root = Path(args.root) if args.root else _default_root()
+    try:
+        fields = scaffold.parse_fields(getattr(args, "field", None))
+        if args.scaffold_command == "resource":
+            machine = (
+                scaffold.parse_machine(args.states, args.transitions)
+                if args.state_machine or args.states or args.transitions
+                else None
+            )
+            result = scaffold.resource(
+                root,
+                args.package,
+                args.name,
+                fields,
+                entity=args.entity,
+                machine=machine,
+                versioned=args.versioned,
+                force=args.force,
+                dry_run=args.dry_run,
+            )
+        elif args.scaffold_command == "action":
+            result = scaffold.action(
+                root,
+                args.package,
+                args.resource,
+                args.action_class,
+                fields,
+                collection=args.collection,
+                dry_run=args.dry_run,
+            )
+        else:
+            states, transitions = scaffold.parse_machine(args.states, args.transitions)
+            result = scaffold.state_machine(
+                root,
+                args.package,
+                args.entity,
+                states,
+                transitions,
+                force=args.force,
+                dry_run=args.dry_run,
+            )
+    except scaffold.ScaffoldError as exc:
+        _emit(args, {"error": exc.message}, f"error: {exc.message}")
+        return 2
+    verb = "would write" if args.dry_run else "wrote"
+    lines = [f"{verb} {path}" for path in result.written]
+    lines += [f"kept {path} (exists; --force to replace)" for path in result.skipped]
+    lines += ["", "Next:"] + [f"  - {step}" for step in result.next_steps]
+    _emit(args, result.to_dict() | {"dry_run": args.dry_run}, "\n".join(lines))
+    return 0
+
+
+def _default_root() -> Path:
+    config = find_config(Path.cwd())
+    paths = config.get("paths") or []
+    if paths:
+        return Path(str(config["_root"])) / str(paths[0])  # type: ignore[index]
+    return Path.cwd()
+
+
 def cmd_check(args: argparse.Namespace) -> int:
     violations = []
     for raw in args.paths or ["."]:
@@ -350,6 +413,46 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--check", action="store_true", help="fail if anything is out of date")
     p.add_argument("--root", default=".", help="project root (default: current directory)")
     p.set_defaults(func=cmd_ai_sync)
+
+    scaffold = sub.add_parser(
+        "scaffold", help="generate the boilerplate of a module, action or state machine"
+    ).add_subparsers(dest="scaffold_command", required=True)
+    shared = argparse.ArgumentParser(add_help=False)
+    shared.add_argument("--json", action="store_true", help="machine-readable output")
+    shared.add_argument("--package", required=True, help="dotted package of the module")
+    shared.add_argument(
+        "--root", help="directory the package lives in (default: first pyproject path, or .)"
+    )
+    shared.add_argument("--dry-run", action="store_true", help="show what would be written")
+    p = scaffold.add_parser("resource", parents=[shared], help="a new module with one resource")
+    p.add_argument("name", help="resource name, plural snake_case (orders)")
+    p.add_argument("--entity", help="entity class (default: singular PascalCase of the name)")
+    p.add_argument(
+        "--field",
+        action="append",
+        help="name:type[?], type in str text int bool Decimal date "
+        "datetime; ? makes it optional (repeatable)",
+    )
+    p.add_argument("--state-machine", action="store_true", help="add a state machine")
+    p.add_argument("--states", help="comma-separated states (default: draft,active,closed)")
+    p.add_argument("--transitions", help="event:source>target,... (default: one per step)")
+    p.add_argument("--versioned", action="store_true", help="optimistic concurrency")
+    p.add_argument("--force", action="store_true", help="overwrite existing files")
+    p.set_defaults(func=cmd_scaffold)
+    p = scaffold.add_parser("action", parents=[shared], help="an action in an existing module")
+    p.add_argument("resource", help="resource name (for the permission and the route)")
+    p.add_argument("action_class", metavar="ActionClass")
+    p.add_argument("--input", action="append", dest="field", help="input field name:type[?]")
+    p.add_argument("--collection", action="store_true", help="not tied to one record")
+    p.set_defaults(func=cmd_scaffold)
+    p = scaffold.add_parser(
+        "state-machine", parents=[shared], help="a state machine in an existing module"
+    )
+    p.add_argument("entity", help="entity class name (Order)")
+    p.add_argument("--states", help="comma-separated states (default: draft,active,closed)")
+    p.add_argument("--transitions", help="event:source>target,... (default: one per step)")
+    p.add_argument("--force", action="store_true", help="overwrite an existing state machine")
+    p.set_defaults(func=cmd_scaffold)
 
     p = sub.add_parser("worker", help="run the application's background jobs and services")
     p.add_argument("--runner", help="JobRunner as module:attribute (default: pyproject worker)")

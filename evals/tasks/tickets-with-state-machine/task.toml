@@ -1,0 +1,26 @@
+id = "tickets-with-state-machine"
+title = "Add a resource with a state machine and gates"
+prompt = """
+Add support tickets to this help desk (a Resource Engine application).
+
+- A new module `helpdesk.tickets` with a `tickets` resource. A ticket has
+  `customer_id: int`, `subject: str` and an optional `description: str`.
+  Operations: list, get, create and update. Tickets are never deleted.
+- Tickets follow a state machine stored in `status`: they start `open`;
+  `start` moves an open ticket to `in_progress`; `resolve` moves an
+  in-progress ticket to `resolved`; `cancel` closes an open or in-progress
+  ticket as `cancelled`.
+- A ticket's subject cannot be empty.
+- Permissions: users with the `agent` role can list, view, create and update
+  tickets, and start and resolve them. A new `supervisor` role can list, view
+  and cancel them. Add both to the seed in `src/helpdesk/authz.py`, and map the
+  identity provider roles `agent` and `supervisor` to them in the composition
+  root.
+- Register the resource, document everything and add tests.
+
+The work is done when `resource-engine check`, `resource-engine docs validate
+--strict` and `pytest` all pass.
+"""
+
+[score]
+hidden_tests = ["hidden/test_tickets_hidden.py"]

@@ -59,3 +59,4 @@ carries your own `code`.
 | RE-C004 | `check` | An enabled operation that only a catch-all system role (`admin`) can perform: no other system role and no seed policy grants it. Needs `policies` in `[tool.resource-engine]`. |
 | RE-C005 | `check` | The registry could not be loaded because the engine refused a declaration (for example RE-E004); reported at the line of your code. |
 | RE-D001…D009 | `docs validate` | Documentation coverage rules (resource, CRUD ops, state machine, states, transitions, actions, postconditions, hooks, document slots). |
+| RE-D010 | `docs validate` | A description is still a `TODO` placeholder (left by `scaffold`); warning, fails with `--strict`. |

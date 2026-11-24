@@ -84,3 +84,13 @@ resource-engine check --json
 resource-engine docs validate --strict
 resource-engine ai sync --check
 ```
+
+## Does it help?
+
+[`evals/`](../evals/README.md) runs reference tasks with an agent, with and
+without the skill, and scores each result four ways: `check`,
+`docs validate --strict`, the project's tests, and hidden tests.
+
+```bash
+uv run python evals/run.py --agent 'claude -p "$(cat {prompt_file})" --permission-mode acceptEdits'
+```

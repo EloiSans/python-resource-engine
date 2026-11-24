@@ -1,0 +1,24 @@
+id = "notify-and-reassign"
+title = "Send an e-mail on resolution and add an action"
+setup = ["tickets-with-state-machine"]
+prompt = """
+This help desk (a Resource Engine application) has a `tickets` resource in
+`helpdesk.tickets`. Change it:
+
+- When a ticket is resolved, e-mail the customer. Use the `mailer` service
+  that the application passes to the `ResourceManager`
+  (`services={"mailer": ...}`): an object with
+  `async send(customer_id: int, subject: str, body: str)`. The e-mail must
+  never be sent if resolving the ticket fails or is rolled back. Send it from
+  the resource's lifecycle, not from a separate message consumer.
+- Add an action `reassign` on a ticket. Its input is `assignee: str`
+  (not empty); it sets the ticket's `assignee` (a new optional field, shown
+  when reading a ticket). Agents (the `agent` role) may run it.
+- Document everything and add tests.
+
+The work is done when `resource-engine check`, `resource-engine docs validate
+--strict` and `pytest` all pass.
+"""
+
+[score]
+hidden_tests = ["hidden/test_notify_hidden.py"]
