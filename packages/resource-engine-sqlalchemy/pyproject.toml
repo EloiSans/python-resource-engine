@@ -20,6 +20,9 @@ classifiers = [
 ]
 dependencies = ["resource-engine>=0.1.0.dev0,<0.2", "sqlalchemy[asyncio]>=2.0"]
 
+[project.optional-dependencies]
+alembic = ["alembic>=1.13"]
+
 [project.urls]
 Homepage = "https://github.com/EloiSans/python-resource-engine"
 Documentation = "https://github.com/EloiSans/python-resource-engine/tree/main/docs"

@@ -2,20 +2,15 @@
 
 from __future__ import annotations
 
-from resource_engine_sqlalchemy import (
-    audit_table,
-    authz_tables,
-    documents_table,
-    map_audit,
-    map_authz,
-    map_documents,
-)
+from resource_engine_sqlalchemy import NAMING_CONVENTION, engine_tables, map_engine
 from sqlalchemy import Column, Date, Integer, MetaData, Numeric, String, Table, Text
 from sqlalchemy.orm import registry as orm_registry
 
 from invoices.domain.entities import Invoice
 
-metadata = MetaData()
+# One MetaData for the module's tables and the engine's: Alembic autogenerate
+# sees both (examples/invoices/migrations). The convention names constraints.
+metadata = MetaData(naming_convention=NAMING_CONVENTION)
 mapper_registry = orm_registry(metadata=metadata)
 
 invoices_table = Table(
@@ -31,9 +26,7 @@ invoices_table = Table(
     Column("version", Integer, nullable=False, default=1),
 )
 
-documents = documents_table(metadata)
-authz = authz_tables(metadata)
-audit_log = audit_table(metadata)
+engine = engine_tables(metadata, documents=True, authz=True, audit=True)
 
 _mapped = False
 
@@ -43,7 +36,5 @@ def map_entities() -> None:
     global _mapped
     if not _mapped:
         mapper_registry.map_imperatively(Invoice, invoices_table)
-        map_documents(mapper_registry, documents)
-        map_authz(mapper_registry, authz)
-        map_audit(mapper_registry, audit_log)
+        map_engine(mapper_registry, engine)
         _mapped = True

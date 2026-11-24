@@ -13,9 +13,17 @@ from resource_engine_sqlalchemy.inbox import SqlAlchemyInbox, inbox_table
 from resource_engine_sqlalchemy.locks import SqlAlchemyLocks, locks_table
 from resource_engine_sqlalchemy.outbox import SqlAlchemyOutbox, outbox_table
 from resource_engine_sqlalchemy.repository import SqlAlchemyRepository
+from resource_engine_sqlalchemy.schema import (
+    NAMING_CONVENTION,
+    EngineTables,
+    engine_tables,
+    map_engine,
+)
 from resource_engine_sqlalchemy.unit_of_work import SqlAlchemyUnitOfWork, unit_of_work_factory
 
 __all__ = [
+    "NAMING_CONVENTION",
+    "EngineTables",
     "AuthzTables",
     "SqlAlchemyInbox",
     "SqlAlchemyLocks",
@@ -26,11 +34,13 @@ __all__ = [
     "audit_table",
     "authz_tables",
     "documents_table",
+    "engine_tables",
     "inbox_table",
     "locks_table",
     "map_audit",
     "map_authz",
     "map_documents",
+    "map_engine",
     "outbox_table",
     "unit_of_work_factory",
 ]

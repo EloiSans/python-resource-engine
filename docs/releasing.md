@@ -12,7 +12,7 @@ identity to PyPI with OIDC, so no API token is stored anywhere.
 |---|---|
 | `test (3.12, 3.13, 3.14)` | ruff, `resource-engine check`, `docs validate --strict`, the example docs regenerated with no diff, `pytest -m "not emulator"` |
 | `build` | Every wheel and sdist, then `twine check --strict` (licence, README, URLs) |
-| `emulators` | The compose stack (AWS Emulator, Pub/Sub, Garage, RabbitMQ, Keycloak, OPA, OpenFGA), then `pytest -m emulator` |
+| `emulators` | The compose stack (AWS Emulator, Pub/Sub, Garage, RabbitMQ, Keycloak, OPA, OpenFGA, PostgreSQL), then `pytest -m emulator` |
 
 **Emulator failures:** the emulator job sets `RESOURCE_ENGINE_REQUIRE_EMULATORS=1`.
 A service that didn't start makes the run fail, instead of its tests being

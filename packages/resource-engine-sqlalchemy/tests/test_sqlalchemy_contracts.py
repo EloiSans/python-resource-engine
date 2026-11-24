@@ -15,21 +15,26 @@ from resource_engine_sqlalchemy import (
     outbox_table,
 )
 from sqlalchemy import Column, Integer, MetaData, String, Table
+from sqlalchemy import inspect as sa_inspect
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from sqlalchemy.orm import registry as orm_registry
 
 metadata = MetaData()
-items = Table(
-    "contract_items",
-    metadata,
-    Column("id", Integer, primary_key=True, autoincrement=True),
-    Column("name", String(50), nullable=False),
-    Column("rank", Integer, nullable=False),
-    Column("group", String(10), nullable=False),
-)
 outbox = outbox_table(metadata)
 inbox = inbox_table(metadata)
-orm_registry(metadata=metadata).map_imperatively(ContractItem, items)
+if sa_inspect(ContractItem, raiseerr=False) is None:  # test_postgres may have mapped it
+    orm_registry(metadata=metadata).map_imperatively(
+        ContractItem,
+        Table(
+            "contract_items",
+            metadata,
+            Column("id", Integer, primary_key=True, autoincrement=True),
+            Column("name", String(50), nullable=False),
+            Column("rank", Integer, nullable=False),
+            Column("group", String(10), nullable=False),
+        ),
+    )
+ITEMS = sa_inspect(ContractItem).local_table
 
 
 @pytest.fixture
@@ -37,6 +42,7 @@ async def uow_factory(tmp_path):
     engine = create_async_engine(f"sqlite+aiosqlite:///{tmp_path / 'contract.db'}")
     async with engine.begin() as conn:
         await conn.run_sync(metadata.create_all)
+        await conn.run_sync(ITEMS.metadata.create_all, tables=[ITEMS])
     sessions = async_sessionmaker(engine, expire_on_commit=False)
     repositories = {CONTRACT_RESOURCE: lambda s: SqlAlchemyRepository(s, ContractItem)}
     yield lambda: SqlAlchemyUnitOfWork(

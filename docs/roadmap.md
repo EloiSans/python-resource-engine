@@ -78,6 +78,9 @@
 - Apache-2.0 licence for every package; CI on Python 3.12–3.14 with an emulator
   job that fails when a service is down; per-package releases to PyPI from
   `<distribution>/v<version>` tags with trusted publishing.
+- Migrations: `engine_tables` and `NAMING_CONVENTION` for Alembic autogenerate,
+  `resource-engine db init`, `run_migrations` (async, SQLite batch mode), tested on
+  SQLite and PostgreSQL; the SQL contracts also run on PostgreSQL.
 
 ## Next
 
@@ -89,8 +92,6 @@ what follows builds on it.
 
 - Idempotency keys for sensitive operations (`Idempotency-Key` on HTTP writes,
   stored results).
-- Alembic support: migrations for the engine's tables (outbox, inbox, audit,
-  seals, permissions, documents, locks) and autogenerate-friendly metadata.
 - Observability: structured JSON logs, operation duration metrics, OpenTelemetry
   metrics for job runs.
 - Transition history view per record (from the audit trail).

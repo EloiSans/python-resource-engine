@@ -268,6 +268,32 @@ def cmd_ai_sync(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_db_init(args: argparse.Namespace) -> int:
+    from resource_engine_devtools import db
+
+    config = find_config(Path.cwd())
+    metadata = args.metadata or config.get("metadata")
+    if not metadata:
+        raise SystemExit(
+            "No metadata given. Pass --metadata pkg.persistence:metadata or set "
+            '[tool.resource-engine] metadata = "pkg.persistence:metadata" in pyproject.toml'
+        )
+    sys_path = [str(p) for p in config.get("paths", [])] or ["."]  # type: ignore[union-attr]
+    written = db.init(
+        Path.cwd(), str(metadata), directory=args.dir, sys_path=sys_path, force=args.force
+    )
+    lines = [f"wrote {path}" for path in written]
+    lines += [
+        "",
+        "Next:",
+        '  alembic revision --autogenerate -m "initial schema"',
+        "  alembic upgrade head   # with DATABASE_URL set",
+        "  alembic check          # in CI: fails when the code has changes without a migration",
+    ]
+    _emit(args, {"written": [str(p) for p in written]}, "\n".join(lines))
+    return 0
+
+
 def cmd_scaffold(args: argparse.Namespace) -> int:
     from resource_engine_devtools import scaffold
 
@@ -413,6 +439,16 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--check", action="store_true", help="fail if anything is out of date")
     p.add_argument("--root", default=".", help="project root (default: current directory)")
     p.set_defaults(func=cmd_ai_sync)
+
+    db = sub.add_parser("db", help="database migrations (Alembic)").add_subparsers(
+        dest="db_command", required=True
+    )
+    p = db.add_parser("init", help="write alembic.ini and migrations/ for your MetaData")
+    p.add_argument("--json", action="store_true", help="machine-readable output")
+    p.add_argument("--metadata", help="MetaData as module:attribute (default: pyproject metadata)")
+    p.add_argument("--dir", default="migrations", help="migrations folder (default: migrations)")
+    p.add_argument("--force", action="store_true", help="replace existing files")
+    p.set_defaults(func=cmd_db_init)
 
     scaffold = sub.add_parser(
         "scaffold", help="generate the boilerplate of a module, action or state machine"

@@ -177,6 +177,10 @@ mount_resources(app, registry, manager, actor_dependency=bearer_actor(authentica
 ```
 
 `services` are reachable from hooks and actions as `ctx.services["notifier"]`.
+Declare the engine's tables on the same `MetaData` as yours
+(`engine_tables(metadata, outbox=True, audit=True, ...)` with
+`MetaData(naming_convention=NAMING_CONVENTION)`) and create migrations with
+`alembic revision --autogenerate`; never `create_all` in production.
 Map the entity with SQLAlchemy **imperative mapping** in `infrastructure/`
 (`mapper_registry.map_imperatively(Invoice, invoices_table)`), never with
 declarative models in the domain.

@@ -2,6 +2,7 @@
 # Then: uv run pytest -m emulator
 # Open-source services with UIs: Garage (S3), RabbitMQ (:15672), Keycloak (:8180)
 # and the OpenFGA playground (:3000). OPA (:8181) serves docker/opa/*.rego.
+# PostgreSQL (:5439) runs the migration and SQL contract tests.
 # Azure Service Bus is not included: its official emulator requires accepting
 # Microsoft EULAs (emulator and SQL Server); see docs/adapters.md.
 name: resource-engine-emulators
@@ -31,6 +32,19 @@ services:
     command: ["gcloud", "beta", "emulators", "pubsub", "start", "--host-port=0.0.0.0:8085", "--project=resource-engine-test"]
     ports:
       - "127.0.0.1:8085:8085"
+
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: resource_engine
+      POSTGRES_PASSWORD: resource_engine
+      POSTGRES_DB: resource_engine
+    ports:
+      - "127.0.0.1:5439:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U resource_engine"]
+      interval: 2s
+      retries: 30
 
   garage:
     # Garage, S3-compatible object storage (AGPL; used as a dev tool only).
