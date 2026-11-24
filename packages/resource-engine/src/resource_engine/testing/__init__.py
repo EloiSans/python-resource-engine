@@ -3,6 +3,7 @@
 from resource_engine.testing.engine import ConditionEngine
 from resource_engine.testing.memory import (
     InMemoryInbox,
+    InMemoryLocks,
     InMemoryQueue,
     InMemoryRepository,
     InMemoryStore,
@@ -16,6 +17,7 @@ __all__ = [
     "ConditionEngine",
     "InMemoryBlobStore",
     "InMemoryInbox",
+    "InMemoryLocks",
     "InMemoryQueue",
     "InMemoryRepository",
     "InMemoryStore",

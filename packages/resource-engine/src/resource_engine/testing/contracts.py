@@ -627,3 +627,38 @@ class AuthorizerContract:
             await contract_manager.list(CONTRACT_DOCS)
         everything = await contract_manager.list(CONTRACT_DOCS, actor=system_principal())
         assert everything.total == 2
+
+
+class LockContract:
+    """Behaviour of a ``LockProvider``. Fixture: ``lock_provider``."""
+
+    @pytest.fixture
+    def lock_provider(self) -> Any:
+        raise NotImplementedError("Provide the LockProvider under test")
+
+    async def test_one_owner_at_a_time(self, lock_provider):
+        ttl = timedelta(minutes=1)
+        assert await lock_provider.acquire("job", "a", ttl)
+        assert not await lock_provider.acquire("job", "b", ttl)
+        assert await lock_provider.acquire("job", "a", ttl)  # renew
+        assert await lock_provider.acquire("other", "b", ttl)
+
+    async def test_release_frees_only_for_the_owner(self, lock_provider):
+        ttl = timedelta(minutes=1)
+        assert await lock_provider.acquire("job", "a", ttl)
+        await lock_provider.release("job", "b")
+        assert not await lock_provider.acquire("job", "b", ttl)
+        await lock_provider.release("job", "a")
+        assert await lock_provider.acquire("job", "b", ttl)
+
+    async def test_expired_lease_can_be_taken(self, lock_provider):
+        assert await lock_provider.acquire("job", "a", timedelta(milliseconds=50))
+        await asyncio.sleep(0.1)
+        assert await lock_provider.acquire("job", "b", timedelta(minutes=1))
+
+    async def test_racing_owners_one_wins(self, lock_provider):
+        ttl = timedelta(minutes=1)
+        results = await asyncio.gather(
+            *(lock_provider.acquire("race", f"w{i}", ttl) for i in range(5))
+        )
+        assert results.count(True) == 1

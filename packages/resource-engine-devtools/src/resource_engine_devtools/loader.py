@@ -21,9 +21,8 @@ def find_config(start: Path) -> dict[str, object]:
     return {}
 
 
-def load_registry(spec: str | None, cwd: Path) -> ResourceRegistry:
-    """Load ``module:attribute``, falling back to ``[tool.resource-engine] registry``."""
-    config = find_config(cwd)
+def add_paths(config: dict[str, object], cwd: Path) -> None:
+    """Put ``[tool.resource-engine] paths`` and the working directory on ``sys.path``."""
     root = Path(config.get("_root", cwd))  # type: ignore[arg-type]
     for extra in config.get("paths", []):  # type: ignore[union-attr]
         path = str((root / str(extra)).resolve())
@@ -31,6 +30,12 @@ def load_registry(spec: str | None, cwd: Path) -> ResourceRegistry:
             sys.path.insert(0, path)
     if str(cwd) not in sys.path:
         sys.path.insert(0, str(cwd))
+
+
+def load_registry(spec: str | None, cwd: Path) -> ResourceRegistry:
+    """Load ``module:attribute``, falling back to ``[tool.resource-engine] registry``."""
+    config = find_config(cwd)
+    add_paths(config, cwd)
     spec = spec or config.get("registry")  # type: ignore[assignment]
     if not spec:
         raise SystemExit(

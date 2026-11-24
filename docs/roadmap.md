@@ -58,6 +58,8 @@
 - Audit tamper evidence (`AuditSealer`: chained seals over batches of entries,
   optional HMAC with key rotation, `verify()`) and retention (`AuditJanitor`,
   keeping seals of purged batches).
+- Background jobs: `JobRunner` (periodic jobs, services, observers), `LockProvider`
+  port with SQL leases and in-memory locks, `resource-engine worker` command.
 
 ## Next
 

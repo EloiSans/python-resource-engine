@@ -346,3 +346,28 @@ class InMemoryQueue:
     @property
     def pending(self) -> int:
         return len(self.messages)
+
+
+class InMemoryLocks:
+    """``LockProvider`` for one process (tests, single-worker deployments)."""
+
+    def __init__(self, clock: Any = None) -> None:
+        self._leases: dict[str, tuple[str, datetime]] = {}
+        self._clock = clock or (lambda: datetime.now(UTC))
+
+    async def acquire(self, name: str, owner: str, ttl: Any) -> bool:
+        now = self._clock()
+        held = self._leases.get(name)
+        if held is not None and held[0] != owner and held[1] > now:
+            return False
+        self._leases[name] = (owner, now + ttl)
+        return True
+
+    async def release(self, name: str, owner: str) -> None:
+        held = self._leases.get(name)
+        if held is not None and held[0] == owner:
+            del self._leases[name]
+
+    def holder(self, name: str) -> str | None:
+        held = self._leases.get(name)
+        return held[0] if held is not None and held[1] > self._clock() else None

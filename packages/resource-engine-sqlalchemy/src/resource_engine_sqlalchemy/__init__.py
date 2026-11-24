@@ -1,5 +1,5 @@
 """SQLAlchemy adapter over ``AsyncSession``: repositories, unit of work, outbox, inbox,
-documents, permissions and the audit trail.
+documents, permissions, the audit trail and job leases.
 
 Domain entities stay plain classes; map them with SQLAlchemy's imperative mapping
 (``registry.map_imperatively(Invoice, invoices_table)``) inside the module's
@@ -10,6 +10,7 @@ from resource_engine_sqlalchemy.audit import audit_seal_table, audit_table, map_
 from resource_engine_sqlalchemy.authz import AuthzTables, authz_tables, map_authz
 from resource_engine_sqlalchemy.documents import documents_table, map_documents
 from resource_engine_sqlalchemy.inbox import SqlAlchemyInbox, inbox_table
+from resource_engine_sqlalchemy.locks import SqlAlchemyLocks, locks_table
 from resource_engine_sqlalchemy.outbox import SqlAlchemyOutbox, outbox_table
 from resource_engine_sqlalchemy.repository import SqlAlchemyRepository
 from resource_engine_sqlalchemy.unit_of_work import SqlAlchemyUnitOfWork, unit_of_work_factory
@@ -17,6 +18,7 @@ from resource_engine_sqlalchemy.unit_of_work import SqlAlchemyUnitOfWork, unit_o
 __all__ = [
     "AuthzTables",
     "SqlAlchemyInbox",
+    "SqlAlchemyLocks",
     "SqlAlchemyOutbox",
     "SqlAlchemyRepository",
     "SqlAlchemyUnitOfWork",
@@ -25,6 +27,7 @@ __all__ = [
     "authz_tables",
     "documents_table",
     "inbox_table",
+    "locks_table",
     "map_audit",
     "map_authz",
     "map_documents",

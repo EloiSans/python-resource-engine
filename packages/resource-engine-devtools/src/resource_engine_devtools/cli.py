@@ -259,7 +259,19 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--out")
     p.add_argument("--check", action="store_true", help="fail if --out is out of date")
     p.set_defaults(func=cmd_ai_context)
+
+    p = sub.add_parser("worker", help="run the application's background jobs and services")
+    p.add_argument("--runner", help="JobRunner as module:attribute (default: pyproject worker)")
+    p.add_argument("--once", action="store_true", help="run every job once and exit")
+    p.add_argument("--log-level", default="info", choices=["debug", "info", "warning", "error"])
+    p.set_defaults(func=_worker)
     return parser
+
+
+def _worker(args: argparse.Namespace) -> int:
+    from resource_engine_devtools.worker import cmd_worker
+
+    return cmd_worker(args)
 
 
 def main(argv: list[str] | None = None) -> int:

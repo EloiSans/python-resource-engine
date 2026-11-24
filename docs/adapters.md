@@ -160,6 +160,15 @@ without leftovers, deletes, listing and presigned upload/download. Use
 
 See [identity](identity.md).
 
+## Locks — `LockProvider`
+
+| Backend | Package | Class | Tested against | Status |
+|---|---|---|---|---|
+| SQL lease table | `resource-engine-sqlalchemy` | `SqlAlchemyLocks` | SQLite (contract) | experimental |
+| In-memory | `resource-engine` (`resource_engine.testing`) | `InMemoryLocks` | contract | experimental |
+
+See [background jobs](jobs.md#one-worker-at-a-time).
+
 ## Metrics — `MessageObserver`
 
 | Backend | Package | Class | Tested against | Status |
