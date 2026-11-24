@@ -34,7 +34,8 @@ prints a compact catalogue; the installed copy is `project.md` next to this file
    - Something to do after the change is saved (e-mail, call another system)
      → record a domain event and handle it in a consumer, or an `after_commit`
      hook marked `@external_effect`.
-   - Who may do it → permissions, not hooks
+   - Who may do it → permissions, not hooks: a policy in the seed or a
+     system-role grant for every new operation
      ([references/permissions.md](references/permissions.md)).
 5. **Document with docstrings** in the functional convention
    ([references/docstrings.md](references/docstrings.md)). Documentation is
@@ -47,7 +48,7 @@ prints a compact catalogue; the installed copy is `project.md` next to this file
 8. **Verify**, and fix everything reported:
 
    ```bash
-   resource-engine check --json          # architecture and hook/effect lints
+   resource-engine check --json          # architecture, hook/effect and gate lints
    resource-engine docs validate --strict
    pytest
    resource-engine ai sync --check       # skill and project context up to date

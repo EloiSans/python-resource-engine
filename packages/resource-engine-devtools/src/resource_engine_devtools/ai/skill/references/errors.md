@@ -62,4 +62,6 @@ Your own business errors subclass `resource_engine.domain.DomainError`, set a
 | RE-C001 | `check` | Remove the infrastructure import from `domain/` |
 | RE-C002 | `check` | Move the external effect after commit (event, consumer, `after_commit` + `@external_effect`) |
 | RE-C003 | `check` | Do it before commit, or start a new operation |
+| RE-C004 | `check` | Grant the operation: a seed policy, a system role, or remove the operation |
+| RE-C005 | `check` | The engine refused a declaration: read the `RE-E` code and hint in the message |
 | RE-D001…D009 | `docs validate` | Add the missing docstring or section ([docstrings.md](docstrings.md)) |

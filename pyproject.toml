@@ -75,6 +75,7 @@ select = ["E", "F", "I", "UP", "B", "SIM"]
 [tool.resource-engine]
 registry = "invoices.bootstrap:registry"
 authz = "invoices.bootstrap:authz"
+policies = "invoices.authz:SEED_POLICIES"
 paths = ["examples"]
 
 [tool.ruff.lint.flake8-bugbear]

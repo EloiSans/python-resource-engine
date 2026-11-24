@@ -18,7 +18,7 @@ Audit
 | `list` | crud | `GET /audit_log` |  | AuditEntryRead | Lists audit entries; filter by resource and entity_id for a record's history. |
 | `get` | crud | `GET /audit_log/{id}` |  | AuditEntryRead | Returns an audit entry. |
 
-Filtres: `resource`, `entity_id`, `tenant`, `actor`, `outcome`, `operation`, `correlation_id` · Ordenació: `at`
+Filtres: `resource`, `entity_id`, `tenant`, `actor`, `outcome`, `operation`, `correlation_id`, `seal` · Ordenació: `at`
 
 ## Schemas
 
@@ -39,3 +39,4 @@ Filtres: `resource`, `entity_id`, `tenant`, `actor`, `outcome`, `operation`, `co
 | `changes` | `dict[str, Any]` | sí | field → {from, to}; masked fields → {changed: true} |
 | `details` | `dict[str, Any]` | sí | Transition, input, documents, denial reason |
 | `correlation_id` | `str \| None` | no | Shared with logs and events |
+| `seal` | `int \| None` | no | Seal covering the entry; null until sealed |

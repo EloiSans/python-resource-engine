@@ -35,21 +35,50 @@ APPROVER_POLICIES: list[dict[str, Any]] = [
 ]
 
 
+ISSUER_POLICIES: list[dict[str, Any]] = [
+    {
+        "name": "Issuers manage invoices",
+        "effect": "allow",
+        "subjects": {"roles": ["issuer"]},
+        "actions": [
+            "invoices:list",
+            "invoices:get",
+            "invoices:create",
+            "invoices:update",
+            "invoices:delete",
+            "invoices:transition:submit",
+            "invoices:transition:reopen",
+            "invoices:transition:pay",
+            "invoices:action:*",
+            "invoices:attach:*",
+            "invoices:detach:*",
+            "invoices:download:*",
+        ],
+    },
+]
+
+#: Every policy the example creates; ``resource-engine check`` reads it
+#: (``[tool.resource-engine] policies``) to find operations nobody can perform.
+SEED_POLICIES = APPROVER_POLICIES + ISSUER_POLICIES
+SEED_ROLES = ["approver", "issuer"]
+
+
 async def seed(manager: Any, admin: Any) -> None:
-    """Create the custom role and its policies (idempotent by name)."""
-    if not await _role_exists(manager, admin):
-        await manager.create("authz_roles", {"name": "approver"}, actor=admin)
+    """Create the custom roles and their policies (idempotent by name)."""
+    for role in SEED_ROLES:
+        if not await _role_exists(manager, admin, role):
+            await manager.create("authz_roles", {"name": role}, actor=admin)
     existing = {p.name for p in (await manager.list("authz_policies", actor=admin)).items}
-    for policy in APPROVER_POLICIES:
+    for policy in SEED_POLICIES:
         if policy["name"] not in existing:
             await manager.create("authz_policies", policy, actor=admin)
 
 
-async def _role_exists(manager: Any, admin: Any) -> bool:
+async def _role_exists(manager: Any, admin: Any, role: str) -> bool:
     from resource_engine.errors import EntityNotFound
 
     try:
-        await manager.get("authz_roles", "approver", actor=admin)
+        await manager.get("authz_roles", role, actor=admin)
     except EntityNotFound:
         return False
     return True

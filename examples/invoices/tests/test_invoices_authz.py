@@ -14,6 +14,7 @@ from resource_engine.testing import InMemoryBlobStore, InMemoryStore
 ADMIN = Principal(subject="root", issuer="https://sso", roles=frozenset({"platform-admin"}))
 ACCOUNTANT = Principal(subject="ada", issuer="https://sso", roles=frozenset({"accountant"}))
 APPROVER = Principal(subject="pau", issuer="https://sso", roles=frozenset({"approver"}))
+ISSUER = Principal(subject="eli", issuer="https://sso", roles=frozenset({"issuer"}))
 
 
 @pytest.fixture
@@ -69,6 +70,14 @@ async def test_approver_sees_pending_and_approves_small_amounts(manager):
         await manager.transition("invoices", big, "approve", actor=APPROVER)
     approved = await manager.transition("invoices", small, "approve", actor=APPROVER)
     assert approved.status == "approved"
+
+
+async def test_issuer_runs_the_invoice_but_cannot_approve_it(manager):
+    invoice = await manager.create("invoices", {"customer": "ACME", "amount": 10}, actor=ISSUER)
+    await manager.update("invoices", invoice.id, {"amount": 12}, actor=ISSUER)
+    await manager.transition("invoices", invoice.id, "submit", actor=ISSUER)
+    with pytest.raises(PermissionDenied):
+        await manager.transition("invoices", invoice.id, "approve", actor=ISSUER)
 
 
 async def test_engine_jobs_run_as_the_system_principal(manager):

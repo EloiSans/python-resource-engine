@@ -18,7 +18,7 @@ from resource_engine_devtools.documentation.generators import (
     render_json,
     render_markdown,
 )
-from resource_engine_devtools.loader import load_authz, load_registry
+from resource_engine_devtools.loader import find_config, load_authz, load_registry
 
 
 def _emit(args: argparse.Namespace, data: Any, text: str) -> None:
@@ -272,11 +272,23 @@ def cmd_check(args: argparse.Namespace) -> int:
     violations = []
     for raw in args.paths or ["."]:
         violations += check_domain_imports(Path(raw))
-    registry = _optional_registry(args)
-    if registry is not None:
-        from resource_engine_devtools.hooks_check import check_hooks
+    from resource_engine.errors import ResourceEngineError
 
+    from resource_engine_devtools import gates_check
+    from resource_engine_devtools.hooks_check import check_hooks
+
+    try:
+        registry = _optional_registry(args)
+    except ResourceEngineError as exc:  # the engine refused a declaration
+        registry = None
+        violations.append(gates_check.load_error(exc))
+    if registry is not None:
         violations += check_hooks(registry)
+        seed = args.policies or find_config(Path.cwd()).get("policies")
+        if seed:
+            violations += gates_check.check_gates(
+                registry, load_authz(Path.cwd()), gates_check.load_policies(seed)
+            )
     text = (
         "\n".join(f"{v.code} {v.path}:{v.line}: {v.message}\n    {v.hint}" for v in violations)
         or "No violations."
@@ -297,8 +309,13 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("resource", nargs="?")
     p.set_defaults(func=cmd_inspect)
 
-    p = sub.add_parser("check", parents=[common], help="architecture and hook/effect lints")
+    p = sub.add_parser("check", parents=[common], help="architecture, hook/effect and gate lints")
     p.add_argument("paths", nargs="*")
+    p.add_argument(
+        "--policies",
+        help="seed policies as module:attribute (default: pyproject policies); "
+        "enables the operations-without-a-gate rule",
+    )
     p.set_defaults(func=cmd_check)
 
     docs = sub.add_parser("docs", help="functional documentation").add_subparsers(

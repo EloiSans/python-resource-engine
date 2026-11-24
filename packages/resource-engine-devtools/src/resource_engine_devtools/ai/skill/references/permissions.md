@@ -71,6 +71,13 @@ Every operation is confined to `Principal.tenant` before any policy is
 evaluated. The engine stamps the tenant on create. Don't add tenant checks in
 hooks or tenant filters in queries.
 
+## Every operation needs a gate
+
+When you add an operation, transition, action or document slot, also add who
+may use it: a policy in the application's seed (the list named by
+`[tool.resource-engine] policies`), or a system-role grant. `resource-engine
+check` reports operations that only `admin` can perform (RE-C004).
+
 ## In tests
 
 ```python

@@ -18,7 +18,12 @@ registry.register_audit()
 authz = AuthzConfig(
     system_roles=[SystemRole.admin(), SystemRole.viewer()],
     role_source=IdpRoleSource(
-        {"invoices-admin": "admin", "accountant": "viewer", "approver": "approver"}
+        {
+            "invoices-admin": "admin",
+            "accountant": "viewer",
+            "approver": "approver",
+            "issuer": "issuer",
+        }
     ),
     bootstrap={"platform-admin": "admin"},
 )

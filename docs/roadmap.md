@@ -68,6 +68,8 @@
   `llms.txt`, the reference module kept in sync by a test) and `resource-engine
   ai install` / `ai sync` (Claude skill, managed `AGENTS.md` and Copilot blocks,
   Cursor rule, lock file, `--check` for CI).
+- `check`: operations only `admin` can perform, against the seed policies
+  (RE-C004); declarations the engine refuses reported as violations (RE-C005).
 
 ## Next
 
@@ -76,8 +78,6 @@ Ordered by priority. The first block finishes the MVP of the
 
 ### MVP: AI assistance and verification
 
-- `check`: enabled operations that no policy or system role can grant; state
-  field exposed in a create or update schema.
 - Scaffolding (`resource-engine scaffold resource|action|state-machine`).
 - Skill evaluation: reference tasks run by an agent with and without the skill,
   scored by `check`, `docs validate` and the tests.

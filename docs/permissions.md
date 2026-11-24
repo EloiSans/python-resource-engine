@@ -55,6 +55,31 @@ Patterns: `*` matches one segment and a trailing `*` the rest (`invoices:*`,
 resources, raw `documents`, anything you mark as sensitive) are only matched by
 explicit names, or by system roles with `include_sensitive` (`admin`).
 
+## Checking the gates
+
+Policies are data, so `resource-engine check` can't see the ones in your
+database. It checks the policies your application seeds, which are the ones it
+creates on start-up, in tests or in demos:
+
+```toml
+[tool.resource-engine]
+authz = "invoices.bootstrap:authz"          # AuthzConfig: system roles
+policies = "invoices.authz:SEED_POLICIES"   # list of policy dicts (or Policy objects)
+```
+
+**RE-C004** reports every enabled operation of your resources that only a
+catch-all system role (one granting `*`, like `admin`) can perform. That covers
+CRUD operations, transitions, actions and document operations that no other
+system role and no allow policy in the seed grants.
+
+- **Conditions:** a conditional grant still counts as a gate.
+- **What is skipped:** disabled policies, deny policies and the built-in
+  resources (`authz_*`, `audit_log`, `documents`).
+- **Fixing it:** add a policy to the seed, grant the operation to a system
+  role, or remove the operation.
+
+Without `policies` (or `--policies module:attribute`), the rule is skipped.
+
 ## Where roles come from
 
 A deployment choice:

@@ -56,4 +56,6 @@ carries your own `code`.
 | RE-C001 | `check` | A `domain/` module imports an infrastructure package. |
 | RE-C002 | `check` | Code inside the transaction (a hook before `after_commit`, an action's `execute`) reaches an external effect: an `@external_effect` function or a network, e-mail or cloud client. |
 | RE-C003 | `check` | An `after_commit` hook records events, uses `ctx.repository()` / `ctx.uow`, registers `on_rollback`, or changes `ctx.entity`. |
+| RE-C004 | `check` | An enabled operation that only a catch-all system role (`admin`) can perform: no other system role and no seed policy grants it. Needs `policies` in `[tool.resource-engine]`. |
+| RE-C005 | `check` | The registry could not be loaded because the engine refused a declaration (for example RE-E004); reported at the line of your code. |
 | RE-D001…D009 | `docs validate` | Documentation coverage rules (resource, CRUD ops, state machine, states, transitions, actions, postconditions, hooks, document slots). |
