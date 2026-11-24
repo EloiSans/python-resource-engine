@@ -1,9 +1,9 @@
-"""Table and imperative mapping for the audit trail."""
+"""Tables and imperative mapping for the audit trail and its seals."""
 
 from __future__ import annotations
 
-from resource_engine.audit import AuditEntry
-from sqlalchemy import JSON, Column, DateTime, Index, MetaData, String, Table
+from resource_engine.audit import AuditEntry, AuditSeal
+from sqlalchemy import JSON, Column, DateTime, Index, Integer, MetaData, String, Table
 from sqlalchemy import inspect as sa_inspect
 from sqlalchemy.orm import registry as orm_registry
 
@@ -26,11 +26,35 @@ def audit_table(metadata: MetaData, name: str = "resource_engine_audit_log") -> 
         Column("changes", JSON, nullable=False),
         Column("details", JSON, nullable=False),
         Column("correlation_id", String(64), index=True),
+        Column("seal", Integer, index=True),
         Index(f"ix_{name}_record", "resource", "entity_id"),
+        Index(f"ix_{name}_order", "at", "id"),
     )
 
 
-def map_audit(registry: orm_registry, table: Table) -> None:
-    """Map ``AuditEntry`` (once per process; later calls are ignored)."""
+def audit_seal_table(metadata: MetaData, name: str = "resource_engine_audit_seals") -> Table:
+    """Declare the seal table (``AuditSealer``) on your metadata."""
+    return Table(
+        name,
+        metadata,
+        Column("sequence", Integer, primary_key=True, autoincrement=False),
+        Column("previous", String(64)),
+        Column("entries", Integer, nullable=False),
+        Column("first_at", DateTime(timezone=True), nullable=False),
+        Column("last_at", DateTime(timezone=True), nullable=False, index=True),
+        Column("digest", String(64), nullable=False),
+        Column("hash", String(64), nullable=False),
+        Column("mac", String(64)),
+        Column("key_id", String(100)),
+        Column("sealed_at", DateTime(timezone=True), nullable=False),
+        Column("purged_at", DateTime(timezone=True)),
+    )
+
+
+def map_audit(registry: orm_registry, table: Table, seals: Table | None = None) -> None:
+    """Map ``AuditEntry``, and ``AuditSeal`` when ``seals`` is given (once per
+    process; later calls are ignored)."""
     if sa_inspect(AuditEntry, raiseerr=False) is None:
         registry.map_imperatively(AuditEntry, table)
+    if seals is not None and sa_inspect(AuditSeal, raiseerr=False) is None:
+        registry.map_imperatively(AuditSeal, seals)

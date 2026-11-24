@@ -27,6 +27,30 @@ class AuditEntry:
     correlation_id: str | None = None
     at: datetime = field(default_factory=lambda: datetime.now(UTC))
     id: str = field(default_factory=lambda: uuid.uuid4().hex)
+    seal: int | None = None  # sequence of the AuditSeal covering this entry
+
+
+@dataclass
+class AuditSeal:
+    """A sealed batch of audit entries (see ``AuditSealer``).
+
+    ``digest`` hashes the batch's entries; ``hash`` covers the digest, the
+    batch's metadata and the previous seal's hash, so seals form a chain.
+    ``mac`` is an HMAC of ``hash`` when the sealer has a key. ``purged_at`` is
+    set when retention deleted the batch's entries; the seal itself stays.
+    """
+
+    sequence: int
+    previous: str | None
+    entries: int
+    first_at: datetime
+    last_at: datetime
+    digest: str
+    hash: str
+    mac: str | None = None
+    key_id: str | None = None
+    sealed_at: datetime = field(default_factory=lambda: datetime.now(UTC))
+    purged_at: datetime | None = None
 
 
 class AuditEntryRead(BaseModel):
@@ -51,3 +75,24 @@ class AuditEntryRead(BaseModel):
     )
     details: dict[str, Any] = Field(description="Transition, input, documents, denial reason")
     correlation_id: str | None = Field(default=None, description="Shared with logs and events")
+    seal: int | None = Field(default=None, description="Seal covering the entry; null until sealed")
+
+
+class AuditSealRead(BaseModel):
+    """A sealed batch of audit entries."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    sequence: int = Field(description="Position in the seal chain, from 1")
+    previous: str | None = Field(default=None, description="Hash of the previous seal")
+    entries: int = Field(description="Number of entries in the batch")
+    first_at: datetime = Field(description="Time of the oldest entry")
+    last_at: datetime = Field(description="Time of the newest entry")
+    digest: str = Field(description="SHA-256 of the batch's entries")
+    hash: str = Field(description="SHA-256 of the seal, chained to the previous one")
+    mac: str | None = Field(default=None, description="HMAC-SHA-256 of the hash, when keyed")
+    key_id: str | None = Field(default=None, description="Key that produced the HMAC")
+    sealed_at: datetime = Field(description="When the batch was sealed")
+    purged_at: datetime | None = Field(
+        default=None, description="When retention deleted the entries"
+    )

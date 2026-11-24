@@ -93,7 +93,7 @@ uv run uvicorn invoices.app:app --app-dir examples --reload   # then open /docs
 - [Identity](docs/identity.md) — bearer tokens, providers, `Principal`.
 - [Permissions](docs/permissions.md) — system roles, ABAC policies managed from a front end.
 - [External policy engines](docs/authorizers.md) — OPA, Cedar and OpenFGA behind the same port.
-- [Audit trail](docs/audit.md) — committed changes and refused attempts.
+- [Audit trail](docs/audit.md) — committed changes and refused attempts, tamper-evident seals, retention.
 - [Tenancy](docs/tenancy.md) — tenant-scoped resources, cross-tenant roles.
 - [Concurrency](docs/concurrency.md) — version field, `ETag` / `If-Match`, stale writes refused.
 - [Roadmap](docs/roadmap.md) — what is done and what comes next.

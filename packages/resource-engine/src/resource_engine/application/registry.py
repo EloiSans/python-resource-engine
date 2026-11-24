@@ -46,11 +46,17 @@ class ResourceRegistry:
         for resource_cls in (PolicyResource, RoleResource, RoleAssignmentResource):
             self.register(resource_cls)
 
-    def register_audit(self, resource_cls: type[Resource] | None = None) -> type[Resource]:
-        """Register the built-in, read-only ``audit_log`` resource (or a subclass)."""
-        from resource_engine.audit.resource import AuditLogResource
+    def register_audit(
+        self, resource_cls: type[Resource] | None = None, *, seals: bool = False
+    ) -> type[Resource]:
+        """Register the built-in, read-only ``audit_log`` resource (or a subclass),
+        and with ``seals=True`` the ``audit_seals`` resource used by ``AuditSealer``."""
+        from resource_engine.audit.resource import AuditLogResource, AuditSealResource
 
-        return self.register(resource_cls or AuditLogResource)
+        registered = self.register(resource_cls or AuditLogResource)
+        if seals:
+            self.register(AuditSealResource)
+        return registered
 
     def get(self, resource: str | type[Resource]) -> ResourceDefinition:
         name = resource if isinstance(resource, str) else resource.definition().name

@@ -78,7 +78,93 @@ Entries written on their own (refusals, reads) are best effort: a failing sink i
 logged and never changes the outcome of the operation. Entries of committed
 changes are part of the transaction: if writing them fails, the change fails.
 
+## Tamper evidence
+
+Entries are written by concurrent transactions, so they are sealed in batches
+rather than chained one by one. A periodic job seals the entries written since
+its last run:
+
+```python
+from resource_engine.audit import AuditSealer
+
+registry.register_audit(seals=True)  # adds the read-only audit_seals resource
+sealer = AuditSealer(uow_factory, key=settings.audit_key, key_id="2026-11")
+await sealer.seal_pending()  # from a scheduled job
+report = await sealer.verify()
+if not report.ok:
+    for problem in report.problems:
+        print(problem.sequence, problem.kind, problem.message)
+```
+
+With SQLAlchemy, add the seal table:
+`map_audit(mapper, audit_table(metadata), audit_seal_table(metadata))`. The
+audit table also has a `seal` column: add it with a migration if your table
+predates it.
+
+Each seal covers up to `batch_size` entries (1000 by default) in `(at, id)`
+order:
+
+| Field | Content |
+|---|---|
+| `sequence` | Position in the chain, from 1 |
+| `entries`, `first_at`, `last_at` | How many entries, and their time range |
+| `digest` | SHA-256 of the entries as canonical JSON |
+| `hash` | SHA-256 of the digest, the fields above and `previous` |
+| `previous` | The previous seal's `hash`: seals form a chain |
+| `mac`, `key_id` | HMAC-SHA-256 of `hash`, when a key is configured |
+| `purged_at` | When retention deleted the batch's entries |
+
+Each entry records its seal in `seal`, `null` until sealed.
+
+`verify()` recomputes every seal and batch. It reports:
+
+| Kind | Meaning |
+|---|---|
+| `entries_changed` | An entry was changed, deleted, or moved into or out of the batch |
+| `seal_changed` | A seal's fields don't match its hash |
+| `chain_broken` | `previous` doesn't match the seal before |
+| `seal_missing` | A gap in the sequence |
+| `bad_mac`, `unsigned`, `unknown_key` | The HMAC doesn't match, is missing, or its key is unknown |
+| `orphan_entries` | Entries point at a seal that doesn't exist |
+
+It also returns how many entries are still unsealed.
+
+What it covers, and what it doesn't:
+
+- **Without a key**, seals show accidental and partial edits. Someone who can
+  write the database can still rewrite entries and seals together.
+- **With a key** kept outside the database, rewriting the seals needs the key.
+  To rotate keys, pass the earlier ones as `old_keys={"2026-05": old_key}`.
+- **New entries are not covered until the next run.** Only entries older than
+  `settle` (5 minutes by default) are sealed, so transactions still running
+  when the job starts join a later batch instead of leaving a gap.
+- **Forged entries aren't detected.** An entry inserted directly into the table
+  is sealed like any other. Sealing proves later changes, not authorship.
+- **Run one sealer at a time.** In SQL, two sealers racing collide on the
+  seal's primary key, and one of them rolls back.
+
+## Retention
+
+Entries are kept forever unless you configure an age:
+
+```python
+from datetime import timedelta
+
+from resource_engine.audit import AuditJanitor
+
+janitor = AuditJanitor(uow_factory, retention=timedelta(days=365 * 7), sealer=sealer)
+await janitor.run_once()  # from a scheduled job, or: await janitor.run_forever(interval=3600)
+```
+
+- **With a sealer**, each run seals first. Then it deletes whole sealed batches
+  whose newest entry is past retention. The seal stays, marked `purged_at`, so
+  the chain still verifies. Unsealed entries are never deleted.
+- **Without a sealer**, entries older than `retention` are deleted directly, in
+  batches of `batch_size`.
+- `retention` applies to every entry, changes and refusals alike.
+- `AuditJanitor(sealer=sealer)` with no retention only seals.
+
 ## Not yet
 
-Retention and purge jobs, tamper evidence (hash chaining), and external sinks
-(OpenTelemetry logs, SIEM).
+- External sinks (OpenTelemetry logs, SIEM).
+- Retention per resource or per outcome.

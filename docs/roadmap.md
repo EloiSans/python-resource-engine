@@ -55,12 +55,15 @@
   concurrency per key, `MessageObserver` metrics hooks with `LoggingObserver`.
 - Messaging retention (`MessagingJanitor`: inbox marks, published outbox
   records) and OpenTelemetry consumer metrics (`resource-engine-opentelemetry`).
+- Audit tamper evidence (`AuditSealer`: chained seals over batches of entries,
+  optional HMAC with key rotation, `verify()`) and retention (`AuditJanitor`,
+  keeping seals of purged batches).
 
 ## Next
 
 - Policy engines: OpenFGA conditions on input values, OPA bundles, Cedar schemas
   generated from the registry.
-- Audit: retention and purge, tamper evidence, external sinks (OpenTelemetry, SIEM).
+- Audit: external sinks (OpenTelemetry logs, SIEM); retention per resource or outcome.
 - Example app with authentication (Keycloak) so `invoices` can be tenant-scoped.
 - `check`: hook/effect mismatches.
 - AI skill packaged with devtools (`SKILL.md`, references, anti-patterns) and

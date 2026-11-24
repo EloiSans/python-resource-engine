@@ -6,7 +6,7 @@ Domain entities stay plain classes; map them with SQLAlchemy's imperative mappin
 infrastructure layer, so the domain never imports SQLAlchemy.
 """
 
-from resource_engine_sqlalchemy.audit import audit_table, map_audit
+from resource_engine_sqlalchemy.audit import audit_seal_table, audit_table, map_audit
 from resource_engine_sqlalchemy.authz import AuthzTables, authz_tables, map_authz
 from resource_engine_sqlalchemy.documents import documents_table, map_documents
 from resource_engine_sqlalchemy.inbox import SqlAlchemyInbox, inbox_table
@@ -20,6 +20,7 @@ __all__ = [
     "SqlAlchemyOutbox",
     "SqlAlchemyRepository",
     "SqlAlchemyUnitOfWork",
+    "audit_seal_table",
     "audit_table",
     "authz_tables",
     "documents_table",
