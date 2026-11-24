@@ -222,6 +222,52 @@ def cmd_ai_context(args: argparse.Namespace) -> int:
     return 0
 
 
+def _project_context(args: argparse.Namespace) -> str | None:
+    registry = _optional_registry(args)
+    if registry is None:
+        return None
+    return render_ai_context(introspect(registry, load_authz(Path.cwd())))
+
+
+def cmd_ai_install(args: argparse.Namespace) -> int:
+    from resource_engine_devtools.ai import installer
+
+    targets = installer.parse_targets(args.target)
+    result = installer.install(Path(args.root), targets, _project_context(args))
+    lines = [f"installed resource-engine skill {result['version']} → {result['skill_path']}"]
+    lines += [f"  wrote {name}" for name in result["written"]]
+    lines += [f"  removed {name}" for name in result["removed"]]
+    _emit(args, result, "\n".join(lines))
+    return 0
+
+
+def cmd_ai_sync(args: argparse.Namespace) -> int:
+    from resource_engine_devtools.ai import installer
+
+    root = Path(args.root)
+    context = _project_context(args)
+    lock, findings = installer.check(root, context)
+    if args.check or lock is None:
+        up_to_date = not findings
+        text = (
+            "AI skill and project context are up to date."
+            if up_to_date
+            else (
+                installer.summary(findings) + "\nRun: resource-engine ai sync"
+                if lock is not None
+                else installer.summary(findings)
+            )
+        )
+        _emit(args, {"up_to_date": up_to_date, "findings": [f.to_dict() for f in findings]}, text)
+        return 0 if up_to_date else 1
+    result = installer.install(root, lock["targets"], context)
+    lines = [f"synced resource-engine skill {result['version']} → {result['skill_path']}"]
+    lines += [f"  wrote {name}" for name in result["written"]] or ["  nothing to update"]
+    lines += [f"  removed {name}" for name in result["removed"]]
+    _emit(args, result | {"findings": [f.to_dict() for f in findings]}, "\n".join(lines))
+    return 0
+
+
 def cmd_check(args: argparse.Namespace) -> int:
     violations = []
     for raw in args.paths or ["."]:
@@ -274,6 +320,19 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--out")
     p.add_argument("--check", action="store_true", help="fail if --out is out of date")
     p.set_defaults(func=cmd_ai_context)
+    p = ai.add_parser("install", parents=[common], help="install the skill and agent instructions")
+    p.add_argument(
+        "--target",
+        help="comma-separated: claude, agents, cursor, copilot (default: claude,agents)",
+    )
+    p.add_argument("--root", default=".", help="project root (default: current directory)")
+    p.set_defaults(func=cmd_ai_install)
+    p = ai.add_parser(
+        "sync", parents=[common], help="update the installed skill and project context"
+    )
+    p.add_argument("--check", action="store_true", help="fail if anything is out of date")
+    p.add_argument("--root", default=".", help="project root (default: current directory)")
+    p.set_defaults(func=cmd_ai_sync)
 
     p = sub.add_parser("worker", help="run the application's background jobs and services")
     p.add_argument("--runner", help="JobRunner as module:attribute (default: pyproject worker)")

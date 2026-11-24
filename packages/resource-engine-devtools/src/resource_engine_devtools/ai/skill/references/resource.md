@@ -1,0 +1,186 @@
+# Declaring a resource
+
+A `Resource` subclass is a declaration: class attributes only, validated when
+registered (`ResourceRegistry.register`). Errors at registration are
+`RE-E0xx` with a hint.
+
+```python
+from resource_engine import Resource
+
+from billing.application import hooks
+from billing.application.actions import RecalculateTotals
+from billing.application.schemas import InvoiceCreate, InvoiceRead, InvoiceUpdate, RejectInvoice
+from billing.domain.entities import Invoice
+from billing.domain.state_machine import InvoiceStateMachine
+
+
+class InvoiceResource(Resource):
+    """Gestió de factures de l'organització.
+
+    Business area:
+        Facturació
+    """
+
+    model = Invoice                      # plain domain class, not an ORM model
+    schemas = {"create": InvoiceCreate, "update": InvoiceUpdate, "read": InvoiceRead}
+    operations = ["list", "get", "create", "update", "delete"]
+    operation_docs = {"list": "Llista les factures.", "get": "Consulta una factura.", ...}
+    state_machine = InvoiceStateMachine  # optional
+    transition_schemas = {"reject": RejectInvoice}
+    actions = [RecalculateTotals]
+    hooks = {"before_update": [hooks.ensure_editable], "after_commit": [hooks.notify]}
+    filterable = ["status", "customer"]
+    sortable = ["id", "amount"]
+```
+
+## Attributes
+
+| Attribute | Default | Meaning |
+|---|---|---|
+| `name` | `InvoiceResource` → `invoices` | Public name (URLs, actions, registry) |
+| `model` | required | Domain entity class |
+| `id_field`, `id_type` | `"id"`, `int` | Identifier attribute and type |
+| `schemas` | `{}` | Pydantic models: `create`, `update`, `read` |
+| `operations` | `()` | Enabled CRUD subset of `list get create update delete` |
+| `operation_docs` | `{}` | One sentence per enabled CRUD operation (`docs validate` needs it) |
+| `hooks` | `{}` | `{"<point>[:<qualifier>]": fn or [fn, ...]}`; see [lifecycle.md](lifecycle.md) |
+| `state_machine`, `state_field` | `None`, `"status"` | See [state-machines.md](state-machines.md) |
+| `transition_schemas` | `{}` | Input schema per transition event |
+| `actions` | `()` | `Action` subclasses |
+| `filterable`, `sortable` | `()` | Fields accepted by `list` filters and `order_by` |
+| `max_page_size` | `100` | Upper bound for `list` |
+| `documents` | `()` | `DocumentSlot(...)` declarations |
+| `restricted_fields` | `()` | Need an explicit `<resource>:read|write:<field>` grant |
+| `tenant_field` | `None` | Confine every operation to the caller's tenant |
+| `version_field`, `require_version` | `None`, `False` | Optimistic concurrency (ETag / If-Match, RE-E105) |
+| `authz_wildcards` | `True` | `False` for sensitive resources: wildcard grants don't reach them |
+| `expose_transitions` | `True` | `False` keeps transitions internal (no HTTP routes) |
+| `audit`, `audit_reads`, `audit_exclude` | `True`, `False`, `()` | Audit trail options |
+
+## Schemas
+
+Separate Pydantic models per role. They are the HTTP contract; the entity is
+not exposed directly.
+
+- `create`: what a client may send to create. **Never the state field, the
+  id or the version field.**
+- `update`: every field optional; only the fields sent are applied
+  (`exclude_unset`). The id, state and version fields are ignored even if
+  present.
+- `read`: `model_config = ConfigDict(from_attributes=True)`; it is built from
+  the entity. Include the state and version fields here.
+
+Override `build_entity(data, ctx)`, `apply_update(entity, data, ctx)` or
+`to_read(entity, ctx)` on the resource when the default mapping
+(`model(**data)`, `setattr` per sent field, `read.model_validate(entity)`) is
+not enough.
+
+## Actions
+
+Business operations that are neither CRUD nor a transition:
+
+```python
+from resource_engine import Action, OperationContext
+
+
+class RecalculateTotals(Action):
+    """Aplica un descompte percentual a l'import d'una factura.
+
+    Preconditions:
+        La factura és un esborrany.
+
+    Postconditions:
+        L'import queda reduït pel percentatge indicat.
+
+    Effects:
+        Emet l'esdeveniment ``InvoiceTotalsRecalculated``.
+    """
+
+    input_schema = ApplyDiscount      # or None
+    # name = "recalculate_totals"     # default: snake_case of the class name
+    # instance = True                 # False: collection-level (/actions/x)
+    # output_schema = None            # default: the resource's read schema
+
+    async def execute(self, ctx: OperationContext) -> None:
+        invoice = ctx.entity              # loaded and authorized by the engine
+        invoice.ensure_editable()         # domain rule
+        invoice.apply_discount(ctx.data.percent)
+        await ctx.repository().update(invoice)   # actions write themselves
+        ctx.record_event(InvoiceTotalsRecalculated(invoice_id=invoice.id, ...))
+```
+
+`execute` runs inside the transaction (no external effects there). HTTP:
+`POST /invoices/{id}/actions/recalculate_totals`. Permission action:
+`invoices:action:recalculate_totals`.
+
+## Events
+
+Domain events are frozen keyword-only dataclasses in `domain/events.py`:
+
+```python
+from dataclasses import dataclass
+
+from resource_engine.domain import DomainEvent
+
+
+@dataclass(frozen=True, kw_only=True)
+class InvoiceTotalsRecalculated(DomainEvent):
+    """L'import d'una factura s'ha recalculat."""
+
+    invoice_id: int
+    new_amount: Decimal
+```
+
+Record them with `ctx.record_event(...)` in hooks before commit or in actions.
+They are published only if the transaction commits. The engine also publishes
+`ResourceCreated`, `ResourceUpdated`, `ResourceDeleted`, `TransitionExecuted` and
+`ActionExecuted` on its own. With `OutboxDelivery` they are stored with the
+change and sent by `OutboxRelay`; consumers use `EventRouter` and
+`MessageProcessor(manager=...)` for exactly-once effects.
+
+## Documents
+
+```python
+from resource_engine import DocumentSlot
+
+documents = [
+    DocumentSlot(
+        "signed_pdf",
+        content_types=["application/pdf"],
+        required_for=["approve"],
+        description="Factura signada pel client; cal per aprovar-la.",
+    ),
+    DocumentSlot("attachments", multiple=True, description="Justificants."),
+]
+```
+
+Every slot needs a `description` (RE-D009). Inside an action,
+`await ctx.documents.attach(NewDocument(slot, data, filename, content_type))`.
+
+## Registering and wiring
+
+```python
+registry = ResourceRegistry()
+registry.register(InvoiceResource)
+registry.register_documents()  # if any resource has document slots
+registry.register_authz()  # built-in policies managed from a front end
+registry.register_audit()  # audit trail
+
+manager = ResourceManager(
+    registry,
+    unit_of_work_factory(session_factory, registry),
+    authorizer=...,
+    audit=True,
+    services={"notifier": notifier},
+)
+mount_resources(app, registry, manager, actor_dependency=bearer_actor(authenticator))
+```
+
+`services` are reachable from hooks and actions as `ctx.services["notifier"]`.
+Map the entity with SQLAlchemy **imperative mapping** in `infrastructure/`
+(`mapper_registry.map_imperatively(Invoice, invoices_table)`), never with
+declarative models in the domain.
+
+Generated HTTP API: `GET/POST /invoices`, `GET/PATCH/DELETE /invoices/{id}`,
+`GET /invoices/{id}/transitions`, `POST /invoices/{id}/transitions/{event}`,
+`POST /invoices/{id}/actions/{name}`.

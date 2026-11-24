@@ -64,16 +64,43 @@
   and jobs; W3C trace context on envelopes (JSON, CloudEvents); `OtelTracer`.
 - `check`: hook/effect mismatches (RE-C002 effects inside the transaction, RE-C003
   `after_commit` hooks that need it).
+- AI skill packaged with devtools (`SKILL.md`, references, anti-patterns,
+  `llms.txt`, the reference module kept in sync by a test) and `resource-engine
+  ai install` / `ai sync` (Claude skill, managed `AGENTS.md` and Copilot blocks,
+  Cursor rule, lock file, `--check` for CI).
 
 ## Next
 
+Ordered by priority. The first block finishes the MVP of the
+[proposal](proposal-v3.md#12-abast-proposat-per-a-una-primera-versió-mvp).
+
+### MVP: AI assistance and verification
+
+- `check`: enabled operations that no policy or system role can grant; state
+  field exposed in a create or update schema.
+- Scaffolding (`resource-engine scaffold resource|action|state-machine`).
+- Skill evaluation: reference tasks run by an agent with and without the skill,
+  scored by `check`, `docs validate` and the tests.
+
+### Next
+
+- Idempotency keys for sensitive operations (`Idempotency-Key` on HTTP writes,
+  stored results).
+- Alembic support: migrations for the engine's tables (outbox, inbox, audit,
+  seals, permissions, documents, locks) and autogenerate-friendly metadata.
+- Observability: structured JSON logs, operation duration metrics, OpenTelemetry
+  metrics for job runs.
+- Transition history view per record (from the audit trail).
+- `resource-engine mcp`: the CLI's inspect, check, docs and scaffold tools as an
+  MCP server.
+- Choose and add a licence; CI publishing per package.
+
+### Later
+
+- Example app with authentication (Keycloak) so `invoices` can be tenant-scoped.
 - Policy engines: OpenFGA conditions on input values, OPA bundles, Cedar schemas
   generated from the registry.
 - Audit: external sinks (OpenTelemetry logs, SIEM); retention per resource or outcome.
-- Observability: OpenTelemetry metrics for job runs and operations.
-- Example app with authentication (Keycloak) so `invoices` can be tenant-scoped.
-- AI skill packaged with devtools (`SKILL.md`, references, anti-patterns) and
-  `resource-engine ai install` / `ai sync` with managed `AGENTS.md` block and lock file.
 - EventBridge and Event Grid publishers.
 - SAP: OData v2/v4 repository for S/4HANA APIs on top of the REST repository,
   BTP destination service lookup.
@@ -82,6 +109,3 @@
 - Azure Blob Storage and Google Cloud Storage blob stores; reference document
   processors (ClamAV scan, text extraction).
 - NoSQL repositories (DynamoDB, Cosmos DB, Firestore) after adding capability flags.
-- Transition history view per record (from the audit trail).
-- Scaffolding (`resource-engine scaffold`).
-- Choose and add a licence; CI publishing per package.

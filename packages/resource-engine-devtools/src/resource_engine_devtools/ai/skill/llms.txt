@@ -1,0 +1,25 @@
+# Resource Engine
+
+> Python framework for declarative business backends. A `Resource` declares an entity's schemas, CRUD operations, state machine, actions, hooks and document slots; the `ResourceManager` runs every operation through one lifecycle (validation, permissions, hooks, one transaction, audit, events after commit). Domain code is plain Python; FastAPI, SQLAlchemy and brokers are adapters.
+
+Rules that must not be broken: no external effects before commit; state changes only through transitions; no framework imports in `domain/`; permissions in policies, not hooks; document every functional element. Verify with `resource-engine check --json`, `resource-engine docs validate --strict` and `pytest`.
+
+## Skill
+
+- [SKILL.md](SKILL.md): when to use the skill, workflow, rules, verification commands
+- [Project catalogue](project.md): this project's resources, operations, transitions, actions and permissions (generated)
+
+## References
+
+- [Resources](references/resource.md): `Resource` attributes, schemas, actions, events, documents, wiring
+- [Lifecycle](references/lifecycle.md): step order, hook points, `OperationContext`, external effects, transactions
+- [State machines](references/state-machines.md): states, transitions, callbacks, guards
+- [Permissions](references/permissions.md): action names, policies, conditions, fields, tenants
+- [Docstrings](references/docstrings.md): functional sections and `docs validate` rules
+- [Testing](references/testing.md): in-memory adapters and what to test
+- [Errors](references/errors.md): every `RE-*` code and what to change
+- [Anti-patterns](references/anti-patterns.md): common mistakes with the wrong and the right code
+
+## Optional
+
+- [Reference module](examples/invoices/application/resource.py): the complete `invoices` example (domain, application, infrastructure, tests)

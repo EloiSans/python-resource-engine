@@ -27,8 +27,8 @@ class OperationContext:
         transition: Event name when ``operation == "transition"``.
         action: Action name when ``operation == "action"``.
         slot: Document slot for ``attach`` / ``detach`` operations.
-        actor: Opaque identity of the caller, provided by the entry adapter.
-            Authorization is not part of the engine yet.
+        actor: The caller (a ``Principal``, ``system_principal(...)`` for engine
+            jobs, or ``None``), provided by the entry adapter.
         raw_input: Input as received, before validation (mutable in ``before_validate``).
         data: Validated input (a Pydantic model instance), or ``None``.
         entity_id: Identifier of the target entity, when there is one.

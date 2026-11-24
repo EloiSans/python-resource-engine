@@ -1,0 +1,7 @@
+---
+description: Resource Engine conventions for resources, lifecycle hooks, state machines, actions and permissions
+globs: "**/*.py"
+alwaysApply: false
+---
+
+{block}
