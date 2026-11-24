@@ -134,8 +134,8 @@ skipped, but the id is recorded **after** the handler, in its own transaction,
 so a crash between the two can run a handler twice.
 
 Enable the inbox with `SqlAlchemyUnitOfWork(..., inbox_table=inbox_table(metadata))`
-or the in-memory unit of work. Old rows can be deleted once older than the
-broker's redelivery window.
+or the in-memory unit of work. Old marks are deleted by the messaging janitor
+([retention](#retention)).
 
 ### Metrics
 
@@ -143,8 +143,57 @@ broker's redelivery window.
 result, seconds)`, sync or async. That includes duplicates, dead letters, and
 messages held back behind a failed key (0 seconds). A failing observer is
 logged and ignored. `LoggingObserver` writes one line per message to
-`resource_engine.messaging.metrics`, and it's the model for an OpenTelemetry or
-Prometheus adapter.
+`resource_engine.messaging.metrics`. Held-back messages have
+`result.blocked` set.
+
+For OpenTelemetry, install `resource-engine-opentelemetry`:
+
+```python
+from resource_engine_opentelemetry import ConsumerMetrics
+
+processor = MessageProcessor(router, name="billing", manager=manager, observers=[ConsumerMetrics()])
+```
+
+| Instrument | Kind | Attributes |
+|---|---|---|
+| `resource_engine.consumer.messages` (`{message}`) | Counter | consumer, outcome, event type, `blocked` |
+| `resource_engine.consumer.duration` (`s`) | Histogram | consumer, outcome, event type |
+
+The attributes are named `resource_engine.consumer`, `resource_engine.outcome`,
+`resource_engine.event_type` and `resource_engine.blocked`. Held-back messages
+are counted but not timed. Pass `include_event_type=False` when there are many
+event types. The package needs only `opentelemetry-api`. Configure the SDK and
+an exporter in your application; without them the instruments do nothing.
+
+### Retention
+
+Inbox marks and published outbox records pile up. `MessagingJanitor` deletes
+them once they are past their retention:
+
+```python
+from datetime import timedelta
+
+from resource_engine.messaging import MessagingJanitor
+
+janitor = MessagingJanitor(
+    uow_factory, inbox_retention=timedelta(days=14), outbox_retention=timedelta(days=7)
+)
+await janitor.run_once()  # from a scheduled job, or: await janitor.run_forever(interval=3600)
+```
+
+- **Inbox:** keep marks longer than the broker can redeliver a message
+  (message retention, dead-letter redrive). A message that comes back after its
+  mark is deleted runs again.
+- **Outbox:** only published records are deleted. Pending and failing records
+  stay until the relay sends them.
+- **Batches:** `batch_size` rows per transaction (1000 by default), repeated
+  until a batch comes back short.
+- **Opting out:** `None` leaves a table alone. A unit of work without the table
+  is a configuration error unless its retention is `None`.
+
+Custom stores implement `InboxStore.purge(before, limit)` and
+`OutboxStore.purge_published(before, limit)`. `InboxContract` and
+`OutboxContract` test both.
 
 ### Push endpoints
 

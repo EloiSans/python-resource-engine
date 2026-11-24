@@ -26,6 +26,7 @@ resource-engine-oidc = { workspace = true }
 resource-engine-cedar = { workspace = true }
 resource-engine-opa = { workspace = true }
 resource-engine-openfga = { workspace = true }
+resource-engine-opentelemetry = { workspace = true }
 
 [dependency-groups]
 dev = [
@@ -44,6 +45,8 @@ dev = [
     "resource-engine-cedar",
     "resource-engine-opa",
     "resource-engine-openfga",
+    "resource-engine-opentelemetry",
+    "opentelemetry-sdk>=1.27",
     "pytest>=8",
     "pytest-asyncio>=0.24",
     "httpx>=0.27",

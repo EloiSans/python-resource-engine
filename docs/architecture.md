@@ -20,10 +20,10 @@ so the same class is used by the domain, the in-memory adapter and SQLAlchemy.
 - `UnitOfWork`: async context manager handing out repositories; `commit`/`rollback`.
 - `EventPublisher`: `publish(events)`, called only after commit.
 - `MessagePublisher`: `publish(envelopes)` to a broker (cloud adapters implement it).
-- `OutboxStore` / `SupportsOutbox`: transactional outbox reached through the unit of work.
+- `OutboxStore` / `SupportsOutbox`: transactional outbox reached through the unit of work; `purge_published` for retention.
 - `MessageSource` (+ `SupportsDeadLetter`): pull side of a broker (`receive`, `ack`, `retry`).
-- `InboxStore` / `SupportsInbox`: processed message ids for idempotent consumers.
-- `MessageObserver`: metrics hook called after every processed message.
+- `InboxStore` / `SupportsInbox`: processed message ids for idempotent consumers; `purge` for retention (`MessagingJanitor`).
+- `MessageObserver`: metrics hook called after every processed message (`LoggingObserver` in the core, `ConsumerMetrics` in `resource-engine-opentelemetry`).
 - `BlobStore` (+ `SupportsPresignedUrls`): document contents (`put`, `open`, `head`, `delete`, `list`).
 - `Authenticator` → `Principal`: who is calling (identity providers implement it).
 - `Authorizer`: may the principal perform an action (on a record); `scope` gives the row filter. `PolicyAuthorizer` is the built-in one.

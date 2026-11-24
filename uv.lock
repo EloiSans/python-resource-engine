@@ -19,6 +19,7 @@ members = [
     "resource-engine-oidc",
     "resource-engine-opa",
     "resource-engine-openfga",
+    "resource-engine-opentelemetry",
     "resource-engine-rabbitmq",
     "resource-engine-s3",
     "resource-engine-sap",
@@ -2046,6 +2047,21 @@ requires-dist = [
 ]
 
 [[package]]
+name = "resource-engine-opentelemetry"
+version = "0.1.0.dev0"
+source = { editable = "adapters/resource-engine-opentelemetry" }
+dependencies = [
+    { name = "opentelemetry-api" },
+    { name = "resource-engine" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "opentelemetry-api", specifier = ">=1.27" },
+    { name = "resource-engine", editable = "packages/resource-engine" },
+]
+
+[[package]]
 name = "resource-engine-rabbitmq"
 version = "0.1.0.dev0"
 source = { editable = "adapters/resource-engine-rabbitmq" }
@@ -2115,6 +2131,7 @@ source = { virtual = "." }
 dev = [
     { name = "aiosqlite" },
     { name = "httpx" },
+    { name = "opentelemetry-sdk" },
     { name = "pytest" },
     { name = "pytest-asyncio" },
     { name = "resource-engine" },
@@ -2128,6 +2145,7 @@ dev = [
     { name = "resource-engine-oidc" },
     { name = "resource-engine-opa" },
     { name = "resource-engine-openfga" },
+    { name = "resource-engine-opentelemetry" },
     { name = "resource-engine-rabbitmq" },
     { name = "resource-engine-s3" },
     { name = "resource-engine-sap" },
@@ -2142,6 +2160,7 @@ dev = [
 dev = [
     { name = "aiosqlite", specifier = ">=0.20" },
     { name = "httpx", specifier = ">=0.27" },
+    { name = "opentelemetry-sdk", specifier = ">=1.27" },
     { name = "pytest", specifier = ">=8" },
     { name = "pytest-asyncio", specifier = ">=0.24" },
     { name = "resource-engine", editable = "packages/resource-engine" },
@@ -2155,6 +2174,7 @@ dev = [
     { name = "resource-engine-oidc", editable = "adapters/resource-engine-oidc" },
     { name = "resource-engine-opa", editable = "adapters/resource-engine-opa" },
     { name = "resource-engine-openfga", editable = "adapters/resource-engine-openfga" },
+    { name = "resource-engine-opentelemetry", editable = "adapters/resource-engine-opentelemetry" },
     { name = "resource-engine-rabbitmq", editable = "adapters/resource-engine-rabbitmq" },
     { name = "resource-engine-s3", editable = "adapters/resource-engine-s3" },
     { name = "resource-engine-sap", extras = ["all"], editable = "adapters/resource-engine-sap" },

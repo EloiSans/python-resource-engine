@@ -18,6 +18,7 @@ from sqlalchemy import (
     String,
     Table,
     Text,
+    delete,
     select,
     update,
 )
@@ -110,3 +111,17 @@ class SqlAlchemyOutbox:
                 .where(self.table.c.id.in_(list(ids)))
                 .values(attempts=self.table.c.attempts + 1, last_error=error[:2000])
             )
+
+    async def purge_published(self, before: datetime, limit: int) -> int:
+        t = self.table
+        ids = (
+            await self.session.scalars(
+                select(t.c.id)
+                .where(t.c.published.is_(True), t.c.published_at < before)
+                .order_by(t.c.seq)
+                .limit(limit)
+            )
+        ).all()
+        if ids:
+            await self.session.execute(delete(t).where(t.c.id.in_(list(ids))))
+        return len(ids)

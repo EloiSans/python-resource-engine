@@ -30,9 +30,10 @@ moved to its own repository without code changes.
 | `resource-engine-opa` | `resource_engine_opa` | core, httpx | Open Policy Agent decisions and row filters (`OpaEngine`) |
 | `resource-engine-cedar` | `resource_engine_cedar` | core, cedarpy | Cedar policies in process (`CedarEngine`) |
 | `resource-engine-openfga` | `resource_engine_openfga` | core, openfga-sdk | OpenFGA relationships (`OpenFgaEngine`, `TupleSync`) |
+| `resource-engine-opentelemetry` | `resource_engine_opentelemetry` | core, opentelemetry-api | Consumer metrics (`ConsumerMetrics`: message counter, duration histogram) |
 | `resource-engine-sap` | `resource_engine_sap` | core, resource-engine-http | SAP Event Mesh (publisher, queue consumer) and advanced event mesh publisher |
 
-Core packages are in `packages/`, cloud, SAP, storage, identity, policy-engine and HTTP adapters in `adapters/` (see the
+Core packages are in `packages/`, cloud, SAP, storage, identity, policy-engine, observability and HTTP adapters in `adapters/` (see the
 [adapter catalogue](docs/adapters.md)).
 
 Adapters depend on the core, never the other way round.
@@ -86,7 +87,7 @@ uv run uvicorn invoices.app:app --app-dir examples --reload   # then open /docs
 - [Architecture](docs/architecture.md) — layers, packages and repository strategy.
 - [Lifecycle contract](docs/lifecycle.md) — exact order of hooks, validation and commit.
 - [Error catalogue](docs/errors.md) — stable `RE-*` codes.
-- [Messaging](docs/messaging.md) — envelopes, outbox, relay, consumers with exactly-once effects.
+- [Messaging](docs/messaging.md) — envelopes, outbox, relay, consumers with exactly-once effects, metrics and retention.
 - [Adapter catalogue](docs/adapters.md) — cloud adapters, contract tests, emulators.
 - [Documents](docs/documents.md) — slots, uploads, processing, clean-up.
 - [Identity](docs/identity.md) — bearer tokens, providers, `Principal`.

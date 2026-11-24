@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Sequence
 from datetime import UTC, datetime
 
-from sqlalchemy import Column, DateTime, MetaData, String, Table, select
+from sqlalchemy import Column, DateTime, MetaData, String, Table, delete, select, tuple_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 DEFAULT_TABLE = "resource_engine_inbox"
@@ -14,8 +14,8 @@ DEFAULT_TABLE = "resource_engine_inbox"
 def inbox_table(metadata: MetaData, name: str = DEFAULT_TABLE) -> Table:
     """Declare the inbox table on your metadata (and create it with your migrations).
 
-    Rows can be deleted after the broker's maximum redelivery window (e.g. older
-    than a few days) to keep it small.
+    Rows older than the broker's maximum redelivery window can go:
+    ``MessagingJanitor`` deletes them.
     """
     return Table(
         name,
@@ -47,3 +47,20 @@ class SqlAlchemyInbox:
                 self.table.insert(),
                 [{"consumer": consumer, "message_id": i, "processed_at": now} for i in new],
             )
+
+    async def purge(self, before: datetime, limit: int) -> int:
+        t = self.table
+        keys = (
+            await self.session.execute(
+                select(t.c.consumer, t.c.message_id)
+                .where(t.c.processed_at < before)
+                .order_by(t.c.processed_at)
+                .limit(limit)
+            )
+        ).all()
+        if not keys:
+            return 0
+        await self.session.execute(
+            delete(t).where(tuple_(t.c.consumer, t.c.message_id).in_([tuple(k) for k in keys]))
+        )
+        return len(keys)

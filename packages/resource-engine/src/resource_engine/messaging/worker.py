@@ -84,7 +84,9 @@ class MessageConsumer:
         for message in messages:
             key = message.envelope.key if message.envelope else None
             if key is not None and key in blocked:
-                result = ProcessResult(Outcome.RETRY, "an earlier message with this key failed")
+                result = ProcessResult(
+                    Outcome.RETRY, "an earlier message with this key failed", blocked=True
+                )
                 await self.processor.observe(message, result, 0.0)
             else:
                 result = await self.processor.process(message)

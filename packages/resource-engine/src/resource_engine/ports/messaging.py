@@ -42,6 +42,11 @@ class OutboxStore(Protocol):
 
     async def mark_failed(self, ids: Sequence[str], error: str) -> None: ...
 
+    async def purge_published(self, before: datetime, limit: int) -> int:
+        """Delete up to ``limit`` records published before ``before``; returns how
+        many. Unpublished records are never deleted."""
+        ...
+
 
 @runtime_checkable
 class SupportsOutbox(Protocol):
@@ -108,6 +113,11 @@ class InboxStore(Protocol):
     async def processed(self, consumer: str, message_ids: Sequence[str]) -> set[str]: ...
 
     async def mark_processed(self, consumer: str, message_ids: Sequence[str]) -> None: ...
+
+    async def purge(self, before: datetime, limit: int) -> int:
+        """Delete up to ``limit`` marks (any consumer) written before ``before``;
+        returns how many."""
+        ...
 
 
 @runtime_checkable

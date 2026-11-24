@@ -15,7 +15,7 @@ from __future__ import annotations
 import asyncio
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import pytest
@@ -173,6 +173,24 @@ class OutboxContract:
         assert record.envelope.id == b.id
         assert record.attempts == 1 and record.last_error == "broker down"
 
+    async def test_purge_published_keeps_pending_and_recent(self, contract_uow_factory):
+        envelopes = [contract_envelope(n) for n in range(4)]
+        async with contract_uow_factory() as uow:
+            await uow.outbox().add(envelopes)
+            await uow.commit()
+        async with contract_uow_factory() as uow:
+            await uow.outbox().mark_published([e.id for e in envelopes[:3]])
+            await uow.commit()
+        past = datetime.now(UTC) - timedelta(minutes=5)
+        future = datetime.now(UTC) + timedelta(minutes=5)
+        async with contract_uow_factory() as uow:
+            assert await uow.outbox().purge_published(past, 100) == 0
+            assert await uow.outbox().purge_published(future, 2) == 2
+            assert await uow.outbox().purge_published(future, 100) == 1
+            await uow.commit()
+        (record,) = await self._pending(contract_uow_factory)
+        assert record.envelope.id == envelopes[3].id
+
 
 type Receive = Callable[[int], Awaitable[list[EventEnvelope]]]
 
@@ -236,6 +254,26 @@ class InboxContract:
         async with contract_uow_factory() as uow:
             await uow.inbox().mark_processed("billing", ["m9"])
         assert await self._processed(contract_uow_factory, "billing", ["m9"]) == set()
+
+    async def test_purge_deletes_old_marks_in_batches(self, contract_uow_factory):
+        async with contract_uow_factory() as uow:
+            await uow.inbox().mark_processed("billing", ["p1", "p2"])
+            await uow.inbox().mark_processed("audit", ["p1"])
+            await uow.commit()
+        past = datetime.now(UTC) - timedelta(minutes=5)
+        future = datetime.now(UTC) + timedelta(minutes=5)
+        async with contract_uow_factory() as uow:
+            assert await uow.inbox().purge(past, 100) == 0
+            assert await uow.inbox().purge(future, 2) == 2
+            await uow.commit()
+        remaining = await self._processed(contract_uow_factory, "billing", ["p1", "p2"])
+        remaining |= {
+            f"audit:{i}" for i in await self._processed(contract_uow_factory, "audit", ["p1"])
+        }
+        assert len(remaining) == 1
+        async with contract_uow_factory() as uow:
+            assert await uow.inbox().purge(future, 100) == 1
+            await uow.commit()
 
 
 type Send = Callable[[list[EventEnvelope]], Awaitable[None]]

@@ -83,9 +83,16 @@ class RetryPolicy:
 
 @dataclass(frozen=True)
 class ProcessResult:
+    """What to do with a message.
+
+    ``blocked`` is true when the handler did not run because an earlier message
+    with the same key failed in this batch (``outcome`` is then ``RETRY``).
+    """
+
     outcome: Outcome
     error: str | None = None
     delay_seconds: float = 0.0
+    blocked: bool = False
 
 
 class MessageProcessor:

@@ -160,6 +160,15 @@ without leftovers, deletes, listing and presigned upload/download. Use
 
 See [identity](identity.md).
 
+## Metrics — `MessageObserver`
+
+| Backend | Package | Class | Tested against | Status |
+|---|---|---|---|---|
+| OpenTelemetry | `resource-engine-opentelemetry` | `ConsumerMetrics` | OpenTelemetry SDK in-memory reader | experimental |
+| Logging | `resource-engine` | `LoggingObserver` | – | experimental |
+
+See [messaging](messaging.md#metrics).
+
 ## Authorization — `PolicyEngine`
 
 | Engine | Package | Class | Row filters | Tested against | Status |

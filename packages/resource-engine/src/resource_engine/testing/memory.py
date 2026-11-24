@@ -6,6 +6,7 @@ import itertools
 import time
 from collections.abc import Sequence
 from dataclasses import dataclass, field
+from datetime import UTC, datetime
 from types import TracebackType
 from typing import TYPE_CHECKING, Any, Self
 
@@ -160,6 +161,7 @@ class InMemoryOutbox:
                 "attempts": 0,
                 "last_error": None,
                 "published": False,
+                "published_at": None,
             }
 
     async def pending(self, limit: int) -> list[OutboxRecord]:
@@ -167,25 +169,44 @@ class InMemoryOutbox:
         return [OutboxRecord(r["envelope"], r["attempts"], r["last_error"]) for r in rows]
 
     async def mark_published(self, ids: Sequence[str]) -> None:
+        now = datetime.now(UTC)
         for i in ids:
             self._table[i]["published"] = True
+            self._table[i]["published_at"] = now
 
     async def mark_failed(self, ids: Sequence[str], error: str) -> None:
         for i in ids:
             self._table[i]["attempts"] += 1
             self._table[i]["last_error"] = error
 
+    async def purge_published(self, before: datetime, limit: int) -> int:
+        old = [
+            i
+            for i, r in self._table.items()
+            if r["published"] and r["published_at"] is not None and r["published_at"] < before
+        ][:limit]
+        for i in old:
+            del self._table[i]
+        return len(old)
+
 
 class InMemoryInbox:
-    def __init__(self, table: dict[tuple[str, str], bool]) -> None:
+    def __init__(self, table: dict[tuple[str, str], datetime]) -> None:
         self._table = table
 
     async def processed(self, consumer: str, message_ids: Sequence[str]) -> set[str]:
         return {i for i in message_ids if (consumer, i) in self._table}
 
     async def mark_processed(self, consumer: str, message_ids: Sequence[str]) -> None:
+        now = datetime.now(UTC)
         for i in message_ids:
-            self._table[(consumer, i)] = True
+            self._table.setdefault((consumer, i), now)
+
+    async def purge(self, before: datetime, limit: int) -> int:
+        old = [key for key, at in self._table.items() if at < before][:limit]
+        for key in old:
+            del self._table[key]
+        return len(old)
 
 
 class InMemoryUnitOfWork:

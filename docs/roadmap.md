@@ -53,6 +53,8 @@
   work deferred, doomed on failure. Consumers: handler and inbox in one
   transaction (`MessageProcessor(manager=...)`, exactly-once effects),
   concurrency per key, `MessageObserver` metrics hooks with `LoggingObserver`.
+- Messaging retention (`MessagingJanitor`: inbox marks, published outbox
+  records) and OpenTelemetry consumer metrics (`resource-engine-opentelemetry`).
 
 ## Next
 
@@ -63,8 +65,8 @@
 - `check`: hook/effect mismatches.
 - AI skill packaged with devtools (`SKILL.md`, references, anti-patterns) and
   `resource-engine ai install` / `ai sync` with managed `AGENTS.md` block and lock file.
-- OpenTelemetry observer for consumers (counters, duration histogram); inbox
-  retention job.
+- OpenTelemetry tracing for operations and consumers (spans carrying the
+  envelope's correlation id).
 - EventBridge and Event Grid publishers.
 - SAP: OData v2/v4 repository for S/4HANA APIs on top of the REST repository,
   BTP destination service lookup.
