@@ -169,6 +169,15 @@ See [identity](identity.md).
 
 See [background jobs](jobs.md#one-worker-at-a-time).
 
+## Tracing — `Tracer`
+
+| Backend | Package | Class | Tested against | Status |
+|---|---|---|---|---|
+| OpenTelemetry | `resource-engine-opentelemetry` | `OtelTracer` | OpenTelemetry SDK in-memory exporter | experimental |
+| In-memory | `resource-engine` (`resource_engine.testing`) | `RecordingTracer` | – | experimental |
+
+See [observability](observability.md).
+
 ## Metrics — `MessageObserver`
 
 | Backend | Package | Class | Tested against | Status |

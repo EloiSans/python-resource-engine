@@ -32,6 +32,7 @@ from resource_engine.ports.messaging import (
     SupportsInbox,
 )
 from resource_engine.ports.unit_of_work import UnitOfWork
+from resource_engine.tracing import get_tracer
 
 if TYPE_CHECKING:
     from resource_engine.application.manager import ResourceManager
@@ -156,7 +157,26 @@ class MessageProcessor:
 
     async def process(self, message: ReceivedMessage) -> ProcessResult:
         started = time.perf_counter()
-        result = await self._process(message)
+        envelope = message.envelope
+        attributes: dict[str, Any] = {"resource_engine.consumer": self.name}
+        if envelope is not None:
+            attributes |= {
+                "messaging.message.id": envelope.id,
+                "resource_engine.event_type": envelope.type,
+                "resource_engine.correlation_id": envelope.correlation_id or "",
+            }
+        if message.delivery_count is not None:
+            attributes["messaging.message.delivery_count"] = message.delivery_count
+        async with get_tracer().span(
+            f"{self.name} process",
+            kind="consumer",
+            attributes=attributes,
+            parent=envelope.trace if envelope is not None else None,
+        ) as span:
+            result = await self._process(message)
+            span.set_attribute("resource_engine.outcome", result.outcome.value)
+            if result.outcome in (Outcome.RETRY, Outcome.DEAD_LETTER) and result.error:
+                span.record_error(result.error)
         await self.observe(message, result, time.perf_counter() - started)
         return result
 

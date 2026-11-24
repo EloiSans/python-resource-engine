@@ -60,18 +60,19 @@
   keeping seals of purged batches).
 - Background jobs: `JobRunner` (periodic jobs, services, observers), `LockProvider`
   port with SQL leases and in-memory locks, `resource-engine worker` command.
+- Tracing: `Tracer` port with spans for operations, outbox publishing, consumers
+  and jobs; W3C trace context on envelopes (JSON, CloudEvents); `OtelTracer`.
 
 ## Next
 
 - Policy engines: OpenFGA conditions on input values, OPA bundles, Cedar schemas
   generated from the registry.
 - Audit: external sinks (OpenTelemetry logs, SIEM); retention per resource or outcome.
+- Observability: OpenTelemetry metrics for job runs and operations.
 - Example app with authentication (Keycloak) so `invoices` can be tenant-scoped.
 - `check`: hook/effect mismatches.
 - AI skill packaged with devtools (`SKILL.md`, references, anti-patterns) and
   `resource-engine ai install` / `ai sync` with managed `AGENTS.md` block and lock file.
-- OpenTelemetry tracing for operations and consumers (spans carrying the
-  envelope's correlation id).
 - EventBridge and Event Grid publishers.
 - SAP: OData v2/v4 repository for S/4HANA APIs on top of the REST repository,
   BTP destination service lookup.

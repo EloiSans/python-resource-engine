@@ -30,7 +30,7 @@ moved to its own repository without code changes.
 | `resource-engine-opa` | `resource_engine_opa` | core, httpx | Open Policy Agent decisions and row filters (`OpaEngine`) |
 | `resource-engine-cedar` | `resource_engine_cedar` | core, cedarpy | Cedar policies in process (`CedarEngine`) |
 | `resource-engine-openfga` | `resource_engine_openfga` | core, openfga-sdk | OpenFGA relationships (`OpenFgaEngine`, `TupleSync`) |
-| `resource-engine-opentelemetry` | `resource_engine_opentelemetry` | core, opentelemetry-api | Consumer metrics (`ConsumerMetrics`: message counter, duration histogram) |
+| `resource-engine-opentelemetry` | `resource_engine_opentelemetry` | core, opentelemetry-api | Tracing (`OtelTracer`) and consumer metrics (`ConsumerMetrics`) |
 | `resource-engine-sap` | `resource_engine_sap` | core, resource-engine-http | SAP Event Mesh (publisher, queue consumer) and advanced event mesh publisher |
 
 Core packages are in `packages/`, cloud, SAP, storage, identity, policy-engine, observability and HTTP adapters in `adapters/` (see the
@@ -93,6 +93,7 @@ uv run uvicorn invoices.app:app --app-dir examples --reload   # then open /docs
 - [Identity](docs/identity.md) — bearer tokens, providers, `Principal`.
 - [Permissions](docs/permissions.md) — system roles, ABAC policies managed from a front end.
 - [External policy engines](docs/authorizers.md) — OPA, Cedar and OpenFGA behind the same port.
+- [Observability](docs/observability.md) — traces from request to consumer, metrics hooks.
 - [Background jobs](docs/jobs.md) — worker process, periodic jobs, services, one worker at a time.
 - [Audit trail](docs/audit.md) — committed changes and refused attempts, tamper-evident seals, retention.
 - [Tenancy](docs/tenancy.md) — tenant-scoped resources, cross-tenant roles.

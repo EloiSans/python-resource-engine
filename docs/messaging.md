@@ -16,6 +16,9 @@ an `EventEnvelope`:
 JSON-safe values. `key` (`<resource>:<entity_id>`) is the ordering key used by
 FIFO queues, sessions and ordering keys.
 
+With a tracer configured, envelopes also carry `"trace": {"traceparent": …}`,
+so consumers continue the producer's trace ([observability](observability.md#from-the-operation-to-the-consumer)).
+
 ## Delivery modes
 
 | Mode | Class | Guarantee |

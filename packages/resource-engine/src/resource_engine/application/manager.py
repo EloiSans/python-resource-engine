@@ -68,6 +68,7 @@ from resource_engine.ports.authz import Authorizer
 from resource_engine.ports.event_publisher import EventPublisher, NullEventPublisher
 from resource_engine.ports.storage import BlobStore
 from resource_engine.ports.unit_of_work import UnitOfWork, UnitOfWorkFactory
+from resource_engine.tracing import get_tracer, traced
 
 if TYPE_CHECKING:
     from resource_engine.documents.manager import DocumentManager
@@ -154,6 +155,12 @@ class ResourceManager:
         )
         ctx.extras["requested_tenant"] = tenant
         ctx.extras["expected_version"] = expected_version
+        span = get_tracer().current()
+        span.set_attribute("resource_engine.correlation_id", ctx.correlation_id)
+        if ctx.entity_id is not None:
+            span.set_attribute("resource_engine.entity_id", str(ctx.entity_id))
+        if ctx.transition or ctx.action:
+            span.set_attribute("resource_engine.action", _action_of(ctx))
         if self.documents is not None:
             from resource_engine.documents.manager import ContextDocuments
 
@@ -707,6 +714,7 @@ class ResourceManager:
 
     # --------------------------------------------------------------------- read
 
+    @traced("list")
     async def list(
         self,
         resource: ResourceRef,
@@ -768,6 +776,7 @@ class ResourceManager:
         )
         return result
 
+    @traced("get")
     async def get(
         self, resource: ResourceRef, entity_id: Any, *, actor: Any = None, tenant: str | None = None
     ) -> Any:
@@ -784,6 +793,7 @@ class ResourceManager:
 
     # -------------------------------------------------------------------- write
 
+    @traced("create")
     async def create(
         self, resource: ResourceRef, data: Any, *, actor: Any = None, tenant: str | None = None
     ) -> Any:
@@ -815,6 +825,7 @@ class ResourceManager:
         await self._after_commit(ctx)
         return ctx.result
 
+    @traced("update")
     async def update(
         self,
         resource: ResourceRef,
@@ -864,6 +875,7 @@ class ResourceManager:
         await self._after_commit(ctx)
         return ctx.result
 
+    @traced("delete")
     async def delete(
         self,
         resource: ResourceRef,
@@ -899,6 +911,7 @@ class ResourceManager:
             await uow.commit()
         await self._after_commit(ctx)
 
+    @traced("transition")
     async def transition(
         self,
         resource: ResourceRef,
@@ -993,6 +1006,7 @@ class ResourceManager:
                     allowed.append(event)
             return allowed
 
+    @traced("action")
     async def run_action(
         self,
         resource: ResourceRef,

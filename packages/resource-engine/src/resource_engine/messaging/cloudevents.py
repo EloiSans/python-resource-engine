@@ -49,6 +49,9 @@ def to_cloudevent(envelope: EventEnvelope, *, source: str, type_prefix: str = ""
         event["correlationid"] = envelope.correlation_id
     if envelope.resource:
         event["resource"] = envelope.resource
+    for name in ("traceparent", "tracestate"):  # distributed tracing extension
+        if envelope.trace and envelope.trace.get(name):
+            event[name] = envelope.trace[name]
     return event
 
 
@@ -76,4 +79,5 @@ def from_cloudevent(
         correlation_id=data.get("correlationid"),
         resource=data.get("resource"),
         key=data.get("partitionkey") or data.get("subject"),
+        trace={k: data[k] for k in ("traceparent", "tracestate") if data.get(k)} or None,
     )

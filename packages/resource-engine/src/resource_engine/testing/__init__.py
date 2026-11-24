@@ -12,6 +12,7 @@ from resource_engine.testing.memory import (
     RecordingMessagePublisher,
 )
 from resource_engine.testing.storage import InMemoryBlobStore
+from resource_engine.testing.tracing import RecordedSpan, RecordingTracer
 
 __all__ = [
     "ConditionEngine",
@@ -22,6 +23,8 @@ __all__ = [
     "InMemoryRepository",
     "InMemoryStore",
     "InMemoryUnitOfWork",
+    "RecordedSpan",
     "RecordingEventPublisher",
     "RecordingMessagePublisher",
+    "RecordingTracer",
 ]

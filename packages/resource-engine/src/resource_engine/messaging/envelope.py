@@ -13,6 +13,7 @@ from decimal import Decimal
 from typing import Any
 
 from resource_engine.domain.events import DomainEvent
+from resource_engine.tracing import get_tracer
 
 SCHEMA_VERSION = "1"
 
@@ -29,6 +30,8 @@ class EventEnvelope:
         correlation_id: Id of the operation that produced the event.
         resource: Resource name, when the event comes from a resource operation.
         key: Ordering/partition key (FIFO group, session, ordering key).
+        trace: W3C trace context of the operation that produced the event
+            (``traceparent``, ``tracestate``), so consumers continue its trace.
     """
 
     type: str
@@ -38,6 +41,7 @@ class EventEnvelope:
     correlation_id: str | None = None
     resource: str | None = None
     key: str | None = None
+    trace: Mapping[str, str] | None = None
 
     def attributes(self) -> dict[str, str]:
         """String attributes for broker-level routing and filtering."""
@@ -46,10 +50,11 @@ class EventEnvelope:
             attrs["resource"] = self.resource
         if self.correlation_id:
             attrs["correlation_id"] = self.correlation_id
+        attrs.update(self.trace or {})
         return attrs
 
     def to_dict(self) -> dict[str, Any]:
-        return {
+        data: dict[str, Any] = {
             "id": self.id,
             "type": self.type,
             "occurred_at": self.occurred_at.isoformat(),
@@ -59,6 +64,9 @@ class EventEnvelope:
             "schema_version": SCHEMA_VERSION,
             "payload": dict(self.payload),
         }
+        if self.trace:
+            data["trace"] = dict(self.trace)
+        return data
 
     def to_json(self) -> str:
         return json.dumps(self.to_dict(), ensure_ascii=False, separators=(",", ":"))
@@ -73,6 +81,7 @@ class EventEnvelope:
             resource=data.get("resource"),
             key=data.get("key"),
             payload=data.get("payload") or {},
+            trace=data.get("trace") or None,
         )
 
     @classmethod
@@ -132,4 +141,5 @@ class EventSerializer:
             correlation_id=correlation_id,
             resource=resource,
             key=key,
+            trace=get_tracer().inject() or None,
         )

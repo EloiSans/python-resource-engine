@@ -1,7 +1,7 @@
 [project]
 name = "resource-engine-opentelemetry"
 version = "0.1.0.dev0"
-description = "OpenTelemetry metrics for Resource Engine consumers: a message counter and a duration histogram."
+description = "OpenTelemetry for Resource Engine: tracing from operation to consumer, and consumer metrics."
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = ["resource-engine", "opentelemetry-api>=1.27"]

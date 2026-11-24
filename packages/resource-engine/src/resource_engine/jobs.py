@@ -32,6 +32,7 @@ from typing import Any, Literal, Protocol
 
 from resource_engine.errors import ConfigurationError
 from resource_engine.ports.locks import LockProvider
+from resource_engine.tracing import get_tracer
 
 logger = logging.getLogger("resource_engine.jobs")
 
@@ -172,9 +173,12 @@ class JobRunner:
                 return run
         started = time.perf_counter()
         try:
-            result = job.run()
-            if inspect.isawaitable(result):
-                result = await result
+            async with get_tracer().span(
+                f"job {job.name}", attributes={"resource_engine.job": job.name}
+            ):
+                result = job.run()
+                if inspect.isawaitable(result):
+                    result = await result
             run = JobRun(job.name, "ok", time.perf_counter() - started, result)
         except Exception as exc:
             logger.exception("Job %s failed", job.name)

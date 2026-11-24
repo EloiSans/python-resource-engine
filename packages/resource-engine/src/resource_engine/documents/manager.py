@@ -52,6 +52,7 @@ from resource_engine.ports.storage import (
     PresignedRequest,
     SupportsPresignedUrls,
 )
+from resource_engine.tracing import traced
 
 if TYPE_CHECKING:
     from resource_engine.application.context import OperationContext
@@ -306,6 +307,7 @@ class DocumentManager:
 
     # ------------------------------------------------------------- operations
 
+    @traced("attach")
     async def attach(
         self,
         resource: Any,
@@ -357,6 +359,7 @@ class DocumentManager:
         await m._after_commit(ctx, slot)
         return ctx.result
 
+    @traced("request_upload")
     async def request_upload(
         self,
         resource: Any,
@@ -423,6 +426,7 @@ class DocumentManager:
             await uow.commit()
         return UploadTicket(DocumentRead.model_validate(doc), upload)
 
+    @traced("confirm_upload", resource="documents")
     async def confirm_upload(self, document_id: str, *, actor: Any = None) -> DocumentRead:
         """Verify a presigned upload and make the document available (or processing)."""
         m = self.manager
@@ -461,6 +465,7 @@ class DocumentManager:
         await m._after_commit(ctx, slot_def.name)
         return ctx.result
 
+    @traced("detach")
     async def detach(
         self, resource: Any, entity_id: Any, document_id: str, *, actor: Any = None
     ) -> None:
@@ -489,6 +494,7 @@ class DocumentManager:
             await uow.commit()
         await m._after_commit(ctx, doc.slot)
 
+    @traced("list_documents")
     async def list(
         self, resource: Any, entity_id: Any, slot: str | None = None, *, actor: Any = None
     ) -> list[DocumentRead]:

@@ -8,6 +8,7 @@ from typing import Any
 
 from resource_engine.errors import PublishFailed
 from resource_engine.ports.messaging import MessagePublisher, SupportsOutbox
+from resource_engine.tracing import get_tracer
 
 logger = logging.getLogger("resource_engine.outbox")
 
@@ -46,7 +47,12 @@ class OutboxRelay:
             ids = [r.envelope.id for r in records]
             failed: list[str] = []
             try:
-                await self.transport.publish([r.envelope for r in records])
+                async with get_tracer().span(
+                    "outbox publish",
+                    kind="producer",
+                    attributes={"messaging.batch.message_count": len(records)},
+                ):
+                    await self.transport.publish([r.envelope for r in records])
             except PublishFailed as exc:
                 failed = list(exc.failed_ids)
                 await outbox.mark_failed(failed, exc.message)

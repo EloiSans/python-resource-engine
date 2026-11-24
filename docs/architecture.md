@@ -28,6 +28,7 @@ so the same class is used by the domain, the in-memory adapter and SQLAlchemy.
 - `Authenticator` → `Principal`: who is calling (identity providers implement it).
 - `Authorizer`: may the principal perform an action (on a record); `scope` gives the row filter. `PolicyAuthorizer` is the built-in one.
 - `PolicyEngine`: `evaluate(AuthzRequest)` → allowed, denied or a residual condition; OPA, Cedar and OpenFGA adapters implement it, and `EngineAuthorizer` turns it into an `Authorizer` ([authorizers](authorizers.md)).
+- `Tracer`: spans around operations, outbox publishing, messages and jobs, and the trace context put on envelopes (`NoopTracer` by default, `OtelTracer` in `resource-engine-opentelemetry`; [observability](observability.md)).
 - `LockProvider`: named leases so a `single` job runs on one worker at a time (`SqlAlchemyLocks`, `InMemoryLocks`; [jobs](jobs.md)).
 - `AuditSink`: where audit entries go (`RepositoryAuditSink` writes the `audit_log` resource in the operation's transaction).
 
