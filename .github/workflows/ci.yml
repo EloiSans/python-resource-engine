@@ -4,11 +4,17 @@ on:
   push:
     branches: [main]
   pull_request:
+  workflow_call: # the release workflow runs the same checks before publishing
+
+permissions:
+  contents: read
 
 jobs:
   test:
+    name: test (${{ matrix.python }})
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
         python: ["3.12", "3.13", "3.14"]
     steps:
@@ -19,22 +25,47 @@ jobs:
       - run: uv sync --locked
       - run: uv run ruff check .
       - run: uv run ruff format --check .
-      - run: uv run pytest -m "not emulator"
-      - run: uv run resource-engine check examples packages adapters
+      - run: uv run resource-engine check examples packages adapters evals
       - run: uv run resource-engine docs validate --strict
-      - run: uv build --all-packages
+      - name: Generated example docs are up to date
+        run: |
+          uv run resource-engine docs generate --out examples/invoices/docs
+          git diff --exit-code -- examples/invoices/docs
+      - run: uv run pytest -m "not emulator"
 
-  emulators:
+  build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v6
         with:
           python-version: "3.13"
-      - name: Start emulators and local services (AWS, Pub/Sub, Garage, RabbitMQ, Keycloak)
+      - run: uv build --all-packages --out-dir dist
+      - name: Package metadata (licence, README, URLs) is valid
+        run: uvx twine check --strict dist/*
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+  emulators:
+    runs-on: ubuntu-latest
+    env:
+      RESOURCE_ENGINE_REQUIRE_EMULATORS: "1" # an unreachable emulator fails the job
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.13"
+      - name: Start emulators and local services
         run: |
           mkdir -p .emulators/aws && chmod 777 .emulators/aws
           docker compose -f compose.emulators.yaml up -d --build --wait
+      - name: Wait for the services without a health check (Pub/Sub, OPA, OpenFGA)
+        run: |
+          for url in http://127.0.0.1:8085 http://127.0.0.1:8181/health http://127.0.0.1:8080/healthz; do
+            timeout 180 bash -c "until curl -sf $url > /dev/null; do sleep 2; done" || { echo "$url never came up"; exit 1; }
+          done
       - run: uv sync --locked
       - run: uv run python docker/garage/init.py
       - run: uv run pytest -m emulator -rs

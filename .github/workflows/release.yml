@@ -1,0 +1,52 @@
+name: Release
+
+# Publish one package to PyPI: push a tag <distribution>/v<version>, e.g.
+#   git tag resource-engine-opa/v0.2.0 && git push origin resource-engine-opa/v0.2.0
+# See docs/releasing.md (trusted publisher setup, version bumps).
+
+on:
+  push:
+    tags: ["*/v*"]
+
+permissions:
+  contents: read
+
+jobs:
+  ci:
+    uses: ./.github/workflows/ci.yml
+
+  build:
+    needs: ci
+    runs-on: ubuntu-latest
+    outputs:
+      name: ${{ steps.target.outputs.name }}
+      version: ${{ steps.target.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.13"
+      - id: target
+        name: Resolve the tag to a package
+        run: uv run --no-project python scripts/release_target.py "$GITHUB_REF_NAME"
+      - run: uv build --package "${{ steps.target.outputs.name }}" --out-dir dist
+      - run: uvx twine check --strict dist/*
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/project/${{ needs.build.outputs.name }}/${{ needs.build.outputs.version }}/
+    permissions:
+      id-token: write # trusted publishing: no API token is stored
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+      - uses: pypa/gh-action-pypi-publish@release/v1
