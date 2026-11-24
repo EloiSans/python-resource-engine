@@ -19,7 +19,7 @@ moved to its own repository without code changes.
 | `resource-engine` | `resource_engine` | pydantic, python-statemachine | Core: `Resource`, registry, hooks, `ResourceManager`, documents, messaging, ports, in-memory adapters |
 | `resource-engine-fastapi` | `resource_engine_fastapi` | core, FastAPI | HTTP adapter: generated routes, document routes, bearer auth, error mapping, event push endpoint |
 | `resource-engine-sqlalchemy` | `resource_engine_sqlalchemy` | core, SQLAlchemy 2 (async) | Persistence adapter: repository, unit of work, outbox, inbox, documents, permission and audit tables, job leases |
-| `resource-engine-devtools` | `resource_engine_devtools` | core, docstring-parser | `resource-engine` CLI: inspect, check, docs, AI context |
+| `resource-engine-devtools` | `resource_engine_devtools` | core, docstring-parser | `resource-engine` CLI: inspect, check (architecture and hook/effect lints), docs, AI context, worker |
 | `resource-engine-aws` | `resource_engine_aws` | core, `[sqs,sns]` → aiobotocore | SQS/SNS publishers, SQS consumer source |
 | `resource-engine-azure` | `resource_engine_azure` | core, `[servicebus]` → azure-servicebus | Service Bus publisher and consumer source |
 | `resource-engine-gcp` | `resource_engine_gcp` | core, `[pubsub]` → google-cloud-pubsub | Pub/Sub publisher, pull source, push decoder |

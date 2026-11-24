@@ -88,7 +88,34 @@ anywhere but `after_commit` fails at bootstrap with RE-E104. Prefer recording a
 domain event (`ctx.record_event`) and handling it in the publisher.
 
 Failures in `after_commit` hooks or in the publisher are logged and do **not**
-undo the committed operation. Guaranteed delivery (Outbox) is planned.
+undo the committed operation. For guaranteed delivery, use the outbox
+([messaging](messaging.md#delivery-modes)).
+
+`resource-engine check` finds the mismatches the marker can't:
+
+- **RE-C002:** a hook before commit, or an action's `execute`, calls an
+  `@external_effect` function or uses a network, e-mail or cloud client
+  (`httpx`, `requests`, `aiohttp`, `smtplib`, `boto3`, the Google and Azure
+  SDKs, `aio_pika`, `grpc`…). Helpers defined in your application are followed
+  up to three calls deep. The report shows the chain (`via notify_warehouse`)
+  and the line of the call.
+- **RE-C003:** an `after_commit` hook does work that needs the transaction,
+  which has already ended:
+  - `ctx.record_event`: with the outbox, the events were already written;
+  - `ctx.repository()` and `ctx.uow`: there is no unit of work any more;
+  - `ctx.on_rollback`: the compensation can never run;
+  - assigning to `ctx.entity`: the change is never saved.
+
+```
+RE-C002 billing/hooks.py:14: prepare runs inside the transaction (orders after_create) and uses httpx (httpx.post) (via notify_warehouse)
+    Move the effect to an after_commit hook or a consumer of a domain event, or stage it with ctx.on_rollback if it can be undone.
+```
+
+The check reads source code and resolves names through each function's
+globals and closure. Calls through objects it can't resolve, such as
+`ctx.services.mailer` or a parameter, aren't followed. The hook lints need the
+registry (`--app`, or `registry` in `[tool.resource-engine]`). Without one,
+`check` runs the import rule only.
 
 ## Protected state
 

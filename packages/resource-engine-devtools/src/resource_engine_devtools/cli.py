@@ -29,6 +29,16 @@ def _registry(args: argparse.Namespace) -> ResourceRegistry:
     return load_registry(args.app, Path.cwd())
 
 
+def _optional_registry(args: argparse.Namespace) -> ResourceRegistry | None:
+    """The registry when one is configured; hook lints are skipped without it."""
+    try:
+        return _registry(args)
+    except SystemExit:
+        if args.app:
+            raise
+        return None
+
+
 def _describe(registry: ResourceRegistry, name: str | None) -> list[dict[str, Any]]:
     from resource_engine.authz.catalog import Catalog
 
@@ -216,6 +226,11 @@ def cmd_check(args: argparse.Namespace) -> int:
     violations = []
     for raw in args.paths or ["."]:
         violations += check_domain_imports(Path(raw))
+    registry = _optional_registry(args)
+    if registry is not None:
+        from resource_engine_devtools.hooks_check import check_hooks
+
+        violations += check_hooks(registry)
     text = (
         "\n".join(f"{v.code} {v.path}:{v.line}: {v.message}\n    {v.hint}" for v in violations)
         or "No violations."
@@ -236,7 +251,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("resource", nargs="?")
     p.set_defaults(func=cmd_inspect)
 
-    p = sub.add_parser("check", parents=[common], help="architecture lints")
+    p = sub.add_parser("check", parents=[common], help="architecture and hook/effect lints")
     p.add_argument("paths", nargs="*")
     p.set_defaults(func=cmd_check)
 

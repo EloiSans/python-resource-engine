@@ -8,7 +8,8 @@
 | Application | `resource_engine.application`, `resource_engine.ports`, each module's `application/` | domain, pydantic |
 | Infrastructure / adapters | `resource_engine_sqlalchemy`, `resource_engine_fastapi`, each module's `infrastructure/` | anything |
 
-`resource-engine check` enforces the domain rule (RE-C001).
+`resource-engine check` enforces the domain rule (RE-C001), and checks that hooks
+match their lifecycle point (RE-C002, RE-C003; see [lifecycle](lifecycle.md#external-effects)).
 
 Domain entities are plain classes. SQLAlchemy maps them with **imperative mapping**
 from the infrastructure layer (`examples/invoices/infrastructure/persistence.py`),
