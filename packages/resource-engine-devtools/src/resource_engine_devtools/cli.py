@@ -494,6 +494,12 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--runner", help="JobRunner as module:attribute (default: pyproject worker)")
     p.add_argument("--once", action="store_true", help="run every job once and exit")
     p.add_argument("--log-level", default="info", choices=["debug", "info", "warning", "error"])
+    p.add_argument(
+        "--log-format",
+        default="text",
+        choices=["text", "json"],
+        help="json: one object per line with the job, consumer and correlation id",
+    )
     p.set_defaults(func=_worker)
     return parser
 

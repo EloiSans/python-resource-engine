@@ -1,6 +1,7 @@
 """Audit trail: committed changes and refused attempts, retention and
 tamper evidence. See docs/audit.md."""
 
+from resource_engine.audit.history import StateChange
 from resource_engine.audit.janitor import AuditJanitor, AuditJanitorStats
 from resource_engine.audit.model import AuditEntry, AuditEntryRead, AuditSeal, AuditSealRead
 from resource_engine.audit.resource import AuditLogResource, AuditSealResource
@@ -22,4 +23,5 @@ __all__ = [
     "CompositeAuditSink",
     "LoggingAuditSink",
     "RepositoryAuditSink",
+    "StateChange",
 ]

@@ -15,7 +15,7 @@ This order is part of the public contract and is covered by tests
 | 6 | Before mutation | yes | `before_create` · `before_update` · `before_delete` · `before_transition[:event]` · `before_action[:name]` · `before_attach[:slot]` · `before_detach[:slot]` |
 | 7 | Mutate: build+`add` / `apply_update`+`update` / `delete` / fire the state machine+`update` / `Action.execute` / store blob + `Document` row; versioned writes compare and set the version (instance actions claim it before `execute`) | yes | |
 | 8 | After mutation | yes | `after_create` · `after_update` · `after_delete` · `after_transition[:event]` · `after_action[:name]` · `after_attach[:slot]` · `after_detach[:slot]` |
-| 9 | Build the result (read schema, without the fields the caller may not read), write the audit entry, stage events (outbox), commit | yes | |
+| 9 | Build the result (read schema, without the fields the caller may not read), store it under the idempotency key if one was sent ([idempotency](idempotency.md)), write the audit entry, stage events (outbox), commit | yes | |
 | 10 | Post-commit | no | `ctx.on_commit` callbacks, `after_commit` hooks, then event delivery |
 
 Before a transition's hooks (step 6), slots with `required_for` that event need an

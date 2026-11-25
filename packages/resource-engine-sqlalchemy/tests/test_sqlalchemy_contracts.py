@@ -5,12 +5,14 @@ from resource_engine.testing.contracts import (
     CONTRACT_RESOURCE,
     ConditionContract,
     ContractItem,
+    IdempotencyContract,
     InboxContract,
     OutboxContract,
 )
 from resource_engine_sqlalchemy import (
     SqlAlchemyRepository,
     SqlAlchemyUnitOfWork,
+    idempotency_table,
     inbox_table,
     outbox_table,
 )
@@ -22,6 +24,7 @@ from sqlalchemy.orm import registry as orm_registry
 metadata = MetaData()
 outbox = outbox_table(metadata)
 inbox = inbox_table(metadata)
+idempotency = idempotency_table(metadata)
 if sa_inspect(ContractItem, raiseerr=False) is None:  # test_postgres may have mapped it
     orm_registry(metadata=metadata).map_imperatively(
         ContractItem,
@@ -46,7 +49,11 @@ async def uow_factory(tmp_path):
     sessions = async_sessionmaker(engine, expire_on_commit=False)
     repositories = {CONTRACT_RESOURCE: lambda s: SqlAlchemyRepository(s, ContractItem)}
     yield lambda: SqlAlchemyUnitOfWork(
-        sessions, repositories, outbox_table=outbox, inbox_table=inbox
+        sessions,
+        repositories,
+        outbox_table=outbox,
+        inbox_table=inbox,
+        idempotency_table=idempotency,
     )
     await engine.dispose()
 
@@ -64,6 +71,12 @@ class TestSqlAlchemyOutbox(OutboxContract):
 
 
 class TestSqlAlchemyInbox(InboxContract):
+    @pytest.fixture
+    def contract_uow_factory(self, uow_factory):
+        return uow_factory
+
+
+class TestSqlAlchemyIdempotency(IdempotencyContract):
     @pytest.fixture
     def contract_uow_factory(self, uow_factory):
         return uow_factory

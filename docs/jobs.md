@@ -7,6 +7,7 @@ The engine's background work runs in a worker process. Some of it is periodic:
 | `OutboxRelay` | Sends pending outbox records to the broker ([messaging](messaging.md#outbox)) |
 | `MessagingJanitor` | Deletes old inbox marks and published outbox records |
 | `AuditJanitor`, `AuditSealer` | Seals the audit trail and applies retention ([audit](audit.md)) |
+| `IdempotencyJanitor` | Deletes expired idempotency records ([idempotency](idempotency.md)) |
 | `DocumentJanitor` | Expires stale uploads, purges deleted content, removes orphan blobs |
 
 Some of it is long-running: a `MessageConsumer` per queue. `JobRunner` runs
@@ -103,6 +104,13 @@ avoids doing the work twice.
 
 `JobRunner(observers=[...])` callbacks get `(job, outcome, seconds, error)`
 after every run. The outcome is `ok`, `failed` or `skipped`.
+`resource_engine_opentelemetry.JobMetrics` records them as
+`resource_engine.job.runs` and `resource_engine.job.duration` (see
+[observability](observability.md#metrics)).
+
+Log lines written during a run carry `job` in the log context, and
+`resource-engine worker --log-format json` writes them as JSON
+([logs](observability.md#logs)).
 
 ## Other schedulers
 

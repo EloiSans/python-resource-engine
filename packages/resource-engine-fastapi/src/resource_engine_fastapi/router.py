@@ -155,6 +155,20 @@ def build_resource_router(
         else []
     )
 
+    # every write accepts Idempotency-Key: a retry returns the first result
+    key_params = [
+        _param(
+            "idempotency_key",
+            str | None,
+            Header(
+                None,
+                alias="Idempotency-Key",
+                description="Retry-safe key: the same request with the same key runs once "
+                "and later calls return its result; another request with it is refused (422)",
+            ),
+        )
+    ]
+
     def reply(value: Any, kw: dict[str, Any], status_code: int = 200) -> Any:
         return _respond(
             value, status_code, version_field=version_field, response=kw.get("response")
@@ -242,7 +256,11 @@ def build_resource_router(
 
         async def create_endpoint(**kw: Any) -> Any:
             result = await manager.create(
-                name, kw["payload"], actor=kw["actor"], tenant=kw.get("tenant")
+                name,
+                kw["payload"],
+                actor=kw["actor"],
+                tenant=kw.get("tenant"),
+                idempotency_key=kw.get("idempotency_key"),
             )
             return reply(result, kw, 201)
 
@@ -253,6 +271,7 @@ def build_resource_router(
                 [
                     _param("payload", definition.schemas["create"], Body(...)),
                     *tenant_params,
+                    *key_params,
                     actor_param,
                     response_param,
                 ],
@@ -275,6 +294,7 @@ def build_resource_router(
                 actor=kw["actor"],
                 tenant=kw.get("tenant"),
                 expected_version=parse_if_match(kw.get("if_match")),
+                idempotency_key=kw.get("idempotency_key"),
             )
             return reply(result, kw)
 
@@ -287,6 +307,7 @@ def build_resource_router(
                     _param("payload", definition.schemas["update"], Body(...)),
                     *tenant_params,
                     *match_params,
+                    *key_params,
                     actor_param,
                     response_param,
                 ],
@@ -307,6 +328,7 @@ def build_resource_router(
                 actor=kw["actor"],
                 tenant=kw.get("tenant"),
                 expected_version=parse_if_match(kw.get("if_match")),
+                idempotency_key=kw.get("idempotency_key"),
             )
             return Response(status_code=status.HTTP_204_NO_CONTENT)
 
@@ -314,7 +336,7 @@ def build_resource_router(
             "/{entity_id}",
             _endpoint(
                 delete_endpoint,
-                [id_param, *tenant_params, *match_params, actor_param],
+                [id_param, *tenant_params, *match_params, *key_params, actor_param],
                 f"delete_{name}",
             ),
             methods=["DELETE"],
@@ -341,6 +363,25 @@ def build_resource_router(
             response_model=list[str],
             summary="Transitions allowed from the current state",
         )
+        if manager.has_history and definition.resource_cls.audit:
+            from resource_engine.audit.history import StateChange
+
+            async def history_endpoint(entity_id: Any, actor: Any, tenant: Any = None) -> Any:
+                return await manager.history(name, entity_id, actor=actor, tenant=tenant)
+
+            router.add_api_route(
+                "/{entity_id}/history",
+                _endpoint(
+                    history_endpoint,
+                    [id_param, *tenant_params, actor_param],
+                    f"history_{name}",
+                ),
+                methods=["GET"],
+                response_model=list[StateChange],
+                summary="State history",
+                description="The record's creation and committed transitions, oldest "
+                "first, with who made them and when (from the audit trail).",
+            )
         for event in definition.machine.info.events:
             router.add_api_route(
                 f"/{{entity_id}}/transitions/{event}",
@@ -349,7 +390,7 @@ def build_resource_router(
                     manager,
                     event,
                     id_param,
-                    [*tenant_params, *match_params, actor_param, response_param],
+                    [*tenant_params, *match_params, *key_params, actor_param, response_param],
                 ),
                 methods=["POST"],
                 response_model=read,
@@ -373,13 +414,19 @@ def build_resource_router(
                     actor=kw["actor"],
                     tenant=kw.get("tenant"),
                     expected_version=parse_if_match(kw.get("if_match")),
+                    idempotency_key=kw.get("idempotency_key"),
                 )
                 return reply(result, kw)
 
             params = [id_param] if instance else []
             if schema is not None:
                 params.append(_param("payload", schema, Body(...)))
-            params += [*tenant_params, *(match_params if instance else []), actor_param]
+            params += [
+                *tenant_params,
+                *(match_params if instance else []),
+                *key_params,
+                actor_param,
+            ]
             params.append(response_param)
             return _endpoint(action_endpoint, params, f"{name}_{action_name}")
 
@@ -420,6 +467,7 @@ def _transition_endpoint(
             actor=kw["actor"],
             tenant=kw.get("tenant"),
             expected_version=parse_if_match(kw.get("if_match")),
+            idempotency_key=kw.get("idempotency_key"),
         )
         return _respond(result, version_field=definition.version_field, response=kw.get("response"))
 

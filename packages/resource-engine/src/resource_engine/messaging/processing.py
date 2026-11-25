@@ -24,6 +24,7 @@ from resource_engine.errors import (
     TransactionDoomed,
     ValidationFailed,
 )
+from resource_engine.logs import bind_log_context
 from resource_engine.messaging.consumer import EventRouter
 from resource_engine.ports.messaging import (
     MessageHandler,
@@ -167,16 +168,22 @@ class MessageProcessor:
             }
         if message.delivery_count is not None:
             attributes["messaging.message.delivery_count"] = message.delivery_count
-        async with get_tracer().span(
-            f"{self.name} process",
-            kind="consumer",
-            attributes=attributes,
-            parent=envelope.trace if envelope is not None else None,
-        ) as span:
-            result = await self._process(message)
-            span.set_attribute("resource_engine.outcome", result.outcome.value)
-            if result.outcome in (Outcome.RETRY, Outcome.DEAD_LETTER) and result.error:
-                span.record_error(result.error)
+        with bind_log_context(
+            consumer=self.name,
+            message_id=envelope.id if envelope else None,
+            event_type=envelope.type if envelope else None,
+            correlation_id=envelope.correlation_id if envelope else None,
+        ):
+            async with get_tracer().span(
+                f"{self.name} process",
+                kind="consumer",
+                attributes=attributes,
+                parent=envelope.trace if envelope is not None else None,
+            ) as span:
+                result = await self._process(message)
+                span.set_attribute("resource_engine.outcome", result.outcome.value)
+                if result.outcome in (Outcome.RETRY, Outcome.DEAD_LETTER) and result.error:
+                    span.record_error(result.error)
         await self.observe(message, result, time.perf_counter() - started)
         return result
 

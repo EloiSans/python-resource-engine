@@ -10,6 +10,8 @@ and a `doc` link. Read the hint first.
 | RE-E001 | `ConfigurationError` | A resource, action, hook or option is declared wrongly; the message names it |
 | RE-E004 | `StateFieldExposed` | Remove the state field from the `create` / `update` schema; change it with transitions |
 | RE-E005 | `VersioningNotSupported` | `version_field` on a repository without compare-and-set (REST, SOAP): drop it |
+| RE-E008 | `IdempotencyNotSupported` | Pass `idempotency_table=` to the unit of work factory (`engine_tables(metadata, idempotency=True)`) |
+| RE-E009 | `HistoryNotAvailable` | `history` needs a state machine, `audit` on the resource and `audit=True` (a `RepositoryAuditSink`) on the manager |
 | RE-E104 | `ExternalEffectInTransaction` | Move the `@external_effect` hook to `after_commit` or record an event |
 
 ## Raised by operations
@@ -24,6 +26,7 @@ and a `doc` link. Read the hint first.
 | RE-E103 | `InvalidQuery` | 400 | Filter or order field not in `filterable` / `sortable` |
 | RE-E105 | `VersionConflict` | 409 | Stale version: reload and retry |
 | RE-E106 | `VersionRequired` | 428 | `require_version`: send `If-Match` / `expected_version` |
+| RE-E107 | `IdempotencyKeyReused` | 422 | The idempotency key was used for a different request |
 | RE-E201 | `TransitionNotAllowed` | 409 | Not possible from the current state (`details.allowed`) |
 | RE-E202 | `UnknownTransition` | 404 | No such transition |
 | RE-E301 | `ActionNotFound` | 404 | No such action |

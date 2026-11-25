@@ -8,6 +8,7 @@ from resource_engine.testing.contracts import (
     CONTRACT_RESOURCE,
     ConditionContract,
     ContractItem,
+    IdempotencyContract,
     InboxContract,
     LockContract,
     OutboxContract,
@@ -17,6 +18,7 @@ from resource_engine_sqlalchemy import (
     SqlAlchemyLocks,
     SqlAlchemyRepository,
     SqlAlchemyUnitOfWork,
+    idempotency_table,
     inbox_table,
     locks_table,
     outbox_table,
@@ -32,6 +34,7 @@ metadata = MetaData()
 outbox = outbox_table(metadata, "test_outbox")
 inbox = inbox_table(metadata, "test_inbox")
 locks = locks_table(metadata, "test_locks")
+idempotency = idempotency_table(metadata, "test_idempotency")
 
 if sa_inspect(ContractItem, raiseerr=False) is None:  # another test module may have mapped it
     orm_registry(metadata=metadata).map_imperatively(
@@ -62,7 +65,11 @@ async def sessions(postgres_database):
 def uow_factory(sessions):
     repositories = {CONTRACT_RESOURCE: lambda s: SqlAlchemyRepository(s, ContractItem)}
     return lambda: SqlAlchemyUnitOfWork(
-        sessions, repositories, outbox_table=outbox, inbox_table=inbox
+        sessions,
+        repositories,
+        outbox_table=outbox,
+        inbox_table=inbox,
+        idempotency_table=idempotency,
     )
 
 
@@ -79,6 +86,12 @@ class TestPostgresOutbox(OutboxContract):
 
 
 class TestPostgresInbox(InboxContract):
+    @pytest.fixture
+    def contract_uow_factory(self, uow_factory):
+        return uow_factory
+
+
+class TestPostgresIdempotency(IdempotencyContract):
     @pytest.fixture
     def contract_uow_factory(self, uow_factory):
         return uow_factory

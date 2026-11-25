@@ -17,6 +17,7 @@ from resource_engine.ports.messaging import OutboxRecord, ReceivedMessage
 
 OUTBOX_TABLE = "__outbox__"
 INBOX_TABLE = "__inbox__"
+IDEMPOTENCY_TABLE = "__idempotency__"
 
 if TYPE_CHECKING:
     from resource_engine.application.registry import ResourceRegistry
@@ -60,6 +61,10 @@ class InMemoryStore:
 
     def all(self, resource: str) -> list[Any]:
         return [copy.deepcopy(e) for e in self.tables.get(resource, {}).values()]
+
+
+def _now() -> datetime:
+    return datetime.now(UTC)
 
 
 class InMemoryRepository[E]:
@@ -209,16 +214,43 @@ class InMemoryInbox:
         return len(old)
 
 
+class IdempotencyConflict(RuntimeError):
+    """Another unit of work committed the same idempotency key first (what a
+    primary key violation is in SQL)."""
+
+
+class InMemoryIdempotency:
+    def __init__(self, table: dict[tuple[str, str], Any], new: set[tuple[str, str]]) -> None:
+        self._table = table
+        self._new = new
+
+    async def get(self, scope: str, key: str) -> Any:
+        record = self._table.get((scope, key))
+        return copy.deepcopy(record) if record is not None else None
+
+    async def put(self, record: Any) -> None:
+        self._table[(record.scope, record.key)] = copy.deepcopy(record)
+        self._new.add((record.scope, record.key))
+
+    async def purge(self, before: datetime, limit: int) -> int:
+        old = [k for k, r in self._table.items() if r.expires_at and r.expires_at < before][:limit]
+        for k in old:
+            del self._table[k]
+        return len(old)
+
+
 class InMemoryUnitOfWork:
     def __init__(self, store: InMemoryStore) -> None:
         self._store = store
         self._working: dict[str, dict[Any, Any]] | None = None
         self._checks: list[tuple[str, Any, int]] = []
+        self._new_keys: set[tuple[str, str]] = set()
         self.committed = False
 
     async def __aenter__(self) -> Self:
         self._working = copy.deepcopy(self._store.tables)
         self._checks = []
+        self._new_keys = set()
         self.committed = False
         return self
 
@@ -247,9 +279,20 @@ class InMemoryUnitOfWork:
             raise RuntimeError("Unit of work is not active")
         return InMemoryInbox(self._working.setdefault(INBOX_TABLE, {}))
 
+    def idempotency(self) -> InMemoryIdempotency:
+        if self._working is None:
+            raise RuntimeError("Unit of work is not active")
+        return InMemoryIdempotency(self._working.setdefault(IDEMPOTENCY_TABLE, {}), self._new_keys)
+
     async def commit(self) -> None:
         if self._working is None:
             raise RuntimeError("Unit of work is not active")
+        committed_keys = self._store.tables.get(IDEMPOTENCY_TABLE, {})
+        for key in self._new_keys:  # another unit of work stored the same key first
+            existing = committed_keys.get(key)
+            if existing is not None and existing.expires_at and existing.expires_at > _now():
+                raise IdempotencyConflict(f"Idempotency key {key[1]!r} already committed")
+        self._new_keys = set()
         for resource, entity_id, expected in self._checks:  # another unit of work won
             field_name = self._store.version_fields.get(resource, "version")
             _check_committed(self._store, resource, entity_id, expected, field_name)

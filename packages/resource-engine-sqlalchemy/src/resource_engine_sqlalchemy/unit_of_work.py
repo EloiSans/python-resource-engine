@@ -5,10 +5,11 @@ from types import TracebackType
 from typing import Any, Self
 
 from resource_engine import ResourceRegistry
-from resource_engine.errors import InboxNotSupported
+from resource_engine.errors import IdempotencyNotSupported, InboxNotSupported
 from sqlalchemy import Table
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
+from resource_engine_sqlalchemy.idempotency import SqlAlchemyIdempotency
 from resource_engine_sqlalchemy.inbox import SqlAlchemyInbox
 from resource_engine_sqlalchemy.outbox import SqlAlchemyOutbox
 from resource_engine_sqlalchemy.repository import SqlAlchemyRepository
@@ -26,8 +27,10 @@ class SqlAlchemyUnitOfWork:
         *,
         outbox_table: Table | None = None,
         inbox_table: Table | None = None,
+        idempotency_table: Table | None = None,
     ) -> None:
         self._inbox_table = inbox_table
+        self._idempotency_table = idempotency_table
         self._session_factory = session_factory
         self._repositories = repositories
         self._session: AsyncSession | None = None
@@ -86,6 +89,16 @@ class SqlAlchemyUnitOfWork:
             )
         return SqlAlchemyInbox(self.session, self._inbox_table)
 
+    def idempotency(self) -> SqlAlchemyIdempotency:
+        if self._idempotency_table is None:
+            raise IdempotencyNotSupported(
+                "This SQLAlchemy unit of work has no idempotency table",
+                hint="Pass idempotency_table= to the unit of work factory "
+                "(engine_tables(metadata, idempotency=True)).",
+                doc="docs/idempotency.md",
+            )
+        return SqlAlchemyIdempotency(self.session, self._idempotency_table)
+
     async def commit(self) -> None:
         await self.session.commit()
         self._committed = True
@@ -101,12 +114,13 @@ def unit_of_work_factory(
     *,
     outbox_table: Table | None = None,
     inbox_table: Table | None = None,
+    idempotency_table: Table | None = None,
 ) -> Callable[[], SqlAlchemyUnitOfWork]:
     """Build a ``uow_factory`` with a generic repository for every registered resource.
 
     Pass ``overrides`` to use a custom repository for some resources and
-    ``outbox_table`` to enable the transactional outbox and ``inbox_table`` for
-    idempotent consumers.
+    ``outbox_table`` to enable the transactional outbox, ``inbox_table`` for
+    idempotent consumers and ``idempotency_table`` for idempotency keys.
     """
     repositories: dict[str, RepositoryFactory] = {}
     for definition in registry:
@@ -117,5 +131,9 @@ def unit_of_work_factory(
         )
     repositories.update(overrides or {})
     return lambda: SqlAlchemyUnitOfWork(
-        session_factory, repositories, outbox_table=outbox_table, inbox_table=inbox_table
+        session_factory,
+        repositories,
+        outbox_table=outbox_table,
+        inbox_table=inbox_table,
+        idempotency_table=idempotency_table,
     )

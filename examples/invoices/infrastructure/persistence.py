@@ -26,7 +26,7 @@ invoices_table = Table(
     Column("version", Integer, nullable=False, default=1),
 )
 
-engine = engine_tables(metadata, documents=True, authz=True, audit=True)
+engine = engine_tables(metadata, documents=True, authz=True, audit=True, idempotency=True)
 
 _mapped = False
 

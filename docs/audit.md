@@ -35,8 +35,9 @@ A `RepositoryAuditSink` without the `audit_log` resource fails at bootstrap
 | `details` | Transition or action input, document events (slot, id, type, size; never content), list query and count, denial `code`, `reason` and `fields` |
 | `correlation_id` | Shared with the logs and events of the operation |
 
-What `changes` holds per operation: `create` the values sent, `update` the
-fields that changed, `delete` the last values, `transition` the state field.
+What `changes` holds per operation: `create` the values sent and the initial
+state, `update` the fields that changed, `delete` the last values, `transition`
+the state field.
 
 ## Sensitive values
 
@@ -63,6 +64,47 @@ GET /audit_log?resource=invoices&entity_id=7&order_by=at   # a record's history
 GET /audit_log?actor=keycloak:5f2…&outcome=denied           # someone's refusals
 GET /audit_log?correlation_id=…                             # one request
 ```
+
+## History
+
+A record's state history comes from the same entries: its creation and every
+committed transition, oldest first.
+
+```python
+await manager.history("invoices", 7, actor=principal)
+```
+
+```
+GET /invoices/7/history
+```
+
+```json
+[
+  {"at": "2026-11-25T09:12:03Z", "operation": "create", "event": null,
+   "from_state": null, "to_state": "draft", "actor": "keycloak:5f2…", "correlation_id": "…"},
+  {"at": "2026-11-25T10:40:51Z", "operation": "transition", "event": "submit",
+   "from_state": "draft", "to_state": "pending", "actor": "keycloak:5f2…", "correlation_id": "…"}
+]
+```
+
+**Who can read it:** anyone who can `get` the record, so a front end can show a
+timeline without access to `audit_log`. A hidden record is a 404, as for `get`.
+Refused attempts and other changes stay in `audit_log` only.
+
+**Limits:**
+
+- The resource needs a state machine and `audit` left on.
+- The manager needs an audit trail stored as a resource: `RepositoryAuditSink`
+  (`audit=True`), alone or inside a `CompositeAuditSink`. Otherwise `history`
+  raises RE-E009, and the HTTP route is not generated.
+- Transitions whose state field is masked (`restricted_fields`,
+  `audit_exclude`) appear without `from_state` and `to_state`.
+- Up to 1000 entries per record are read.
+- `AuditJanitor` retention removes old entries, and their changes leave the
+  history with them.
+
+Entries written before the initial state was recorded take it from the first
+transition's `from_state`.
 
 ## Sinks
 

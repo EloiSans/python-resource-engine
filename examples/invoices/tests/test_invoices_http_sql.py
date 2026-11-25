@@ -39,6 +39,14 @@ def test_crud_and_transitions_over_http(client):
     assert r.json()["status"] == "rejected"
     assert r.json()["rejection_reason"] == "Wrong VAT"
 
+    history = client.get("/invoices/1/history").json()
+    assert [(h["event"], h["from_state"], h["to_state"]) for h in history] == [
+        (None, None, "draft"),
+        ("submit", "draft", "pending"),
+        ("reject", "pending", "rejected"),
+    ]
+    assert client.get("/invoices/99/history").status_code == 404
+
 
 def test_validation_list_and_delete(client):
     assert client.post("/invoices", json={"customer": ""}).status_code == 422
@@ -92,3 +100,16 @@ def test_concurrent_edits_are_refused(client):
     fresh = client.post("/invoices/1/transitions/submit", headers={"If-Match": '"2"'})
     assert fresh.status_code == 200 and fresh.json()["version"] == 3
     assert client.delete("/invoices/1", headers={"If-Match": etag}).status_code == 409
+
+
+def test_idempotency_key(client):
+    body = {"customer": "ACME", "amount": "75"}
+    first = client.post("/invoices", json=body, headers={"Idempotency-Key": "order-7"})
+    again = client.post("/invoices", json=body, headers={"Idempotency-Key": "order-7"})
+    assert first.status_code == again.status_code == 201
+    assert again.json() == first.json()
+    assert client.get("/invoices").json()["total"] == 1
+    other = client.post(
+        "/invoices", json={**body, "amount": "76"}, headers={"Idempotency-Key": "order-7"}
+    )
+    assert other.status_code == 422 and other.json()["error"]["code"] == "RE-E107"

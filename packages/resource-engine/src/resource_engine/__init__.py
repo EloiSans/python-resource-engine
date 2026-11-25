@@ -15,6 +15,7 @@ from resource_engine.application.events import (
     TransitionExecuted,
 )
 from resource_engine.application.hooks import HookPoint, external_effect
+from resource_engine.application.idempotency import IdempotencyJanitor
 from resource_engine.application.manager import ResourceManager
 from resource_engine.application.query import ListQuery, Page
 from resource_engine.application.registry import ResourceRegistry
@@ -40,6 +41,7 @@ __all__ = [
     "DomainError",
     "DomainEvent",
     "HookPoint",
+    "IdempotencyJanitor",
     "ListQuery",
     "OperationContext",
     "Page",

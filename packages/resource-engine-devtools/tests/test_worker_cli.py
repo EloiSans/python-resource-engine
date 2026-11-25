@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+import logging
 import sys
 import textwrap
 
@@ -42,7 +44,11 @@ MODULE = textwrap.dedent(
 def app(tmp_path, monkeypatch):
     (tmp_path / "worker_app.py").write_text(MODULE)
     monkeypatch.chdir(tmp_path)
+    root = logging.getLogger()
+    saved = (list(root.handlers), root.level)  # the worker configures logging
     yield
+    root.handlers[:] = saved[0]
+    root.setLevel(saved[1])
     sys.modules.pop("worker_app", None)
 
 
@@ -67,3 +73,10 @@ def test_pyproject_setting(app, tmp_path):
         '[tool.resource-engine]\nworker = "worker_app:runner"\n'
     )
     assert main(["worker", "--once"]) == 0
+
+
+def test_json_logs(app, capsys):
+    assert main(["worker", "--runner", "worker_app:build", "--once", "--log-format", "json"]) == 1
+    line = json.loads(capsys.readouterr().err.strip().splitlines()[0])
+    assert line["message"] == "Job boom failed" and line["job"] == "boom"
+    assert line["level"] == "ERROR" and line["error_type"] == "RuntimeError"

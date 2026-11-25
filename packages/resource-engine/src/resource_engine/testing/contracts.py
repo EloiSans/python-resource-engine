@@ -662,3 +662,71 @@ class LockContract:
             *(lock_provider.acquire("race", f"w{i}", ttl) for i in range(5))
         )
         assert results.count(True) == 1
+
+
+class IdempotencyContract:
+    """Behaviour of an ``IdempotencyStore``. Fixture: ``contract_uow_factory``
+    (units of work with ``idempotency()``)."""
+
+    @pytest.fixture
+    def contract_uow_factory(self) -> Callable[[], Any]:
+        raise NotImplementedError("Provide a unit of work factory whose units have idempotency()")
+
+    @staticmethod
+    def record(key: str = "k", *, ttl: timedelta = timedelta(hours=1), fp: str = "f" * 64) -> Any:
+        from resource_engine.ports.idempotency import IdempotencyRecord
+
+        now = datetime.now(UTC)
+        return IdempotencyRecord(
+            scope="user:ana", key=key, fingerprint=fp, resource="invoices", operation="create",
+            result={"kind": "model", "data": {"id": 1, "amount": "1.50"}},
+            created_at=now, expires_at=now + ttl,
+        )  # fmt: skip
+
+    async def _get(self, factory: Callable[[], Any], key: str = "k") -> Any:
+        async with factory() as uow:
+            return await uow.idempotency().get("user:ana", key)
+
+    async def test_committed_records_come_back(self, contract_uow_factory):
+        async with contract_uow_factory() as uow:
+            await uow.idempotency().put(self.record())
+            await uow.commit()
+        found = await self._get(contract_uow_factory)
+        assert found.fingerprint == "f" * 64 and found.operation == "create"
+        assert found.result == {"kind": "model", "data": {"id": 1, "amount": "1.50"}}
+        assert await self._get(contract_uow_factory, "other") is None
+
+    async def test_rolled_back_records_are_discarded(self, contract_uow_factory):
+        async with contract_uow_factory() as uow:
+            await uow.idempotency().put(self.record())
+        assert await self._get(contract_uow_factory) is None
+
+    async def test_a_second_commit_of_the_same_key_fails(self, contract_uow_factory):
+        async with contract_uow_factory() as first, contract_uow_factory() as second:
+            await first.idempotency().put(self.record())
+            await first.commit()
+            with pytest.raises(Exception):  # noqa: B017 - a primary key violation in SQL
+                await second.idempotency().put(self.record(fp="e" * 64))
+                await second.commit()
+        assert (await self._get(contract_uow_factory)).fingerprint == "f" * 64
+
+    async def test_an_expired_record_is_replaced(self, contract_uow_factory):
+        async with contract_uow_factory() as uow:
+            await uow.idempotency().put(self.record(ttl=timedelta(seconds=-1)))
+            await uow.commit()
+        async with contract_uow_factory() as uow:
+            await uow.idempotency().put(self.record(fp="e" * 64))
+            await uow.commit()
+        assert (await self._get(contract_uow_factory)).fingerprint == "e" * 64
+
+    async def test_purge_deletes_expired_records(self, contract_uow_factory):
+        async with contract_uow_factory() as uow:
+            for n in range(3):
+                await uow.idempotency().put(self.record(f"old{n}", ttl=timedelta(seconds=-1)))
+            await uow.idempotency().put(self.record("fresh"))
+            await uow.commit()
+        async with contract_uow_factory() as uow:
+            assert await uow.idempotency().purge(datetime.now(UTC), 2) == 2
+            assert await uow.idempotency().purge(datetime.now(UTC), 10) == 1
+            await uow.commit()
+        assert await self._get(contract_uow_factory, "fresh") is not None

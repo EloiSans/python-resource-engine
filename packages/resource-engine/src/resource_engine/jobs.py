@@ -31,6 +31,7 @@ from datetime import timedelta
 from typing import Any, Literal, Protocol
 
 from resource_engine.errors import ConfigurationError
+from resource_engine.logs import bind_log_context
 from resource_engine.ports.locks import LockProvider
 from resource_engine.tracing import get_tracer
 
@@ -173,15 +174,17 @@ class JobRunner:
                 return run
         started = time.perf_counter()
         try:
-            async with get_tracer().span(
-                f"job {job.name}", attributes={"resource_engine.job": job.name}
-            ):
-                result = job.run()
-                if inspect.isawaitable(result):
-                    result = await result
+            with bind_log_context(job=job.name):
+                async with get_tracer().span(
+                    f"job {job.name}", attributes={"resource_engine.job": job.name}
+                ):
+                    result = job.run()
+                    if inspect.isawaitable(result):
+                        result = await result
             run = JobRun(job.name, "ok", time.perf_counter() - started, result)
         except Exception as exc:
-            logger.exception("Job %s failed", job.name)
+            with bind_log_context(job=job.name):
+                logger.exception("Job %s failed", job.name)
             run = JobRun(job.name, "failed", time.perf_counter() - started, error=exc)
         finally:
             if job.single:

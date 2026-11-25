@@ -7,13 +7,13 @@ import asyncio
 import contextlib
 import importlib
 import inspect
-import logging
 import signal
 import sys
 from pathlib import Path
 from typing import Any
 
 from resource_engine.jobs import JobRunner
+from resource_engine.logs import configure_logging
 
 from resource_engine_devtools.loader import add_paths, find_config
 
@@ -61,9 +61,7 @@ async def _run(args: argparse.Namespace) -> int:
 
 
 def cmd_worker(args: argparse.Namespace) -> int:
-    logging.basicConfig(
-        level=getattr(logging, args.log_level.upper()),
-        format="%(asctime)s %(levelname)s %(name)s %(message)s",
-        stream=sys.stderr,
+    configure_logging(
+        format=getattr(args, "log_format", "text"), level=args.log_level, stream=sys.stderr
     )
     return asyncio.run(_run(args))

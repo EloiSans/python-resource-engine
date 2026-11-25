@@ -23,8 +23,9 @@ from __future__ import annotations
 import dataclasses
 import inspect
 import logging
-from collections.abc import AsyncIterator, Mapping
+from collections.abc import AsyncIterator, Mapping, Sequence
 from contextlib import asynccontextmanager
+from datetime import timedelta
 from typing import TYPE_CHECKING, Any
 
 from pydantic import BaseModel, ValidationError
@@ -38,11 +39,18 @@ from resource_engine.application.events import (
     TransitionExecuted,
 )
 from resource_engine.application.hooks import HookPoint
+from resource_engine.application.idempotency import (
+    DEFAULT_TTL,
+    idempotent,
+    pending_for,
+    store_result,
+)
 from resource_engine.application.query import ListQuery, Page
 from resource_engine.application.registry import ResourceRegistry
 from resource_engine.application.resource import Resource, ResourceDefinition
 from resource_engine.application.transaction import Transaction
 from resource_engine.application.transaction import current as current_transaction
+from resource_engine.audit.history import StateChange
 from resource_engine.errors import (
     ActionNotFound,
     ConditionNotSupported,
@@ -62,10 +70,12 @@ from resource_engine.errors import (
     VersioningNotSupported,
     VersionRequired,
 )
+from resource_engine.logs import log_context, update_log_context
 from resource_engine.messaging.delivery import AfterCommitDelivery, EventDelivery
 from resource_engine.ports.audit import AuditSink
 from resource_engine.ports.authz import Authorizer
 from resource_engine.ports.event_publisher import EventPublisher, NullEventPublisher
+from resource_engine.ports.observability import OperationObserver
 from resource_engine.ports.storage import BlobStore
 from resource_engine.ports.unit_of_work import UnitOfWork, UnitOfWorkFactory
 from resource_engine.tracing import get_tracer, traced
@@ -97,8 +107,11 @@ class ResourceManager:
         documents_resource: str = "documents",
         authorizer: Authorizer | None = None,
         audit: AuditSink | bool | None = None,
+        idempotency_ttl: timedelta = DEFAULT_TTL,
+        observers: Sequence[OperationObserver] = (),
     ) -> None:
         self.registry = registry
+        self.observers: list[OperationObserver] = list(observers)
         self.uow_factory = uow_factory
         if event_publisher is not None and event_delivery is not None:
             raise ValueError("Pass either event_publisher or event_delivery, not both")
@@ -106,6 +119,7 @@ class ResourceManager:
             event_publisher or NullEventPublisher()
         )
         self.services = dict(services or {})
+        self.idempotency_ttl = idempotency_ttl
         self.authorizer = authorizer
         if authorizer is not None:
             bind = getattr(authorizer, "bind", None)
@@ -155,6 +169,15 @@ class ResourceManager:
         )
         ctx.extras["requested_tenant"] = tenant
         ctx.extras["expected_version"] = expected_version
+        pending_for(ctx)  # bind an idempotency key to this operation, if one was sent
+        context = log_context()
+        # the first context of the running operation (traced() opened its log context)
+        if context.get("operation") is not None and context.get("correlation_id") is None:
+            update_log_context(
+                correlation_id=ctx.correlation_id,
+                entity_id=None if ctx.entity_id is None else str(ctx.entity_id),
+                action=_action_of(ctx) if ctx.transition or ctx.action else None,
+            )
         span = get_tracer().current()
         span.set_attribute("resource_engine.correlation_id", ctx.correlation_id)
         if ctx.entity_id is not None:
@@ -493,7 +516,9 @@ class ResourceManager:
             return sorted(actor.roles)
 
     async def _before_commit(self, ctx: OperationContext, uow: UnitOfWork) -> None:
-        """Step 9, before commit: the audit entry (same transaction), then events."""
+        """Step 9, before commit: the idempotency record and the audit entry (same
+        transaction), then events."""
+        await store_result(self, ctx, uow)
         if self._audited(ctx):
             from resource_engine.audit.recorder import entry_for
 
@@ -794,8 +819,15 @@ class ResourceManager:
     # -------------------------------------------------------------------- write
 
     @traced("create")
+    @idempotent("create")
     async def create(
-        self, resource: ResourceRef, data: Any, *, actor: Any = None, tenant: str | None = None
+        self,
+        resource: ResourceRef,
+        data: Any,
+        *,
+        actor: Any = None,
+        tenant: str | None = None,
+        idempotency_key: str | None = None,
     ) -> Any:
         definition = self.registry.get(resource)
         self._require(definition, "create")
@@ -826,6 +858,7 @@ class ResourceManager:
         return ctx.result
 
     @traced("update")
+    @idempotent("update")
     async def update(
         self,
         resource: ResourceRef,
@@ -835,6 +868,7 @@ class ResourceManager:
         actor: Any = None,
         tenant: str | None = None,
         expected_version: int | None = None,
+        idempotency_key: str | None = None,
     ) -> Any:
         definition = self.registry.get(resource)
         self._require(definition, "update")
@@ -876,6 +910,7 @@ class ResourceManager:
         return ctx.result
 
     @traced("delete")
+    @idempotent("delete")
     async def delete(
         self,
         resource: ResourceRef,
@@ -884,6 +919,7 @@ class ResourceManager:
         actor: Any = None,
         tenant: str | None = None,
         expected_version: int | None = None,
+        idempotency_key: str | None = None,
     ) -> None:
         definition = self.registry.get(resource)
         self._require(definition, "delete")
@@ -912,6 +948,7 @@ class ResourceManager:
         await self._after_commit(ctx)
 
     @traced("transition")
+    @idempotent("transition")
     async def transition(
         self,
         resource: ResourceRef,
@@ -922,6 +959,7 @@ class ResourceManager:
         actor: Any = None,
         tenant: str | None = None,
         expected_version: int | None = None,
+        idempotency_key: str | None = None,
     ) -> Any:
         definition = self.registry.get(resource)
         machine = definition.machine
@@ -1006,7 +1044,37 @@ class ResourceManager:
                     allowed.append(event)
             return allowed
 
+    @traced("history")
+    async def history(
+        self, resource: ResourceRef, entity_id: Any, *, actor: Any = None, tenant: str | None = None
+    ) -> list[StateChange]:
+        """The record's state changes, oldest first: its creation and every
+        committed transition, with the actor and time. Read from the audit trail;
+        the caller needs to be able to ``get`` the record (RE-E009 without an
+        audit trail or a state machine)."""
+        from resource_engine.audit.history import read_history, require_history_resource
+
+        definition = self.registry.get(resource)
+        audit_resource = require_history_resource(self, definition)
+        ctx = self._context(definition, "get", actor=actor, entity_id=entity_id, tenant=tenant)
+        async with self._reading(ctx) as uow:
+            entity = await self._load(ctx)
+            await self._gate_record(ctx, "get", entity)
+            tenant_value = (
+                getattr(entity, definition.tenant_field, None) if definition.tenant_field else None
+            )
+            return await read_history(uow, audit_resource, definition, entity_id, tenant_value)
+
+    @property
+    def has_history(self) -> bool:
+        """Whether ``history`` can read an audit trail."""
+        from resource_engine.audit.history import history_resource
+
+        name = history_resource(self.audit)
+        return name is not None and name in {d.name for d in self.registry}
+
     @traced("action")
+    @idempotent("action")
     async def run_action(
         self,
         resource: ResourceRef,
@@ -1017,6 +1085,7 @@ class ResourceManager:
         actor: Any = None,
         tenant: str | None = None,
         expected_version: int | None = None,
+        idempotency_key: str | None = None,
     ) -> Any:
         definition = self.registry.get(resource)
         action_def = definition.actions.get(action)

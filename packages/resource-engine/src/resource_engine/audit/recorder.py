@@ -60,7 +60,11 @@ def changes_of(ctx: OperationContext, masked: frozenset[str]) -> dict[str, Any]:
 
     op = ctx.operation
     if op == "create":
-        return {k: entry(k, to=v) for k, v in _plain(ctx.data).items()}
+        created = {k: entry(k, to=v) for k, v in _plain(ctx.data).items()}
+        state_field = ctx.resource.state_field
+        if state_field and state_field not in created and ctx.entity is not None:
+            created[state_field] = entry(state_field, to=getattr(ctx.entity, state_field, None))
+        return created
     if op == "update":
         out: dict[str, Any] = {}
         for event in ctx.events:

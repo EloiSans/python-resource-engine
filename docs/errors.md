@@ -12,12 +12,15 @@ them as `{"error": {...}}`.
 | <a id="re-e004"></a>RE-E004 | `StateFieldExposed` | 500 | The state field appears in a create/update schema. Use transitions. |
 | <a id="re-e005"></a>RE-E005 | `VersioningNotSupported` | 500 | A resource with `version_field` uses a repository without `supports_versions` (REST, SOAP). See [concurrency](concurrency.md). |
 | <a id="re-e007"></a>RE-E007 | `TransactionDoomed` | 500 | An operation failed inside `manager.transaction()`; it can only roll back. `details` has the original `code` and `message`. See [lifecycle](lifecycle.md#grouping-operations). |
+| <a id="re-e008"></a>RE-E008 | `IdempotencyNotSupported` | 500 | An idempotency key was sent but the unit of work has no idempotency store (`idempotency_table=`). See [idempotency](idempotency.md). |
+| <a id="re-e009"></a>RE-E009 | `HistoryNotAvailable` | 500 | `history` was called for a resource without a state machine or with `audit = False`, or the manager has no audit trail stored as a resource (`audit=True`). See [audit](audit.md#history). |
 | <a id="re-e101"></a>RE-E101 | `ValidationFailed` | 422 | Input does not match the schema; `details` holds Pydantic errors. |
 | <a id="re-e102"></a>RE-E102 | `EntityNotFound` | 404 | No entity with that id. |
 | <a id="re-e103"></a>RE-E103 | `InvalidQuery` | 400 | Filter/order field not allowed, or paging out of bounds. |
 | <a id="re-e104"></a>RE-E104 | `ExternalEffectInTransaction` | 500 | An `@external_effect` hook is registered before `after_commit`. |
 | <a id="re-e105"></a>RE-E105 | `VersionConflict` | 409 | The record changed since the client read it; `details.expected` and `details.current`. Reload and retry. |
 | <a id="re-e106"></a>RE-E106 | `VersionRequired` | 428 | The resource has `require_version`; send `If-Match` (or `expected_version=`). |
+| <a id="re-e107"></a>RE-E107 | `IdempotencyKeyReused` | 422 | The caller already used the idempotency key for a different request; `details.first` names it. Use a new key per request. |
 | <a id="re-e201"></a>RE-E201 | `TransitionNotAllowed` | 409 | Transition not possible from the current state (or a guard failed); `details.allowed` lists valid ones. |
 | <a id="re-e202"></a>RE-E202 | `UnknownTransition` | 404 | The resource has no such transition (or no state machine). |
 | <a id="re-e301"></a>RE-E301 | `ActionNotFound` | 404 | The resource has no such action. |

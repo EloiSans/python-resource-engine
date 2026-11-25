@@ -19,6 +19,7 @@ from resource_engine_sqlalchemy import unit_of_work_factory
 from sqlalchemy.ext.asyncio import AsyncEngine, async_sessionmaker, create_async_engine
 
 from invoices.bootstrap import registry
+from invoices.infrastructure.persistence import engine as engine_tables
 from invoices.infrastructure.persistence import map_entities, metadata
 
 
@@ -46,7 +47,9 @@ def create_app(engine: AsyncEngine | None = None) -> FastAPI:
     app = FastAPI(title="Invoices (Resource Engine example)", lifespan=lifespan_with_store)
     manager = ResourceManager(
         registry,
-        unit_of_work_factory(session_factory, registry),
+        unit_of_work_factory(
+            session_factory, registry, idempotency_table=engine_tables.idempotency
+        ),
         blob_store=blob_store,
         audit=True,  # audit_log table, same transaction as each change
     )

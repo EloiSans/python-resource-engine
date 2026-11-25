@@ -94,6 +94,13 @@ stored in the same transaction and a consumer does the effect.
 A *staged* effect, such as a blob stored under a new key, may happen before
 commit if it registers its undo: `ctx.on_rollback(lambda: store.delete([key]))`.
 
+## Retries: idempotency keys
+
+Writes take `idempotency_key=` (HTTP: the `Idempotency-Key` header). A retry
+with the same key and request returns the first result without running again;
+the record is stored in the operation's transaction, so a failed write keeps no
+key. Use them for anything a client may retry: payments, actions, creates.
+
 ## Several operations in one transaction
 
 ```python

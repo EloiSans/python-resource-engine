@@ -11,11 +11,18 @@ set_tracer(OtelTracer())
 from __future__ import annotations
 
 import functools
+import inspect
+import logging
+import time
 from collections.abc import AsyncIterator, Callable, Mapping
 from contextlib import asynccontextmanager
 from typing import Any
 
+from resource_engine.logs import bind_log_context, error_type
+from resource_engine.ports.observability import OperationRun
 from resource_engine.ports.tracing import Span, SpanKind, Tracer
+
+logger = logging.getLogger("resource_engine")
 
 
 class NoopSpan:
@@ -76,8 +83,9 @@ def _resource_name(manager: Any, resource: Any) -> str:
 
 
 def traced(operation: str, *, resource: str | None = None) -> Callable[[Any], Any]:
-    """Wrap a manager method in a span named ``"<resource> <operation>"``. The
-    resource is the method's first argument unless given."""
+    """Wrap a manager method in a span named ``"<resource> <operation>"``, a log
+    context and a call to the manager's operation observers. The resource is
+    the method's first argument unless given."""
 
     def decorate(fn: Any) -> Any:
         @functools.wraps(fn)
@@ -85,12 +93,48 @@ def traced(operation: str, *, resource: str | None = None) -> Callable[[Any], An
             manager = getattr(self, "manager", self)
             name = resource or (_resource_name(manager, args[0]) if args else "?")
             attributes = {"resource_engine.resource": name, "resource_engine.operation": operation}
-            async with _tracer.span(f"{name} {operation}", attributes=attributes):
-                return await fn(self, *args, **kwargs)
+            observers = getattr(manager, "observers", ())
+            started = time.perf_counter()
+            error: BaseException | None = None
+            with bind_log_context(resource=name, operation=operation) as context:
+                # a nested operation starts its own: drop the outer one's identity
+                for key in ("correlation_id", "entity_id", "action"):
+                    context.pop(key, None)
+                try:
+                    async with _tracer.span(f"{name} {operation}", attributes=attributes):
+                        return await fn(self, *args, **kwargs)
+                except BaseException as exc:
+                    error = exc
+                    raise
+                finally:
+                    if observers:
+                        await _observe(
+                            observers,
+                            OperationRun(
+                                resource=name,
+                                operation=operation,
+                                outcome="ok" if error is None else "failed",
+                                seconds=time.perf_counter() - started,
+                                action=context.get("action"),
+                                error_type=error_type(error),
+                                correlation_id=context.get("correlation_id"),
+                                error=error,
+                            ),
+                        )
 
         return wrapper
 
     return decorate
+
+
+async def _observe(observers: Any, run: OperationRun) -> None:
+    for observer in observers:
+        try:
+            result = observer(run)
+            if inspect.isawaitable(result):
+                await result
+        except Exception:
+            logger.exception("Operation observer %r failed", observer)
 
 
 __all__ = ["NOOP_SPAN", "NoopSpan", "NoopTracer", "get_tracer", "set_tracer", "traced"]

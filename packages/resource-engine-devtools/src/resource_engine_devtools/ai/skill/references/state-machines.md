@@ -71,9 +71,12 @@ transition_schemas = {"reject": RejectInvoice}  # input of `reject`: {"reason": 
 ```python
 await manager.transition("invoices", 7, "reject", {"reason": "Import incorrecte"}, actor=user)
 await manager.allowed_transitions("invoices", 7, actor=user)  # what the caller may fire now
+await manager.history("invoices", 7, actor=user)  # creation and transitions, from the audit trail
 ```
 
-HTTP: `GET /invoices/{id}/transitions`, `POST /invoices/{id}/transitions/reject`.
+HTTP: `GET /invoices/{id}/transitions`, `POST /invoices/{id}/transitions/reject`,
+`GET /invoices/{id}/history` (needs `audit=True`; don't build your own
+transition log table).
 Not possible from the current state → RE-E201 (`details.allowed`); unknown
 event → RE-E202. The engine publishes `TransitionExecuted` (with `source` and
 `target`) after commit.

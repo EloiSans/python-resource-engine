@@ -28,6 +28,7 @@ from sqlalchemy.orm import registry as orm_registry
 from resource_engine_sqlalchemy.audit import audit_seal_table, audit_table, map_audit
 from resource_engine_sqlalchemy.authz import AuthzTables, authz_tables, map_authz
 from resource_engine_sqlalchemy.documents import documents_table, map_documents
+from resource_engine_sqlalchemy.idempotency import idempotency_table
 from resource_engine_sqlalchemy.inbox import inbox_table
 from resource_engine_sqlalchemy.locks import locks_table
 from resource_engine_sqlalchemy.outbox import outbox_table
@@ -54,9 +55,18 @@ class EngineTables:
     authz: AuthzTables | None = None
     documents: Table | None = None
     locks: Table | None = None
+    idempotency: Table | None = None
 
     def all(self) -> list[Table]:
-        tables = [self.outbox, self.inbox, self.audit, self.seals, self.documents, self.locks]
+        tables = [
+            self.outbox,
+            self.inbox,
+            self.audit,
+            self.seals,
+            self.documents,
+            self.locks,
+            self.idempotency,
+        ]
         if self.authz is not None:
             tables += [self.authz.policies, self.authz.roles, self.authz.assignments]
         return [t for t in tables if t is not None]
@@ -72,6 +82,7 @@ def engine_tables(
     authz: bool = False,
     documents: bool = False,
     locks: bool = False,
+    idempotency: bool = False,
     names: dict[str, Any] | None = None,
 ) -> EngineTables:
     """Declare the engine tables an application uses on ``metadata``.
@@ -83,6 +94,7 @@ def engine_tables(
         authz: Policies, roles and role assignments (``registry.register_authz``).
         documents: Attached documents (``registry.register_documents``).
         locks: Leases for ``JobRunner`` jobs with ``single=True``.
+        idempotency: Results of writes sent with an idempotency key.
         names: Custom table names, by the same keys (``authz`` takes a prefix).
     """
     if seals and not audit:
@@ -100,6 +112,7 @@ def engine_tables(
         authz=named("authz", authz_tables) if authz else None,
         documents=named("documents", documents_table) if documents else None,
         locks=named("locks", locks_table) if locks else None,
+        idempotency=named("idempotency", idempotency_table) if idempotency else None,
     )
 
 

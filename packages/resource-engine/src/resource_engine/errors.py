@@ -102,6 +102,19 @@ class TransactionDoomed(ResourceEngineError):
     code = "RE-E007"
 
 
+class IdempotencyNotSupported(ConfigurationError):
+    """An idempotency key was sent but the unit of work has no idempotency store."""
+
+    code = "RE-E008"
+
+
+class HistoryNotAvailable(ConfigurationError):
+    """Transition history was asked for a resource without a state machine, or
+    without an audit trail stored as a resource."""
+
+    code = "RE-E009"
+
+
 class ValidationFailed(ResourceEngineError):
     code = "RE-E101"
 
@@ -131,6 +144,13 @@ class VersionRequired(ResourceEngineError):
     """The resource requires the version the client read (``If-Match``)."""
 
     code = "RE-E106"
+
+
+class IdempotencyKeyReused(ResourceEngineError):
+    """The idempotency key was already used by the same caller for a different
+    request (another operation, record or input)."""
+
+    code = "RE-E107"
 
 
 class TransitionNotAllowed(ResourceEngineError):

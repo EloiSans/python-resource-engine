@@ -30,7 +30,7 @@ moved to its own repository without code changes.
 | `resource-engine-opa` | `resource_engine_opa` | core, httpx | Open Policy Agent decisions and row filters (`OpaEngine`) |
 | `resource-engine-cedar` | `resource_engine_cedar` | core, cedarpy | Cedar policies in process (`CedarEngine`) |
 | `resource-engine-openfga` | `resource_engine_openfga` | core, openfga-sdk | OpenFGA relationships (`OpenFgaEngine`, `TupleSync`) |
-| `resource-engine-opentelemetry` | `resource_engine_opentelemetry` | core, opentelemetry-api | Tracing (`OtelTracer`) and consumer metrics (`ConsumerMetrics`) |
+| `resource-engine-opentelemetry` | `resource_engine_opentelemetry` | core, opentelemetry-api | Tracing (`OtelTracer`), operation, consumer and job metrics |
 | `resource-engine-sap` | `resource_engine_sap` | core, resource-engine-http | SAP Event Mesh (publisher, queue consumer) and advanced event mesh publisher |
 
 Core packages are in `packages/`, cloud, SAP, storage, identity, policy-engine, observability and HTTP adapters in `adapters/` (see the
@@ -62,7 +62,8 @@ mount_resources(app, registry, manager)  # FastAPI
 ```
 
 This exposes `GET/POST /invoices`, `GET/PATCH/DELETE /invoices/{id}`,
-`GET /invoices/{id}/transitions`, `POST /invoices/{id}/transitions/{event}` and
+`GET /invoices/{id}/transitions`, `POST /invoices/{id}/transitions/{event}`,
+`GET /invoices/{id}/history` (with an audit trail) and
 `POST /invoices/{id}/actions/recalculate_totals`.
 
 The complete reference module is in [`examples/invoices`](examples/invoices) and is
@@ -95,10 +96,11 @@ uv run uvicorn invoices.app:app --app-dir examples --reload   # then open /docs
 - [External policy engines](docs/authorizers.md) — OPA, Cedar and OpenFGA behind the same port.
 - [Scaffolding](docs/scaffold.md) — generate a module, action or state machine.
 - [AI assistance](docs/ai.md) — the skill for coding agents, `ai install`, `ai sync`; [evaluation](evals/README.md).
-- [Observability](docs/observability.md) — traces from request to consumer, metrics hooks.
+- [Observability](docs/observability.md) — traces from request to consumer, metrics hooks, JSON logs.
 - [Background jobs](docs/jobs.md) — worker process, periodic jobs, services, one worker at a time.
 - [Audit trail](docs/audit.md) — committed changes and refused attempts, tamper-evident seals, retention.
 - [Tenancy](docs/tenancy.md) — tenant-scoped resources, cross-tenant roles.
+- [Idempotency keys](docs/idempotency.md) — safe retries of writes (`Idempotency-Key`).
 - [Concurrency](docs/concurrency.md) — version field, `ETag` / `If-Match`, stale writes refused.
 - [Migrations](docs/migrations.md) — Alembic autogenerate for your tables and the engine's.
 - [Releasing](docs/releasing.md) — CI, per-package versions, publishing to PyPI.

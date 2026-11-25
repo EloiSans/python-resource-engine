@@ -66,30 +66,30 @@ class JoinedUnitOfWork:
         return getattr(self._uow, name)
 
 
-class _WithOutbox(JoinedUnitOfWork):
-    def outbox(self) -> Any:
-        return self._uow.outbox()  # type: ignore[attr-defined]
+#: Optional capabilities a joined view forwards when the shared unit of work has them.
+CAPABILITIES = ("outbox", "inbox", "idempotency")
+
+_views: dict[frozenset[str], type[JoinedUnitOfWork]] = {}
 
 
-class _WithInbox(JoinedUnitOfWork):
-    def inbox(self) -> Any:
-        return self._uow.inbox()  # type: ignore[attr-defined]
+def _forward(name: str) -> Any:
+    def method(self: JoinedUnitOfWork) -> Any:
+        return getattr(self._uow, name)()
 
-
-class _WithBoth(_WithOutbox, _WithInbox):
-    pass
+    method.__name__ = name
+    return method
 
 
 def joined_view(uow: UnitOfWork) -> JoinedUnitOfWork:
-    """A view with the same capabilities (``outbox()``, ``inbox()``) as ``uow``:
-    runtime protocol checks look at the class, not at ``__getattr__``."""
-    outbox, inbox = hasattr(uow, "outbox"), hasattr(uow, "inbox")
-    cls = {
-        (False, False): JoinedUnitOfWork,
-        (True, False): _WithOutbox,
-        (False, True): _WithInbox,
-        (True, True): _WithBoth,
-    }[(outbox, inbox)]
+    """A view with the same capabilities (``outbox()``, ``inbox()``,
+    ``idempotency()``) as ``uow``: runtime protocol checks look at the class,
+    not at ``__getattr__``, so the methods are defined on it."""
+    present = frozenset(name for name in CAPABILITIES if hasattr(uow, name))
+    cls = _views.get(present)
+    if cls is None:
+        name = "Joined" + "".join(n.capitalize() for n in sorted(present)) + "UnitOfWork"
+        cls = type(name, (JoinedUnitOfWork,), {n: _forward(n) for n in present})
+        _views[present] = cls
     return cls(uow)
 
 
