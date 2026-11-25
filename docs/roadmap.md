@@ -112,6 +112,10 @@
   CloudEvents or raw bodies). Contract testing on both sides:
   `assert_consumer_contract` against the provider's document (snapshot or
   latest) and `docs asyncapi --check` for breaking changes before publishing.
+- Development MCP server (`resource-engine mcp`, extra `[mcp]`): catalogue,
+  inspect, check, docs validation, AsyncAPI and its compatibility check,
+  error explanations and the scaffold commands as tools, each run in a fresh
+  process; the skill's guides and the live catalogue as resources.
 
 ## Next
 
@@ -121,10 +125,10 @@ what follows builds on it.
 
 ### Soon
 
+- `ai install --mcp`: register the development MCP server in the agents'
+  configuration (`.mcp.json`, `.cursor/mcp.json`, `.vscode/mcp.json`).
 - Relationships, next steps: reverse relations (`customers/{id}/invoices`),
   nested expansion, many-to-many through a join resource.
-- Development MCP server (`resource-engine mcp`): the CLI's inspect, check,
-  docs and scaffold tools for coding agents.
 
 ### Later
 

@@ -77,6 +77,54 @@ reports four states:
 When `sync` removes files from older versions, it keeps any file that was
 edited after it was installed.
 
+## MCP server
+
+`resource-engine mcp` serves the same commands as
+[MCP](https://modelcontextprotocol.io) tools over stdio. Coding agents can then
+call them directly instead of building shell commands. It needs the `mcp`
+extra:
+
+```bash
+pip install 'resource-engine-devtools[mcp]'     # or: uv add --dev 'resource-engine-devtools[mcp]'
+claude mcp add resource-engine -- uv run resource-engine mcp
+```
+
+Other clients (`.cursor/mcp.json`, `.vscode/mcp.json`, Claude Desktop) take the
+same command:
+
+```json
+{"mcpServers": {"resource-engine": {"command": "uv", "args": ["run", "resource-engine", "mcp"]}}}
+```
+
+| Tool | Does |
+|---|---|
+| `project_catalogue` | This project's resources, operations, transitions, actions, events, references and permissions (`ai context`) |
+| `inspect` | Resolved definitions as JSON, all or one resource |
+| `check` | Architecture, hook/effect, gate and event lints (RE-C001…C006) |
+| `docs_validate` | Documentation rules (RE-D001…D011), strict by default; only the findings |
+| `asyncapi` | The AsyncAPI document, or with `check_against` the changes that would break consumers |
+| `explain_error` | What an `RE-E`, `RE-C` or `RE-D` code means and what to change |
+| `scaffold_resource`, `scaffold_action`, `scaffold_state_machine`, `scaffold_consumer` | The [scaffold](scaffold.md) commands, with `dry_run` |
+
+- **Fresh runs:** each project tool runs the CLI with `--json` in a new
+  process in the project directory (`--project` to choose another). It sees
+  the code as the agent just left it, never a stale import, and nothing the
+  application prints can corrupt the protocol.
+- **Results:**
+  - findings such as violations or missing docstrings come back as normal
+    results with `exit_code` 1, because they are the answer;
+  - real failures are tool errors: a refused scaffold, a crash, or an
+    application that does not import.
+- **Annotations:** the scaffold tools never overwrite files, and they are
+  marked as not read-only.
+- **Resources:** the server also offers the skill's guides
+  (`resource-engine://skill/SKILL.md`, `.../references/lifecycle.md`...) and the
+  live project catalogue (`resource-engine://project`). Agents can follow the
+  conventions even where the skill isn't installed.
+
+This server is for building the application. To let agents *use* it (call its
+operations with a user's permissions), see the [runtime MCP server](mcp.md).
+
 ## In CI
 
 ```bash

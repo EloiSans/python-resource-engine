@@ -65,6 +65,10 @@ prints a compact catalogue; the installed copy is `project.md` next to this file
    resource-engine ai sync --check       # skill and project context up to date
    ```
 
+   With the `resource-engine` MCP server configured (`resource-engine mcp`),
+   call its `check`, `docs_validate`, `explain_error` and `scaffold_*` tools
+   instead of shell commands.
+
 ## Rules that must not be broken
 
 - **No external effects before commit.** Hooks before `after_commit` and

@@ -430,6 +430,22 @@ def cmd_scaffold(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_mcp(args: argparse.Namespace) -> int:
+    try:
+        import mcp  # noqa: F401
+    except ImportError:
+        raise SystemExit(
+            "The development MCP server needs the mcp extra: "
+            "pip install 'resource-engine-devtools[mcp]'"
+        ) from None
+    import asyncio
+
+    from resource_engine_devtools.mcp_server import DevServer
+
+    asyncio.run(DevServer(Path(args.project) if args.project else None).run_stdio())
+    return 0
+
+
 def _default_root() -> Path:
     config = find_config(Path.cwd())
     paths = config.get("paths") or []
@@ -599,6 +615,10 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--transitions", help="event:source>target,... (default: one per step)")
     p.add_argument("--force", action="store_true", help="overwrite an existing state machine")
     p.set_defaults(func=cmd_scaffold)
+
+    p = sub.add_parser("mcp", help="serve these commands as MCP tools for coding agents (stdio)")
+    p.add_argument("--project", help="project directory (default: the current one)")
+    p.set_defaults(func=cmd_mcp)
 
     p = sub.add_parser("worker", help="run the application's background jobs and services")
     p.add_argument("--runner", help="JobRunner as module:attribute (default: pyproject worker)")
