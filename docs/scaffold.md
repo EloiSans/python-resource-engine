@@ -77,3 +77,14 @@ grants.
 - **Actions:** new actions are only added; an existing class name is refused.
 - **Dry run:** `--dry-run` lists what would be written, and `--json` gives the
   same as data.
+
+## A consumer
+
+```bash
+resource-engine scaffold consumer payments --package billing.invoices \
+  --asyncapi vendor/payments-asyncapi.json --channel payments
+```
+
+From another service's AsyncAPI document, this writes payload models, an
+`EventRouter` with one typed handler stub per message, a snapshot of the
+document, and contract tests. See [contracts](contracts.md).

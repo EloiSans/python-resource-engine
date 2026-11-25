@@ -107,6 +107,11 @@
   in one transaction; `expand` on `get`/`list` (batched, caller's permissions,
   unreadable records as null) and `<relation>.<field>` filters, over HTTP and
   MCP; shown in the generated docs; the example gains a `customers` resource.
+- `resource-engine scaffold consumer`: payload models, a typed `EventRouter`
+  and contract tests from a provider's AsyncAPI (3.0 or 2.x; envelope,
+  CloudEvents or raw bodies). Contract testing on both sides:
+  `assert_consumer_contract` against the provider's document (snapshot or
+  latest) and `docs asyncapi --check` for breaking changes before publishing.
 
 ## Next
 
@@ -118,8 +123,6 @@ what follows builds on it.
 
 - Relationships, next steps: reverse relations (`customers/{id}/invoices`),
   nested expansion, many-to-many through a join resource.
-- Consuming external AsyncAPI documents: payload models and handler stubs
-  scaffolded from a provider's AsyncAPI (`resource-engine scaffold consumer`).
 - Development MCP server (`resource-engine mcp`): the CLI's inspect, check,
   docs and scaffold tools for coding agents.
 

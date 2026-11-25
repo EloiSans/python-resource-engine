@@ -141,7 +141,10 @@ change and sent by `OutboxRelay`; consumers use `EventRouter` and
 `MessageProcessor(manager=...)` for exactly-once effects. Give consumed events a
 payload model (`router.on("PaymentReceived", payload=PaymentReceived)`): the
 handler gets `(envelope, payment)`, invalid payloads are dead-lettered, and the
-AsyncAPI document shows the schema.
+AsyncAPI document shows the schema. For another service's events, start with
+`resource-engine scaffold consumer <name> --package ... --asyncapi <their
+document>`: it writes the models, the router and contract tests; keep the
+generated `test_contract` passing.
 
 ## Documents
 

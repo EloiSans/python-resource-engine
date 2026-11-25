@@ -27,6 +27,8 @@ jobs:
       - run: uv run ruff format --check .
       - run: uv run resource-engine check examples packages adapters evals
       - run: uv run resource-engine docs validate --strict
+      - name: Published events stay compatible (AsyncAPI)
+        run: uv run resource-engine docs asyncapi --check examples/invoices/docs/asyncapi.json
       - name: Generated example docs are up to date
         run: |
           uv run resource-engine docs generate --out examples/invoices/docs

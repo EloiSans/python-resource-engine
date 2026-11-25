@@ -192,6 +192,28 @@ def _asyncapi(args: argparse.Namespace, registry: ResourceRegistry) -> dict[str,
 def cmd_docs_asyncapi(args: argparse.Namespace) -> int:
     document = _asyncapi(args, _registry(args))
     text = json.dumps(document, indent=2, ensure_ascii=False) + "\n"
+    if args.check:
+        from resource_engine_devtools.contracts import breaking_changes
+        from resource_engine_devtools.scaffold import ScaffoldError
+
+        try:
+            problems = breaking_changes(Path(args.check), document)
+        except ScaffoldError as exc:
+            _emit(args, {"error": exc.message}, f"error: {exc.message}")
+            return 2
+        published = Path(args.check).read_text(encoding="utf-8")
+        current = json.loads(published) == document
+        report = "\n".join(f"BREAKING {p}" for p in problems) or (
+            "Same as the published document."
+            if current
+            else "Compatible changes only: publish the new document."
+        )
+        data = {
+            "breaking": [p.to_dict() for p in problems],
+            "changed": not current,
+        }
+        _emit(args, data, report)
+        return 1 if problems else 0
     if args.out:
         target = Path(args.out)
         target.parent.mkdir(parents=True, exist_ok=True)
@@ -362,6 +384,20 @@ def cmd_scaffold(args: argparse.Namespace) -> int:
                 force=args.force,
                 dry_run=args.dry_run,
             )
+        elif args.scaffold_command == "consumer":
+            from resource_engine_devtools.consumer_scaffold import consumer
+
+            result = consumer(
+                root,
+                args.package,
+                args.name,
+                Path(args.asyncapi),
+                channels=args.channel or (),
+                messages=args.message or (),
+                type_prefix=args.type_prefix or "",
+                force=args.force,
+                dry_run=args.dry_run,
+            )
         elif args.scaffold_command == "action":
             result = scaffold.action(
                 root,
@@ -466,6 +502,11 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p.add_argument("--out", help="file to write (default: standard output)")
     p.add_argument(
+        "--check",
+        metavar="PUBLISHED",
+        help="compare with the published document; exit 1 on changes that break consumers",
+    )
+    p.add_argument(
         "--consumer",
         action="append",
         help="EventRouter as module:attribute (repeatable; default: pyproject consumers)",
@@ -537,6 +578,18 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("action_class", metavar="ActionClass")
     p.add_argument("--input", action="append", dest="field", help="input field name:type[?]")
     p.add_argument("--collection", action="store_true", help="not tied to one record")
+    p.set_defaults(func=cmd_scaffold)
+    p = scaffold.add_parser(
+        "consumer",
+        parents=[shared],
+        help="a typed consumer and its contract tests from a provider's AsyncAPI document",
+    )
+    p.add_argument("name", help="consumer name, snake_case (payments)")
+    p.add_argument("--asyncapi", required=True, help="the provider's AsyncAPI file (JSON or YAML)")
+    p.add_argument("--channel", action="append", help="only this provider channel (repeatable)")
+    p.add_argument("--message", action="append", help="only this event type (repeatable)")
+    p.add_argument("--type-prefix", help="CloudEvents type prefix to strip (com.example.)")
+    p.add_argument("--force", action="store_true", help="overwrite existing files")
     p.set_defaults(func=cmd_scaffold)
     p = scaffold.add_parser(
         "state-machine", parents=[shared], help="a state machine in an existing module"

@@ -134,6 +134,14 @@ For events from another service:
    and pass it to the push endpoint (`build_event_receiver(decode=...)`) or to
    your `MessageSource`.
 
+## Contracts
+
+The document is the contract with the services that consume your events. Use
+`resource-engine docs asyncapi --check` to fail CI on changes that break them.
+On the other side, `resource-engine scaffold consumer` turns a provider's
+document into a typed consumer with contract tests. See
+[contracts](contracts.md).
+
 ## Limits
 
 - **Validation:** the document is checked by the test suite for dangling

@@ -99,6 +99,7 @@ uv run uvicorn invoices.app:app --app-dir examples --reload   # then open /docs
 - [Permissions](docs/permissions.md) — system roles, ABAC policies managed from a front end.
 - [External policy engines](docs/authorizers.md) — OPA, Cedar and OpenFGA behind the same port.
 - [Relationships](docs/relationships.md) — references between resources: integrity, deletes, `expand`, related filters.
+- [Contracts](docs/contracts.md) — consumers scaffolded from a provider's AsyncAPI, contract tests on both sides.
 - [AsyncAPI](docs/asyncapi.md) — the events the app publishes and consumes, generated and served next to OpenAPI.
 - [MCP server](docs/mcp.md) — operations as tools for AI agents, permissions per caller.
 - [Scaffolding](docs/scaffold.md) — generate a module, action or state machine.

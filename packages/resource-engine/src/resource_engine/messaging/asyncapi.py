@@ -240,7 +240,7 @@ class _Builder:
             )
 
         if d.enabled("create"):
-            add(ResourceCreated, base(), f"A {d.name} record was created.")
+            add(ResourceCreated, base(), f"{d.name}: a record was created.")
         if d.enabled("update"):
             add(
                 ResourceUpdated,
@@ -251,10 +251,10 @@ class _Builder:
                         "additionalProperties": {"type": "array", "minItems": 2, "maxItems": 2},
                     }
                 ),
-                f"Fields of a {d.name} record changed.",
+                f"{d.name}: fields of a record changed.",
             )
         if d.enabled("delete"):
-            add(ResourceDeleted, base(), f"A {d.name} record was deleted.")
+            add(ResourceDeleted, base(), f"{d.name}: a record was deleted.")
         if d.machine is not None and not _internal_machine(d):
             states = [s.value if s.value is not None else s.id for s in d.machine.info.states]
             add(
@@ -264,13 +264,13 @@ class _Builder:
                     source={"enum": states},
                     target={"enum": states},
                 ),
-                f"A {d.name} record changed state.",
+                f"{d.name}: a record changed state.",
             )
         if d.actions:
             add(
                 ActionExecuted,
                 base(action={"enum": list(d.actions)}),
-                f"An action ran on {d.name}.",
+                f"{d.name}: an action ran on a record.",
             )
         if d.document_slots:
             self._document_events(d, base, add)
@@ -303,9 +303,9 @@ class _Builder:
                 size={"type": ["integer", "null"]},
                 processing={"type": "boolean"},
             ),
-            f"A document was attached to a {d.name} record.",
+            f"{d.name}: a document was attached to a record.",
         )
-        add(DocumentDetached, base(**common), f"A document of a {d.name} record was removed.")
+        add(DocumentDetached, base(**common), f"{d.name}: a document of a record was removed.")
         if any(s.processing for s in d.document_slots.values()):
             add(DocumentProcessed, base(**common), "A document finished processing.")
             add(
