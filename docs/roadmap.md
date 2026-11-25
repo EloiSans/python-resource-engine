@@ -116,6 +116,9 @@
   inspect, check, docs validation, AsyncAPI and its compatibility check,
   error explanations and the scaffold commands as tools, each run in a fresh
   process; the skill's guides and the live catalogue as resources.
+- `ai install --mcp`: the development MCP server registered in `.mcp.json`,
+  `.cursor/mcp.json` and `.vscode/mcp.json` (only its own entry managed),
+  kept by `ai sync` and checked by `ai sync --check`.
 
 ## Next
 
@@ -125,8 +128,6 @@ what follows builds on it.
 
 ### Soon
 
-- `ai install --mcp`: register the development MCP server in the agents'
-  configuration (`.mcp.json`, `.cursor/mcp.json`, `.vscode/mcp.json`).
 - Relationships, next steps: reverse relations (`customers/{id}/invoices`),
   nested expansion, many-to-many through a join resource.
 

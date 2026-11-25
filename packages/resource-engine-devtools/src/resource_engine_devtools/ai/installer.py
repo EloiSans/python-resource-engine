@@ -15,6 +15,12 @@ project catalogue as ``project.md``. Managed blocks sit between
 of those files is never touched. ``.resource-engine/ai-lock.json`` records the
 version, the targets and a hash of everything written, so ``ai sync --check``
 can tell what is out of date and what was edited locally.
+
+With ``mcp`` (``ai install --mcp``) the development MCP server
+(``resource-engine mcp``) is also registered for the targets' agents:
+``.mcp.json`` (claude), ``.cursor/mcp.json`` (cursor) and ``.vscode/mcp.json``
+(copilot). Only the ``resource-engine`` entry of those files is managed; other
+servers and keys are kept.
 """
 
 from __future__ import annotations
@@ -35,6 +41,13 @@ LOCK = Path(".resource-engine/ai-lock.json")
 BEGIN = "<!-- resource-engine:begin -->"
 END = "<!-- resource-engine:end -->"
 CLAUDE_SKILL = Path(".claude/skills/resource-engine")
+SERVER_NAME = "resource-engine"
+#: MCP configuration per target: file, key holding the servers, VS Code style entry.
+MCP_CONFIGS: dict[str, tuple[Path, str, bool]] = {
+    "claude": (Path(".mcp.json"), "mcpServers", False),
+    "cursor": (Path(".cursor/mcp.json"), "mcpServers", False),
+    "copilot": (Path(".vscode/mcp.json"), "servers", True),
+}
 PLAIN_SKILL = Path(".resource-engine/skill")
 
 
@@ -59,6 +72,9 @@ class Plan:
     skill_path: Path
     files: dict[Path, str] = field(default_factory=dict)
     blocks: dict[Path, str] = field(default_factory=dict)
+    #: MCP configuration file → (key holding the servers, the managed entry).
+    servers: dict[Path, tuple[str, dict[str, Any]]] = field(default_factory=dict)
+    mcp_command: list[str] | None = None
 
 
 @dataclass
@@ -84,9 +100,29 @@ def parse_targets(raw: str | Sequence[str] | None) -> tuple[str, ...]:
     return targets
 
 
-def plan(targets: Sequence[str], context: str | None) -> Plan:
+def default_mcp_command(root: Path) -> list[str]:
+    """``uv run resource-engine mcp`` in uv projects, else ``resource-engine mcp``."""
+    if (root / "uv.lock").is_file():
+        return ["uv", "run", "resource-engine", "mcp"]
+    return ["resource-engine", "mcp"]
+
+
+def mcp_entry(command: Sequence[str], *, vscode: bool) -> dict[str, Any]:
+    entry: dict[str, Any] = {"command": command[0], "args": list(command[1:])}
+    return {"type": "stdio", **entry} if vscode else entry
+
+
+def plan(
+    targets: Sequence[str], context: str | None, mcp_command: Sequence[str] | None = None
+) -> Plan:
     skill_path = CLAUDE_SKILL if "claude" in targets else PLAIN_SKILL
     result = Plan(tuple(targets), skill_path)
+    if mcp_command:
+        result.mcp_command = list(mcp_command)
+        for target in targets:
+            if target in MCP_CONFIGS:
+                path, key, vscode = MCP_CONFIGS[target]
+                result.servers[path] = (key, mcp_entry(mcp_command, vscode=vscode))
     for source in sorted(SKILL_DIR.rglob("*")):
         if source.is_file() and "__pycache__" not in source.parts:
             result.files[skill_path / source.relative_to(SKILL_DIR)] = source.read_text(
@@ -126,10 +162,19 @@ def _render(template: str, **values: str) -> str:
 # ---------------------------------------------------------------- writing
 
 
-def install(root: Path, targets: Sequence[str], context: str | None) -> dict[str, Any]:
-    """Write the plan under ``root``; returns a summary (written, removed, kept)."""
+def install(
+    root: Path,
+    targets: Sequence[str],
+    context: str | None,
+    *,
+    mcp_command: Sequence[str] | None = None,
+) -> dict[str, Any]:
+    """Write the plan under ``root``; returns a summary (written, removed, kept).
+    ``mcp_command``: register the development MCP server with this command."""
     lock = read_lock(root)
-    the_plan = plan(targets, context)
+    the_plan = plan(targets, context, mcp_command)
+    servers = {p: merge_server(_read(root / p), key, entry, p) for p, (key, entry) in
+               the_plan.servers.items()}  # fmt: skip
     written: list[str] = []
     for path, content in the_plan.files.items():
         if _write(root / path, content):
@@ -137,24 +182,29 @@ def install(root: Path, targets: Sequence[str], context: str | None) -> dict[str
     for path, block in the_plan.blocks.items():
         if _write(root / path, merge_block(_read(root / path), block)):
             written.append(path.as_posix())
+    for path, content in servers.items():
+        if _write(root / path, content):
+            written.append(f"{path.as_posix()} ({SERVER_NAME} server)")
     removed = _remove_stale(root, lock, the_plan)
     hashes = {p.as_posix(): _hash(c) for p, c in the_plan.files.items()}
     hashes |= {f"{p.as_posix()}#block": _hash(b) for p, b in the_plan.blocks.items()}
-    write_lock(
-        root,
-        {
-            "version": version(),
-            "targets": list(the_plan.targets),
-            "skill_path": the_plan.skill_path.as_posix(),
-            "files": hashes,
-        },
-    )
+    hashes |= {f"{p.as_posix()}#mcp": _entry_hash(e) for p, (_, e) in the_plan.servers.items()}
+    data: dict[str, Any] = {
+        "version": version(),
+        "targets": list(the_plan.targets),
+        "skill_path": the_plan.skill_path.as_posix(),
+        "files": hashes,
+    }
+    if the_plan.mcp_command:
+        data["mcp_command"] = the_plan.mcp_command
+    write_lock(root, data)
     return {
         "version": version(),
         "targets": list(the_plan.targets),
         "skill_path": the_plan.skill_path.as_posix(),
         "written": written,
         "removed": removed,
+        "mcp_command": the_plan.mcp_command,
         "lock": LOCK.as_posix(),
     }
 
@@ -165,9 +215,14 @@ def _remove_stale(root: Path, lock: dict[str, Any] | None, the_plan: Plan) -> li
     if not lock:
         return []
     keep = {p.as_posix() for p in the_plan.files}
+    keep |= {f"{p.as_posix()}#mcp" for p in the_plan.servers}
     removed = []
     for name, digest in lock.get("files", {}).items():
         if name.endswith("#block") or name in keep:
+            continue
+        if name.endswith("#mcp"):
+            if _remove_server(root, name.removesuffix("#mcp"), digest):
+                removed.append(f"{name.removesuffix('#mcp')} ({SERVER_NAME} server)")
             continue
         path = root / name
         if path.is_file() and _hash(path.read_text(encoding="utf-8")) == digest:
@@ -192,6 +247,66 @@ def merge_block(current: str | None, block: str) -> str:
     if start != -1 and end > start:
         return current[:start] + managed + current[end + len(END) :].lstrip("\n")
     return current.rstrip("\n") + "\n\n" + managed
+
+
+def _load_config(current: str | None, path: Path) -> dict[str, Any]:
+    if not current or not current.strip():
+        return {}
+    try:
+        data = json.loads(current)
+    except ValueError:
+        raise SystemExit(
+            f"{path} is not plain JSON (comments?); add the {SERVER_NAME} server by hand "
+            "or remove the comments, then run the command again"
+        ) from None
+    if not isinstance(data, dict):
+        raise SystemExit(f"{path} does not hold a JSON object")
+    return data
+
+
+def merge_server(current: str | None, key: str, entry: dict[str, Any], path: Path) -> str:
+    """``current`` (an MCP configuration) with the managed server entry set."""
+    data = _load_config(current, path)
+    servers = data.get(key)
+    if not isinstance(servers, dict):
+        servers = {}
+    data[key] = {**servers, SERVER_NAME: entry}
+    return json.dumps(data, indent=2, ensure_ascii=False) + "\n"
+
+
+def extract_server(current: str | None, key: str) -> dict[str, Any] | None:
+    try:
+        data = json.loads(current) if current else None
+    except ValueError:
+        return None
+    servers = data.get(key) if isinstance(data, dict) else None
+    entry = servers.get(SERVER_NAME) if isinstance(servers, dict) else None
+    return entry if isinstance(entry, dict) else None
+
+
+def _remove_server(root: Path, name: str, digest: str) -> bool:
+    """Drop the managed entry of ``name`` (a configuration file relative to
+    ``root``) when it is unedited; the file too when nothing else is left."""
+    key = next((k for p, k, _ in MCP_CONFIGS.values() if p.as_posix() == name), None)
+    path = root / name
+    current = _read(path)
+    entry = extract_server(current, key) if key else None
+    if key is None or entry is None or _entry_hash(entry) != digest:
+        return False
+    data = json.loads(current or "{}")
+    del data[key][SERVER_NAME]
+    if not data[key]:
+        del data[key]
+    if data:
+        path.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n", "utf-8")
+    else:
+        path.unlink()
+        _prune(path.parent, root)
+    return True
+
+
+def _entry_hash(entry: dict[str, Any]) -> str:
+    return _hash(json.dumps(entry, sort_keys=True))
 
 
 def extract_block(current: str | None) -> str | None:
@@ -245,11 +360,29 @@ def check(root: Path, context: str | None) -> tuple[dict[str, Any] | None, list[
                 f"installed from resource-engine {lock.get('version')}, the package is {version()}",
             )
         )
-    the_plan = plan(lock.get("targets", DEFAULT_TARGETS), context)
+    the_plan = plan(lock.get("targets", DEFAULT_TARGETS), context, lock.get("mcp_command"))
     locked = lock.get("files", {})
-    expected = {p.as_posix(): c for p, c in the_plan.files.items()}
+    expected: dict[str, Any] = {p.as_posix(): c for p, c in the_plan.files.items()}
     expected |= {f"{p.as_posix()}#block": b for p, b in the_plan.blocks.items()}
+    expected |= {f"{p.as_posix()}#mcp": e for p, (_, e) in the_plan.servers.items()}
+    keys = {f"{p.as_posix()}#mcp": key for p, (key, _) in the_plan.servers.items()}
     for name, content in expected.items():
+        if name.endswith("#mcp"):
+            current_entry = extract_server(_read(root / name.removesuffix("#mcp")), keys[name])
+            if current_entry is None:
+                findings.append(Finding(name, "missing", f"no {SERVER_NAME} MCP server entry"))
+            elif current_entry != content:
+                edited = name in locked and _entry_hash(current_entry) != locked[name]
+                findings.append(
+                    Finding(
+                        name,
+                        "modified" if edited else "out_of_date",
+                        "MCP server entry edited locally; ai sync will overwrite it"
+                        if edited
+                        else "MCP server entry differs from the current command",
+                    )
+                )
+            continue
         path = root / name.removesuffix("#block")
         current = _read(path)
         if name.endswith("#block"):
@@ -268,7 +401,7 @@ def check(root: Path, context: str | None) -> tuple[dict[str, Any] | None, list[
                 )
             )
     for name in sorted(set(locked) - set(expected)):
-        if (root / name.removesuffix("#block")).exists():
+        if (root / name.removesuffix("#block").removesuffix("#mcp")).exists():
             findings.append(Finding(name, "stale", "no longer part of the skill"))
     return lock, findings
 

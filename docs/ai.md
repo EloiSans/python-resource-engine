@@ -13,6 +13,7 @@ The framework explains itself to AI coding agents with three layers:
 ```bash
 resource-engine ai install                                   # claude, agents
 resource-engine ai install --target claude,agents,cursor,copilot
+resource-engine ai install --mcp                             # also register the MCP server
 ```
 
 | Target | Writes |
@@ -33,7 +34,23 @@ resource-engine ai install --target claude,agents,cursor,copilot
 - **Lock file:** `.resource-engine/ai-lock.json` records the version, the
   targets and a hash of every file and block written.
 
-Commit all of it, so every agent on the team sees the same skill.
+- **MCP server (`--mcp`):** the [development MCP server](#mcp-server) is
+  registered for the targets' agents:
+  - `.mcp.json` for `claude`;
+  - `.cursor/mcp.json` for `cursor`;
+  - `.vscode/mcp.json` for `copilot`.
+
+  Only the `resource-engine` entry is managed, so other servers and keys in
+  those files stay. Files with comments are refused; add the entry by hand
+  there.
+- **The MCP command:** by default it is `uv run resource-engine mcp` when the
+  project has a `uv.lock`, and `resource-engine mcp` otherwise.
+  `--mcp-command "poetry run resource-engine mcp"` chooses another.
+- **Keeping it:** the choice is kept in the lock file. `ai sync` keeps the
+  entries current, and `ai sync --check` reports a missing or edited entry.
+  Installing again without `--mcp` removes the entries nobody edited.
+
+Commit all of it, so every agent on the team sees the same skill and tools.
 
 ## What the skill contains
 
@@ -85,11 +102,11 @@ call them directly instead of building shell commands. It needs the `mcp`
 extra:
 
 ```bash
-pip install 'resource-engine-devtools[mcp]'     # or: uv add --dev 'resource-engine-devtools[mcp]'
-claude mcp add resource-engine -- uv run resource-engine mcp
+uv add --dev 'resource-engine-devtools[mcp]'     # or: pip install 'resource-engine-devtools[mcp]'
+resource-engine ai install --mcp                 # .mcp.json, and Cursor / VS Code with their targets
 ```
 
-Other clients (`.cursor/mcp.json`, `.vscode/mcp.json`, Claude Desktop) take the
+For other clients, such as Claude Desktop or a user-wide configuration, use the
 same command:
 
 ```json

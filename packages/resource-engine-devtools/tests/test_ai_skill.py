@@ -158,3 +158,78 @@ def test_cli_sync_without_install(tmp_path, monkeypatch, capsys):
     monkeypatch.chdir(tmp_path)
     assert main(["ai", "sync"]) == 1
     assert "run resource-engine ai install" in capsys.readouterr().out
+
+
+# --------------------------------------------------------------- MCP server
+
+
+def test_install_registers_the_mcp_server(tmp_path):
+    (tmp_path / "uv.lock").write_text("")
+    (tmp_path / ".mcp.json").write_text(
+        json.dumps({"mcpServers": {"other": {"command": "x"}}, "keep": 1})
+    )
+    targets = ("claude", "agents", "cursor", "copilot")
+    command = installer.default_mcp_command(tmp_path)
+    assert command == ["uv", "run", "resource-engine", "mcp"]
+    result = installer.install(tmp_path, targets, None, mcp_command=command)
+    assert ".mcp.json (resource-engine server)" in result["written"]
+
+    claude = json.loads((tmp_path / ".mcp.json").read_text())
+    assert claude["keep"] == 1 and claude["mcpServers"]["other"] == {"command": "x"}
+    entry = {"command": "uv", "args": ["run", "resource-engine", "mcp"]}
+    assert claude["mcpServers"]["resource-engine"] == entry
+    cursor = json.loads((tmp_path / ".cursor/mcp.json").read_text())
+    assert cursor == {"mcpServers": {"resource-engine": entry}}
+    vscode = json.loads((tmp_path / ".vscode/mcp.json").read_text())
+    assert vscode == {"servers": {"resource-engine": {"type": "stdio", **entry}}}
+    assert installer.read_lock(tmp_path)["mcp_command"] == command
+
+    lock, findings = installer.check(tmp_path, None)
+    assert findings == []
+    vscode["servers"]["resource-engine"]["args"] = ["mcp"]
+    (tmp_path / ".vscode/mcp.json").write_text(json.dumps(vscode))
+    (tmp_path / ".cursor/mcp.json").write_text("{}")
+    states = {f.path: f.state for f in installer.check(tmp_path, None)[1]}
+    assert states == {".vscode/mcp.json#mcp": "modified", ".cursor/mcp.json#mcp": "missing"}
+
+    # sync restores them; installing without --mcp removes the unedited entries
+    installer.install(tmp_path, targets, None, mcp_command=lock["mcp_command"])
+    assert installer.check(tmp_path, None)[1] == []
+    removed = installer.install(tmp_path, targets, None)["removed"]
+    assert set(removed) >= {
+        ".mcp.json (resource-engine server)",
+        ".cursor/mcp.json (resource-engine server)",
+        ".vscode/mcp.json (resource-engine server)",
+    }
+    claude = json.loads((tmp_path / ".mcp.json").read_text())
+    assert claude == {"mcpServers": {"other": {"command": "x"}}, "keep": 1}
+    assert not (tmp_path / ".cursor/mcp.json").exists()
+    assert not (tmp_path / ".cursor").exists() or any((tmp_path / ".cursor").iterdir())
+
+
+def test_mcp_configuration_with_comments_is_refused(tmp_path):
+    (tmp_path / ".vscode").mkdir()
+    (tmp_path / ".vscode/mcp.json").write_text('{\n  // mine\n  "servers": {}\n}\n')
+    with pytest.raises(SystemExit, match="not plain JSON"):
+        installer.install(tmp_path, ("copilot",), None, mcp_command=["resource-engine", "mcp"])
+
+
+def test_cli_install_mcp_and_sync(tmp_path, monkeypatch, capsys):
+    monkeypatch.chdir(tmp_path)
+    app = ["--app", "invoices.bootstrap:registry"]
+    assert main(["ai", "install", "--mcp", "--json", *app]) == 0
+    result = json.loads(capsys.readouterr().out)
+    assert result["mcp_command"] == ["resource-engine", "mcp"]  # no uv.lock here
+    assert json.loads((tmp_path / ".mcp.json").read_text())["mcpServers"]["resource-engine"]
+    assert main(["ai", "sync", "--check", *app]) == 0
+    (tmp_path / ".mcp.json").unlink()
+    assert main(["ai", "sync", "--check", *app]) == 1
+    capsys.readouterr()
+    assert main(["ai", "sync", *app]) == 0  # keeps the MCP choice from the lock
+    assert (tmp_path / ".mcp.json").is_file()
+    assert main(["ai", "install", "--target", "agents", "--mcp", *app]) == 0
+    assert "no target with an MCP configuration" in capsys.readouterr().out
+    custom = ["--mcp-command", "poetry run resource-engine mcp"]
+    assert main(["ai", "install", *custom, *app]) == 0
+    entry = json.loads((tmp_path / ".mcp.json").read_text())["mcpServers"]["resource-engine"]
+    assert entry == {"command": "poetry", "args": ["run", "resource-engine", "mcp"]}

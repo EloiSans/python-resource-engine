@@ -300,10 +300,21 @@ def cmd_ai_install(args: argparse.Namespace) -> int:
     from resource_engine_devtools.ai import installer
 
     targets = installer.parse_targets(args.target)
-    result = installer.install(Path(args.root), targets, _project_context(args))
+    root = Path(args.root)
+    command = None
+    if args.mcp or args.mcp_command:
+        command = (
+            args.mcp_command.split() if args.mcp_command else installer.default_mcp_command(root)
+        )
+    result = installer.install(root, targets, _project_context(args), mcp_command=command)
     lines = [f"installed resource-engine skill {result['version']} → {result['skill_path']}"]
     lines += [f"  wrote {name}" for name in result["written"]]
     lines += [f"  removed {name}" for name in result["removed"]]
+    if command and not any(t in installer.MCP_CONFIGS for t in targets):
+        lines.append(
+            "  note: no target with an MCP configuration (claude, cursor, copilot); "
+            "the server was not registered"
+        )
     _emit(args, result, "\n".join(lines))
     return 0
 
@@ -327,7 +338,7 @@ def cmd_ai_sync(args: argparse.Namespace) -> int:
         )
         _emit(args, {"up_to_date": up_to_date, "findings": [f.to_dict() for f in findings]}, text)
         return 0 if up_to_date else 1
-    result = installer.install(root, lock["targets"], context)
+    result = installer.install(root, lock["targets"], context, mcp_command=lock.get("mcp_command"))
     lines = [f"synced resource-engine skill {result['version']} → {result['skill_path']}"]
     lines += [f"  wrote {name}" for name in result["written"]] or ["  nothing to update"]
     lines += [f"  removed {name}" for name in result["removed"]]
@@ -546,6 +557,17 @@ def build_parser() -> argparse.ArgumentParser:
         help="comma-separated: claude, agents, cursor, copilot (default: claude,agents)",
     )
     p.add_argument("--root", default=".", help="project root (default: current directory)")
+    p.add_argument(
+        "--mcp",
+        action="store_true",
+        help="also register the development MCP server (.mcp.json, .cursor/mcp.json, "
+        ".vscode/mcp.json for the targets)",
+    )
+    p.add_argument(
+        "--mcp-command",
+        help='command for the MCP server (default: "uv run resource-engine mcp" with a '
+        'uv.lock, else "resource-engine mcp")',
+    )
     p.set_defaults(func=cmd_ai_install)
     p = ai.add_parser(
         "sync", parents=[common], help="update the installed skill and project context"

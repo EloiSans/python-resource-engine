@@ -86,8 +86,7 @@ same way.
 
 ```bash
 uv add --dev 'resource-engine-devtools[mcp]'
-uv run resource-engine ai install --target claude,agents      # add cursor, copilot as needed
-claude mcp add --scope project resource-engine -- uv run resource-engine mcp
+uv run resource-engine ai install --mcp --target claude,agents   # add cursor, copilot as needed
 ```
 
 Or give your agent this prompt and let it do the setup:
@@ -101,12 +100,13 @@ Set up this repository for Resource Engine development with AI agents.
    pointing to the application's ResourceRegistry ("pkg.bootstrap:registry"),
    and `paths` if the code is not importable from the root. Add `authz`,
    `policies` and `consumers` if the project has them.
-3. Run `resource-engine ai install --target claude,agents` (add cursor and
-   copilot if the team uses them) and read the installed SKILL.md.
-4. Register the development MCP server for this project: for Claude Code,
-   `claude mcp add --scope project resource-engine -- uv run resource-engine mcp`;
-   for other clients, add {"command": "uv", "args": ["run", "resource-engine", "mcp"]}
-   to their MCP configuration (.cursor/mcp.json, .vscode/mcp.json).
+3. Run `resource-engine ai install --mcp --target claude,agents` (add cursor
+   and copilot if the team uses them). It installs the skill and registers the
+   development MCP server in .mcp.json (and .cursor/mcp.json,
+   .vscode/mcp.json). Read the installed SKILL.md.
+4. Tell me to restart or reload my agent so it picks up the MCP server, and
+   check that its tools (check, docs_validate, explain_error, scaffold_*) are
+   listed.
 5. Verify: `resource-engine check`, `resource-engine docs validate --strict`
    and the tests. Fix what they report, using the explain_error tool for codes.
 6. Add `resource-engine ai sync --check` to CI next to check and docs validate.
