@@ -285,6 +285,7 @@ def introspect(registry: ResourceRegistry, authz: Any = None) -> DocumentationMo
                         resource=d.name,
                         on_delete=ref.on_delete,
                         description=ref.description,
+                        related_name=ref.related_name if d.enabled("list") else None,
                     )
                 )
     return DocumentationModel(

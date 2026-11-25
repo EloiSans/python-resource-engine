@@ -70,6 +70,10 @@ and `?customer_record.country=ES` on reads, and
 `POST /invoices/{id}/actions/recalculate_totals`; `mount_asyncapi` adds
 `GET /asyncapi.json` for the events.
 
+Front ends consume every resource the same way (paging, filters, `expand`,
+`Idempotency-Key`, `ETag`, one error format); see the
+[front-end guide](docs/frontend.md).
+
 The complete reference module is in [`examples/invoices`](examples/invoices) and is
 part of the test suite.
 
@@ -142,6 +146,7 @@ uv run uvicorn invoices.app:app --app-dir examples --reload   # then open /docs
 - [Identity](docs/identity.md) — bearer tokens, providers, `Principal`.
 - [Permissions](docs/permissions.md) — system roles, ABAC policies managed from a front end.
 - [External policy engines](docs/authorizers.md) — OPA, Cedar and OpenFGA behind the same port.
+- [Front-end guide](docs/frontend.md) — the HTTP conventions a front end builds on: lists, `expand`, writes, errors, permissions.
 - [Relationships](docs/relationships.md) — references between resources: integrity, deletes, `expand`, related filters.
 - [Contracts](docs/contracts.md) — consumers scaffolded from a provider's AsyncAPI, contract tests on both sides.
 - [AsyncAPI](docs/asyncapi.md) — the events the app publishes and consumes, generated and served next to OpenAPI.

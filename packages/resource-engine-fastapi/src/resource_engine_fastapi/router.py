@@ -15,6 +15,7 @@ from fastapi import APIRouter, Body, Depends, FastAPI, Header, Path, Query, Resp
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, create_model
 from resource_engine import ListQuery, ResourceDefinition, ResourceManager, ResourceRegistry
+from resource_engine.application.manager import EXPAND_PAGE_SIZE
 from resource_engine.application.relations import dump_read, needs_dump
 from resource_engine.errors import InvalidQuery
 
@@ -174,7 +175,8 @@ def build_resource_router(
         )
     ]
 
-    relations = list(definition.references)
+    reverse = manager.reverse.get(name, {})
+    relations = [*definition.references, *(f"{r}[:size]" for r in reverse)]
     expand_params = (
         [
             _param(
@@ -182,7 +184,13 @@ def build_resource_router(
                 str | None,
                 Query(
                     None,
-                    description="Comma-separated relations to include: " + ", ".join(relations),
+                    description="Comma-separated relations to include: "
+                    + ", ".join(relations)
+                    + (
+                        f" (reverse relations embed one page, {EXPAND_PAGE_SIZE} by default)"
+                        if reverse
+                        else ""
+                    ),
                 ),
             )
         ]
@@ -502,8 +510,87 @@ def build_resource_router(
             description=action.description,
         )
 
+    for relation, ref in reverse.items():
+        router.add_api_route(
+            f"/{{entity_id}}/{relation}",
+            _related_endpoint(manager, definition, relation, ref, id_param, actor_param),
+            methods=["GET"],
+            response_model=_page_model(owner_read)
+            if (owner_read := manager.registry.get(ref.owner).schemas.get("read"))
+            else None,
+            summary=f"{ref.owner} of one {name} record",
+            description=f"The {ref.owner} records whose {ref.field} is this {name} record, "
+            f"paged, with the caller's list permissions on {ref.owner}.",
+        )
+
     add_owner_document_routes(router, definition, manager, actor_dependency)
     return router
+
+
+def _related_endpoint(
+    manager: ResourceManager,
+    definition: ResourceDefinition,
+    relation: str,
+    ref: Any,
+    id_param: inspect.Parameter,
+    actor_param: inspect.Parameter,
+) -> Callable[..., Any]:
+    owner = manager.registry.get(ref.owner)
+    owner_read = owner.schemas.get("read")
+    params = [
+        id_param,
+        _param("offset", int, Query(0, ge=0)),
+        _param("limit", int, Query(50, ge=1, le=owner.max_page_size)),
+        _param(
+            "order_by",
+            str | None,
+            Query(None, description="Comma-separated fields; prefix '-' for descending"),
+        ),
+    ]
+    for fld in owner.filterable:
+        if fld == ref.field:
+            continue
+        annotation = owner_read.model_fields[fld].annotation if owner_read else str
+        params.append(_param(f"filter__{fld}", annotation | None, Query(None, alias=fld)))  # type: ignore[operator]
+    if owner.references:
+        params.append(
+            _param(
+                "expand",
+                str | None,
+                Query(None, description="Relations of the listed records to include"),
+            )
+        )
+    if definition.tenant_field:
+        params.append(_param("tenant", str | None, Query(None)))
+    params.append(actor_param)
+
+    async def related_endpoint(**kw: Any) -> Any:
+        order = kw.pop("order_by")
+        query = ListQuery(
+            offset=kw.pop("offset"),
+            limit=kw.pop("limit"),
+            order_by=[o for o in (order or "").split(",") if o],
+            filters={
+                k.removeprefix("filter__"): v
+                for k, v in kw.items()
+                if k.startswith("filter__") and v is not None
+            },
+        )
+        expand = tuple(p.strip() for p in (kw.get("expand") or "").split(",") if p.strip())
+        page = await manager.list_related(
+            definition.name,
+            kw["entity_id"],
+            relation,
+            query,
+            actor=kw.get("actor"),
+            tenant=kw.get("tenant"),
+            expand=expand,
+        )
+        return _respond_page(
+            {"items": page.items, "total": page.total, "offset": page.offset, "limit": page.limit}
+        )
+
+    return _endpoint(related_endpoint, params, f"{definition.name}_{relation}")
 
 
 def _transition_endpoint(

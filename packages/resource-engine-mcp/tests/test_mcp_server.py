@@ -348,7 +348,7 @@ async def test_stdio():
 async def test_expand_and_related_filters(manager):
     server = ResourceMcpServer(registry, manager)
     get = server.tools["invoices_get"].to_mcp()
-    assert get.input_schema["properties"]["expand"]["items"]["enum"] == ["customer_record"]
+    assert get.input_schema["properties"]["expand"]["items"]["pattern"] == "^(customer_record)$"
     filters = server.tools["invoices_list"].to_mcp().input_schema["properties"]["filters"]
     assert "customer_record.country" in filters["properties"]
     async with Client(server.server) as client:
@@ -372,3 +372,32 @@ async def test_expand_and_related_filters(manager):
             "invoices_create", {"data": {"customer": "x", "amount": 1, "customer_id": 404}}
         )
         assert missing.structured_content["error"]["code"] == "RE-E108"
+
+
+async def test_reverse_relations(manager):
+    server = ResourceMcpServer(registry, manager)
+    tool = server.tools["customers_invoices"].to_mcp()
+    assert tool.annotations.read_only_hint is True
+    assert "id" in tool.input_schema["required"]
+    pattern = server.tools["customers_get"].to_mcp().input_schema["properties"]["expand"]
+    assert pattern["items"]["pattern"] == "^(invoices(:[0-9]+)?)$"
+    async with Client(server.server) as client:
+        await client.list_tools()
+        customer = await client.call_tool(
+            "customers_create", {"data": {"name": "ACME", "tax_id": "B33"}}
+        )
+        cid = customer.structured_content["id"]
+        for _ in range(3):
+            await client.call_tool(
+                "invoices_create", {"data": {"customer": "x", "amount": 1, "customer_id": cid}}
+            )
+        page = await client.call_tool("customers_invoices", {"id": cid, "limit": 2})
+        assert not page.is_error, page.content
+        assert page.structured_content["total"] == 3
+        assert len(page.structured_content["items"]) == 2
+        one = await client.call_tool("customers_get", {"id": cid, "expand": ["invoices:2"]})
+        embedded = one.structured_content["invoices"]
+        assert embedded["total"] == 3 and embedded["has_more"] is True
+        assert len(embedded["items"]) == 2
+        missing = await client.call_tool("customers_invoices", {"id": 404})
+        assert missing.structured_content["error"]["code"] == "RE-E102"

@@ -90,6 +90,7 @@ class ReferenceDoc:
     resource: str
     on_delete: str
     description: str | None = None
+    related_name: str | None = None
 
 
 @dataclass

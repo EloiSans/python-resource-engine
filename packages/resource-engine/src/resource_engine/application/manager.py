@@ -93,6 +93,8 @@ if TYPE_CHECKING:
 
 #: Related records a filter like ``customer.country`` may match (docs/relationships.md).
 MAX_RELATED_MATCHES = 1000
+#: Records an inline reverse expansion embeds by default (``expand=["invoices"]``).
+EXPAND_PAGE_SIZE = 10
 
 logger = logging.getLogger("resource_engine")
 
@@ -149,10 +151,12 @@ class ResourceManager:
                 hint="Call registry.register_audit() (and map its table with SQLAlchemy).",
                 doc="docs/audit.md#setup",
             )
-        from resource_engine.application.relations import check_references
+        from resource_engine.application.relations import check_references, reverse_relations
 
         #: References pointing to each resource, by target name (docs/relationships.md).
         self.dependents = check_references(registry)
+        #: Reverse relations of each resource, by target and related name.
+        self.reverse = reverse_relations(registry, self.dependents)
         self.documents: DocumentManager | None = None
         if blob_store is not None:
             from resource_engine.documents.manager import DocumentManager
@@ -763,6 +767,7 @@ class ResourceManager:
         actor: Any = None,
         tenant: str | None = None,
         expand: Sequence[str] = (),
+        _within: Mapping[str, Any] | None = None,
     ) -> Page[Any]:
         definition = self.registry.get(resource)
         self._require(definition, "list")
@@ -802,7 +807,8 @@ class ResourceManager:
             )
         ctx = self._context(definition, "list", actor=actor, raw_input=query, tenant=tenant)
         await self._gate(ctx, "list")
-        query = dataclasses.replace(query, filters=own)
+        # _within: the parent of a reverse relation (not a client filter)
+        query = dataclasses.replace(query, filters={**own, **(_within or {})})
         tenant_query = self._tenant_query(ctx, query)
         if tenant_query is None:
             return Page([], 0, query.offset, query.limit)
@@ -864,13 +870,29 @@ class ResourceManager:
     # --------------------------------------------------------------- references
 
     def _check_expand(self, definition: ResourceDefinition, expand: Sequence[str]) -> None:
-        unknown = [n for n in expand if n not in definition.references]
-        if unknown:
-            raise InvalidQuery(
-                f"{definition.name} has no relation {', '.join(map(repr, unknown))} to expand",
-                hint=f"Relations: {list(definition.references) or '(none)'}",
-                doc="docs/relationships.md#expanding",
-            )
+        from resource_engine.application.relations import parse_expand
+
+        reverse = self.reverse.get(definition.name, {})
+        known = [*definition.references, *reverse]
+        for item in expand:
+            name, size = parse_expand(item)
+            if name not in known:
+                raise InvalidQuery(
+                    f"{definition.name} has no relation {name!r} to expand",
+                    hint=f"Relations: {known or '(none)'}",
+                    doc="docs/relationships.md#expanding",
+                )
+            if size is None:
+                continue
+            ref = reverse.get(name)
+            limit = self.registry.get(ref.owner).max_page_size if ref else 0
+            if ref is None or not 1 <= size <= limit:
+                raise InvalidQuery(
+                    f"Invalid expand {item!r}"
+                    + (f": the size must be between 1 and {limit}" if ref else "")
+                    + ("" if ref else ": only reverse relations take a page size"),
+                    doc="docs/relationships.md#reverse-relations",
+                )
 
     async def _related_context(
         self, ctx: OperationContext, target: ResourceDefinition
@@ -959,15 +981,80 @@ class ResourceManager:
     async def _expand(
         self, ctx: OperationContext, entities: list[Any], results: list[Any], names: Sequence[str]
     ) -> None:
-        from resource_engine.application.relations import attach, unique
+        from resource_engine.application.relations import attach, parse_expand, unique
 
-        for name in dict.fromkeys(names):
+        for item in dict.fromkeys(names):
+            name, size = parse_expand(item)
+            reverse = self.reverse.get(ctx.resource.name, {}).get(name)
+            if reverse is not None:
+                for entity, result in zip(entities, results, strict=True):
+                    page = await self._reverse_page(
+                        ctx, reverse, getattr(entity, ctx.resource.id_field), size
+                    )
+                    attach(result, {name: page})
+                continue
             ref = ctx.resource.references[name]
             ids = unique(getattr(e, ref.field, None) for e in entities)
             found = await self._related(ctx, ref, ids)
             for entity, result in zip(entities, results, strict=True):
                 value = getattr(entity, ref.field, None)
                 attach(result, {name: None if value is None else found.get(value)})
+
+    async def _reverse_page(
+        self, ctx: OperationContext, ref: ReferenceDefinition, parent_id: Any, size: int | None
+    ) -> Any:
+        """One page of the records pointing to ``parent_id``, or ``None`` when
+        the caller may not list them."""
+        from resource_engine.application.relations import RelatedPage
+
+        owner = self.registry.get(ref.owner)
+        limit = min(size or EXPAND_PAGE_SIZE, owner.max_page_size)
+        if not await self.can(ctx.actor, ref.owner, "list"):
+            return None
+        try:
+            page = await self.list(
+                ref.owner,
+                ListQuery(limit=limit),
+                actor=ctx.actor,
+                tenant=ctx.extras.get("requested_tenant"),
+                _within={ref.field: parent_id},
+            )
+        except (PermissionDenied, TenantRequired, TenantMismatch):
+            return None
+        return RelatedPage(page.items, page.total, limit)
+
+    async def list_related(
+        self,
+        resource: ResourceRef,
+        entity_id: Any,
+        relation: str,
+        query: ListQuery | None = None,
+        *,
+        actor: Any = None,
+        tenant: str | None = None,
+        expand: Sequence[str] = (),
+    ) -> Page[Any]:
+        """The records of a reverse relation: ``list_related("customers", 7,
+        "invoices")`` lists the invoices of customer 7. The customer must be
+        readable by the caller (``get``); the invoices are listed with the
+        caller's ``list`` permissions, filters and ordering."""
+        definition = self.registry.get(resource)
+        ref = self.reverse.get(definition.name, {}).get(relation)
+        if ref is None:
+            raise InvalidQuery(
+                f"{definition.name} has no reverse relation {relation!r}",
+                hint=f"Reverse relations: {list(self.reverse.get(definition.name, {}))}",
+                doc="docs/relationships.md#reverse-relations",
+            )
+        await self.get(definition.name, entity_id, actor=actor, tenant=tenant)
+        return await self.list(
+            ref.owner,
+            query,
+            actor=actor,
+            tenant=tenant,
+            expand=expand,
+            _within={ref.field: entity_id},
+        )
 
     async def _related_scope(
         self, ctx: OperationContext, query: ListQuery, related: Mapping[str, Mapping[str, Any]]

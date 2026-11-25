@@ -55,12 +55,18 @@ class Reference:
             field is set to ``None`` through ``update``) or ``cascade`` (they
             are deleted through ``delete``).
         description: What the relation means, for the generated docs.
+        related_name: Name of the reverse relation on the referenced resource
+            (default: this resource's name: ``customers`` gets ``invoices``):
+            ``GET /customers/{id}/invoices``, ``expand=["invoices"]``.
+        reverse: ``False`` exposes no reverse relation.
     """
 
     resource: str
     name: str | None = None
     on_delete: OnDelete = "restrict"
     description: str | None = None
+    related_name: str | None = None
+    reverse: bool = True
 
 
 @dataclass(frozen=True)
@@ -73,6 +79,8 @@ class ReferenceDefinition:
     name: str
     on_delete: OnDelete
     description: str | None
+    #: The reverse relation's name on ``target``; ``None`` when not exposed.
+    related_name: str | None = None
 
 
 def normalize_references(
@@ -115,6 +123,7 @@ def normalize_references(
             name=name,
             on_delete=ref.on_delete,
             description=ref.description,
+            related_name=(ref.related_name or owner) if ref.reverse else None,
         )
     return refs
 
@@ -162,6 +171,74 @@ def check_references(registry: ResourceRegistry) -> dict[str, list[ReferenceDefi
             dependents.setdefault(ref.target, []).append(ref)
     _check_cycles(dependents)
     return dependents
+
+
+#: Path segments of a record's own routes; reverse relations cannot use them.
+RESERVED_RELATIONS = frozenset({"transitions", "history", "actions", "documents"})
+
+
+def reverse_relations(
+    registry: ResourceRegistry, dependents: Mapping[str, list[ReferenceDefinition]]
+) -> dict[str, dict[str, ReferenceDefinition]]:
+    """The reverse relations of each resource (``customers`` → ``invoices``),
+    by target and related name."""
+    out: dict[str, dict[str, ReferenceDefinition]] = {}
+    for target, refs in dependents.items():
+        definition = registry.get(target)
+        read = definition.schemas.get("read")
+        fields = set(read.model_fields) if read is not None else set()
+        named: dict[str, ReferenceDefinition] = {}
+        for ref in refs:
+            name = ref.related_name
+            if name is None or not registry.get(ref.owner).enabled("list"):
+                continue  # no reverse relation without list on the referencing resource
+            where = f"{ref.owner}.{ref.field}"
+            clash = (
+                "another reverse relation"
+                if name in named
+                else "a relation"
+                if name in definition.references
+                else "a field"
+                if name in fields
+                else "a route"
+                if name in RESERVED_RELATIONS
+                else None
+            )
+            if clash or not name.isidentifier():
+                raise ConfigurationError(
+                    f"{where}: the reverse relation {name!r} on {target} "
+                    + (f"clashes with {clash}" if clash else "is not a valid name"),
+                    hint="Pass related_name=... (or reverse=False) to the Reference.",
+                    doc=DOC + "#reverse-relations",
+                )
+            named[name] = ref
+        if named:
+            out[target] = named
+    return out
+
+
+def parse_expand(item: str) -> tuple[str, int | None]:
+    """``"invoices:25"`` → ``("invoices", 25)``; ``"customer"`` → ``("customer", None)``."""
+    name, sep, size = item.partition(":")
+    if not sep:
+        return name.strip(), None
+    try:
+        return name.strip(), int(size)
+    except ValueError:
+        return name.strip(), -1
+
+
+@dataclass(frozen=True)
+class RelatedPage:
+    """An embedded page of a reverse relation (``expand=["invoices"]``)."""
+
+    items: list[Any]
+    total: int
+    limit: int
+
+    @property
+    def has_more(self) -> bool:
+        return self.total > len(self.items)
 
 
 def _check_cycles(dependents: Mapping[str, list[ReferenceDefinition]]) -> None:
@@ -216,6 +293,13 @@ def dump_read(value: Any) -> Any:
     left out, expanded related records nested under their relation name."""
     from resource_engine.authz.fields import hidden_fields
 
+    if isinstance(value, RelatedPage):
+        return {
+            "items": [dump_read(i) for i in value.items],
+            "total": value.total,
+            "limit": value.limit,
+            "has_more": value.has_more,
+        }
     if isinstance(value, BaseModel):
         data = value.model_dump(mode="json", by_alias=True, exclude=set(hidden_fields(value)))
         for name, related in expansions(value).items():
@@ -269,12 +353,15 @@ def unique(values: Iterable[Any]) -> list[Any]:
 __all__ = [
     "Reference",
     "ReferenceDefinition",
+    "RelatedPage",
     "attach",
     "check_references",
     "dump_read",
     "expansions",
     "needs_dump",
     "normalize_references",
+    "parse_expand",
     "related_filter_names",
+    "reverse_relations",
     "split_filters",
 ]

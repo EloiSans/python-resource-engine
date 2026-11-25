@@ -209,7 +209,9 @@ class ResourceMcpServer:
         visible = []
         for tool in self.tools.values():
             try:
-                allowed = await self.manager.can(actor, tool.resource, tool.permission)
+                allowed = await self.manager.can(
+                    actor, tool.permission_resource or tool.resource, tool.permission
+                )
             except ResourceEngineError:
                 allowed = False
             if allowed:
@@ -265,6 +267,24 @@ class ResourceMcpServer:
         expand = tuple(args.pop("expand", None) or ())
         op = tool.operation
 
+        if op == "related":
+            owner = self.registry.get(tool.permission_resource)  # type: ignore[arg-type]
+            query = ListQuery(
+                offset=args.pop("offset", 0),
+                limit=args.pop("limit", 50),
+                order_by=list(args.pop("order_by", None) or ()),
+                filters=_filters(owner, args.pop("filters", None) or {}, self.registry),
+            )
+            _no_extra(tool, args)
+            page = await m.list_related(
+                tool.resource, entity_id, tool.target, query, expand=expand, **kw
+            )
+            return {
+                "items": _dump(page.items),
+                "total": page.total,
+                "offset": page.offset,
+                "limit": page.limit,
+            }
         if op == "list":
             filters = _filters(definition, args.pop("filters", None) or {}, self.registry)
             query = ListQuery(

@@ -342,3 +342,85 @@ def test_cascade_cycles_are_refused():
     registry = _registry(A, B)
     with pytest.raises(ConfigurationError, match="cycle"):
         ResourceManager(registry, InMemoryStore.from_registry(registry).unit_of_work)
+
+
+# --------------------------------------------------------- reverse relations
+
+
+async def test_list_related_and_reverse_expand(manager):
+    acme = await _customer(manager, "ACME")
+    globex = await _customer(manager, "Globex", "FR")
+    for _ in range(3):
+        await _invoice(manager, acme)
+    await _invoice(manager, globex)
+
+    page = await manager.list_related(
+        "customers", acme, "invoices", ListQuery(limit=2, order_by=["id"]), actor=ADMIN
+    )
+    assert page.total == 3 and len(page.items) == 2
+    assert {i.customer_id for i in page.items} == {acme}
+    drafts = await manager.list_related(
+        "customers", acme, "invoices", ListQuery(filters={"status": "draft"}), actor=ADMIN
+    )
+    assert drafts.total == 3
+
+    one = await manager.get("customers", acme, actor=ADMIN, expand=["invoices:2"])
+    embedded = expansions(one)["invoices"]
+    assert (embedded.total, len(embedded.items), embedded.has_more) == (3, 2, True)
+    assert dump_read(one)["invoices"]["has_more"] is True
+    default = await manager.get("customers", globex, actor=ADMIN, expand=["invoices"])
+    assert expansions(default)["invoices"].limit == manager_module.EXPAND_PAGE_SIZE
+
+    listed = await manager.list("customers", actor=ADMIN, expand=("invoices:1",))
+    totals = {c.name: expansions(c)["invoices"].total for c in listed.items}
+    assert totals == {"ACME": 3, "Globex": 1}
+
+
+async def test_reverse_relations_follow_permissions(manager):
+    acme = await _customer(manager, "ACME")
+    await _invoice(manager, acme)
+    # clerks may list invoices but not read customers: the parent is hidden
+    with pytest.raises(Exception) as caught:
+        await manager.list_related("customers", acme, "invoices", actor=CLERK)
+    assert getattr(caught.value, "code", None) in ("RE-E702", "RE-E102")
+
+    # approvers read customers but only see pending/approved invoices
+    approver = Principal(subject="pau", issuer="https://sso", roles=frozenset({"approver"}))
+    page = await manager.list_related("customers", acme, "invoices", actor=approver)
+    assert page.total == 0
+    seen = await manager.get("customers", acme, actor=approver, expand=["invoices"])
+    assert expansions(seen)["invoices"].total == 0
+
+
+async def test_bad_reverse_expansions(manager):
+    acme = await _customer(manager, "ACME")
+    with pytest.raises(InvalidQuery, match="between 1 and"):
+        await manager.get("customers", acme, actor=ADMIN, expand=["invoices:0"])
+    with pytest.raises(InvalidQuery, match="only reverse relations"):
+        await manager.get("invoices", 1, actor=ADMIN, expand=["customer_record:5"])
+    with pytest.raises(InvalidQuery, match="no reverse relation"):
+        await manager.list_related("customers", acme, "orders", actor=ADMIN)
+
+
+def test_reverse_names_are_checked():
+    class OrderResource(Resource):
+        model = Order
+        schemas = {"create": OrderIO, "read": OrderIO}
+        operations = ["get", "create", "delete"]
+
+    def build(**reference):
+        class LineResource(Resource):
+            model = Line
+            schemas = {"create": LineIO, "read": LineIO}
+            operations = ["list", "get", "create"]
+            references = {"order_id": Reference("orders", **reference)}
+
+        registry = _registry(OrderResource, LineResource)
+        return ResourceManager(registry, InMemoryStore.from_registry(registry).unit_of_work)
+
+    assert set(build().reverse["orders"]) == {"lines"}
+    assert set(build(related_name="items").reverse["orders"]) == {"items"}
+    assert build(reverse=False).reverse == {}
+    for name, clash in (("status", "a field"), ("history", "a route")):
+        with pytest.raises(ConfigurationError, match=clash):
+            build(related_name=name)

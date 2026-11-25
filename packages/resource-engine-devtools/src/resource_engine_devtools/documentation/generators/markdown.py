@@ -145,6 +145,19 @@ def render_resource(r: ResourceDoc, audit_resource: str | None = None) -> str:
             )
             + ".",
         ]
+        reverse = [ref for ref in r.referenced_by if ref.related_name]
+        if reverse:
+            out += [
+                "",
+                "| Relació inversa | Registres | Ruta | `expand` |",
+                "|---|---|---|---|",
+            ]
+            for ref in reverse:
+                out.append(
+                    f"| `{ref.related_name}` | [{ref.resource}]({ref.resource}.md) "
+                    f"| `GET /{r.name}/{{id}}/{ref.related_name}` "
+                    f"| `{ref.related_name}` o `{ref.related_name}:25` (una pàgina) |"
+                )
 
     if r.events:
         out += ["", "## Esdeveniments de domini"]

@@ -21,7 +21,7 @@ from resource_engine.errors import ConfigurationError
 #: MCP tool names: letters, digits, ``_``, ``-`` and ``.``, at most 128 characters.
 TOOL_NAME = re.compile(r"^[A-Za-z0-9_.-]{1,128}$")
 
-READ_OPERATIONS = frozenset({"list", "get", "allowed_transitions", "history"})
+READ_OPERATIONS = frozenset({"list", "get", "allowed_transitions", "history", "related"})
 
 
 @dataclass(frozen=True)
@@ -51,6 +51,8 @@ class ResourceTool:
     instance: bool = True
     destructive: bool = False
     wraps_result: bool = False
+    #: The resource whose permission gates the tool (default ``resource``).
+    permission_resource: str | None = None
 
     @property
     def read_only(self) -> bool:
@@ -195,19 +197,26 @@ class _Builder:
         id_schema.setdefault("description", f"Id of the {self.d.name} record")
         schema.add("id", id_schema, required=True)
 
-    def _expand(self, schema: _Schema) -> None:
-        if self.d.references:
-            schema.add(
-                "expand",
-                {
-                    "type": "array",
-                    "items": {"type": "string", "enum": list(self.d.references)},
-                    "description": "Related records to include: "
-                    + "; ".join(
-                        f"{r.name} ({r.target} via {r.field})" for r in self.d.references.values()
-                    ),
-                },
-            )
+    def _expand(self, schema: _Schema, definition: ResourceDefinition | None = None) -> None:
+        d = definition or self.d
+        reverse = self.manager.reverse.get(d.name, {})
+        if not d.references and not reverse:
+            return
+        names = [re.escape(n) for n in d.references]
+        names += [f"{re.escape(n)}(:[0-9]+)?" for n in reverse]
+        parts = [f"{r.name} ({r.target} via {r.field})" for r in d.references.values()]
+        parts += [
+            f"{n} (a page of {r.owner} whose {r.field} is this record; '{n}:25' sets the size)"
+            for n, r in reverse.items()
+        ]
+        schema.add(
+            "expand",
+            {
+                "type": "array",
+                "items": {"type": "string", "pattern": f"^({'|'.join(names)})$"},
+                "description": "Related records to include: " + "; ".join(parts),
+            },
+        )
 
     def _tail(self, schema: _Schema, *, write: bool, versioned: bool = False) -> None:
         if self.d.tenant_field:
@@ -256,13 +265,20 @@ class _Builder:
         return ResourceTool(name=name, resource=self.d.name, **kw)
 
     def _with_relations(self, schema: dict[str, Any] | None) -> dict[str, Any] | None:
-        if schema is None or not self.d.references:
+        reverse = self.manager.reverse.get(self.d.name, {})
+        if schema is None or not (self.d.references or reverse):
             return schema
         schema = {**schema, "properties": dict(schema.get("properties", {}))}
         for ref in self.d.references.values():
             schema["properties"][ref.name] = {
                 "type": ["object", "null"],
                 "description": f"The {ref.target} record (with expand), null when unreadable",
+            }
+        for relation, ref in reverse.items():
+            schema["properties"][relation] = {
+                "type": ["object", "null"],
+                "description": f"A page of {ref.owner} (with expand): items, total, limit, "
+                "has_more; null when they cannot be listed",
             }
         return schema
 
@@ -410,6 +426,9 @@ class _Builder:
                 )
             )
 
+        for relation, ref in self.manager.reverse.get(d.name, {}).items():
+            tools.append(self._related_tool(relation, ref))
+
         if d.machine is not None and d.expose_transitions:
             tools.extend(self._machine_tools(read_output))
 
@@ -438,6 +457,48 @@ class _Builder:
                 )
             )
         return tools
+
+    def _related_tool(self, relation: str, ref: Any) -> ResourceTool:
+        owner = self.manager.registry.get(ref.owner)
+        owner_read = owner.schemas.get("read")
+        schema = _Schema()
+        self._id(schema)
+        schema.add("offset", {"type": "integer", "minimum": 0, "default": 0})
+        schema.add(
+            "limit",
+            {"type": "integer", "minimum": 1, "maximum": owner.max_page_size, "default": 50},
+        )
+        if owner.sortable:
+            order = [f for name in owner.sortable for f in (name, f"-{name}")]
+            schema.add("order_by", {"type": "array", "items": {"type": "string", "enum": order}})
+        filterable = [f for f in owner.filterable if f != ref.field]
+        if filterable:
+            filters = _Schema()
+            for field_name in filterable:
+                annotation = owner_read.model_fields[field_name].annotation if owner_read else str
+                filters.add(field_name, filters.type(annotation))
+            schema.defs.update(filters.defs)
+            schema.add(
+                "filters",
+                {"type": "object", "properties": filters.properties, "additionalProperties": False},
+            )
+        self._expand(schema, owner)
+        self._tail(schema, write=False)
+        return self.tool(
+            relation,
+            operation="related",
+            permission="list",
+            permission_resource=ref.owner,
+            target=relation,
+            title=f"{ref.owner} of a {self.d.name} record",
+            description=_describe(
+                self.d,
+                f"The {ref.owner} records whose {ref.field} is this {self.d.name} record, "
+                f"paged. The {self.d.name} record must be readable.",
+            ),
+            input_schema=schema.build(),
+            output_schema=_page_output(owner_read, list(owner.references)),
+        )
 
     def _machine_tools(self, read_output: dict[str, Any] | None) -> list[ResourceTool]:
         d = self.d

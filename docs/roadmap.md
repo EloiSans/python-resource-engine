@@ -107,6 +107,11 @@
   in one transaction; `expand` on `get`/`list` (batched, caller's permissions,
   unreadable records as null) and `<relation>.<field>` filters, over HTTP and
   MCP; shown in the generated docs; the example gains a `customers` resource.
+- Reverse relations: `GET /customers/{id}/invoices` (`manager.list_related`,
+  paged, the parent must be readable, the caller's list permissions) and
+  capped inline `expand=invoices[:N]` with `total` and `has_more`;
+  `related_name` / `reverse=False` on `Reference`. Front-end guide
+  (`docs/frontend.md`).
 - `resource-engine scaffold consumer`: payload models, a typed `EventRouter`
   and contract tests from a provider's AsyncAPI (3.0 or 2.x; envelope,
   CloudEvents or raw bodies). Contract testing on both sides:
@@ -128,8 +133,8 @@ what follows builds on it.
 
 ### Soon
 
-- Relationships, next steps: reverse relations (`customers/{id}/invoices`),
-  nested expansion, many-to-many through a join resource.
+- Relationships, next steps: nested expansion (`expand=invoices.customer_record`),
+  many-to-many through a join resource, batched inline reverse expansion on lists.
 
 ### Later
 

@@ -32,6 +32,10 @@ Auditoria: s'auditen els canvis i els intents denegats.
 
 Hi fan referència: [invoices.customer_id](invoices.md) (es denega mentre hi hagi referències).
 
+| Relació inversa | Registres | Ruta | `expand` |
+|---|---|---|---|
+| `invoices` | [invoices](invoices.md) | `GET /customers/{id}/invoices` | `invoices` o `invoices:25` (una pàgina) |
+
 ## Schemas
 
 ### CustomerCreate (create)

@@ -139,6 +139,12 @@ def test_customers_and_references(client):
     assert [i["customer_record"]["name"] for i in page["items"]] == ["Globex"]
     assert client.get("/invoices", params={"expand": "vendor"}).status_code == 400
 
+    related = client.get(f"/customers/{acme['id']}/invoices", params={"limit": 1}).json()
+    assert related["total"] == 2 and len(related["items"]) == 1
+    assert client.get("/customers/99/invoices").status_code == 404
+    embedded = client.get(f"/customers/{acme['id']}", params={"expand": "invoices:1"}).json()
+    assert embedded["invoices"]["total"] == 2 and embedded["invoices"]["has_more"] is True
+
     r = client.delete(f"/customers/{globex['id']}")
     assert r.status_code == 409 and r.json()["error"]["code"] == "RE-E109"
     assert client.delete("/invoices/2").status_code == 204
@@ -147,3 +153,4 @@ def test_customers_and_references(client):
     spec = client.get("/openapi.json").json()
     params = {p["name"] for p in spec["paths"]["/invoices"]["get"]["parameters"]}
     assert {"expand", "customer_record.country", "customer_id"} <= params
+    assert "/customers/{entity_id}/invoices" in spec["paths"]
