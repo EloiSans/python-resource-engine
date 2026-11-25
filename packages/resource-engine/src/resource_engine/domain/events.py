@@ -25,3 +25,12 @@ class DomainEvent:
     @property
     def name(self) -> str:
         return type(self).__name__
+
+
+def event_doc(event_cls: type) -> str | None:
+    """The event class's own docstring; ``None`` for the signature that
+    ``@dataclass`` writes when there is none."""
+    doc = event_cls.__dict__.get("__doc__")
+    if not doc or doc.startswith(f"{event_cls.__name__}("):
+        return None
+    return doc

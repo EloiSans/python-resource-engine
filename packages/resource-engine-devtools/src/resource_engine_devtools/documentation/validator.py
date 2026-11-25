@@ -69,6 +69,8 @@ def validate(model: DocumentationModel) -> list[Finding]:
                     a.qualname,
                     "action documents its Postconditions",
                 )
+        for e in r.events:
+            check(e.doc.present, "warning", "RE-D011", e.qualname, "domain event is documented")
         for slot in r.documents:
             check(
                 bool(slot.description),
@@ -113,6 +115,8 @@ def _texts(r: Any) -> list[tuple[str, str]]:
         found += _doc_texts(a.qualname, a.doc)
     for h in r.hooks:
         found += _doc_texts(h.qualname, h.doc)
+    for e in getattr(r, "events", []) or []:
+        found += _doc_texts(e.qualname, e.doc)
     for slot in r.documents:
         found.append((f"{r.qualname}.documents.{slot.name}", slot.description or ""))
     for schema in getattr(r, "schemas", []) or []:

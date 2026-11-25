@@ -33,6 +33,7 @@ The first line is a one-sentence summary. Write in the project's language
 | RE-D008 | warning | Every hook has a docstring |
 | RE-D009 | warning | Every document slot has a `description` |
 | RE-D010 | warning | No description is still a `TODO` placeholder (from `scaffold`) |
+| RE-D011 | warning | Every declared domain event has a docstring |
 
 `--strict` makes warnings fail too; use it in CI.
 

@@ -57,3 +57,30 @@ def load_authz(cwd: Path) -> object | None:
         return None
     module_name, _, attr = str(spec).partition(":")
     return getattr(importlib.import_module(module_name), attr or "authz")
+
+
+def load_object(spec: str) -> object:
+    """``module:attribute``."""
+    module_name, _, attr = spec.partition(":")
+    if not attr:
+        raise SystemExit(f"{spec!r} must be module:attribute")
+    return getattr(importlib.import_module(module_name), attr)
+
+
+def load_consumers(specs: list[str] | None, cwd: Path) -> list[object]:
+    """``EventRouter`` objects from ``specs``, falling back to
+    ``[tool.resource-engine] consumers``. An entry may also name a function
+    returning a router; it is called without arguments."""
+    from resource_engine.messaging import EventRouter
+
+    config = find_config(cwd)
+    add_paths(config, cwd)
+    routers = []
+    for spec in specs or config.get("consumers", []):  # type: ignore[union-attr]
+        target = load_object(str(spec))
+        if not isinstance(target, EventRouter) and callable(target):
+            target = target()
+        if not isinstance(target, EventRouter):
+            raise SystemExit(f"{spec} is not an EventRouter")
+        routers.append(target)
+    return routers

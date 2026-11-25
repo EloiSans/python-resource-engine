@@ -23,6 +23,19 @@ Filtres: `role`, `principal`, `group` · Ordenació: —
 
 Auditoria: s'auditen els canvis i els intents denegats.
 
+## Esdeveniments de domini
+
+### `PolicyChanged`
+
+`resource_engine.authz.resources.PolicyChanged`
+
+Policies or role assignments changed: caches must be refreshed.
+
+| Camp | Tipus | Obligatori |
+|---|---|---|
+| `resource` | `str` | sí |
+| `entity_id` | `Any` | sí |
+
 ## Hooks del cicle de vida
 
 | Punt | Hook | Efectes externs | Descripció |

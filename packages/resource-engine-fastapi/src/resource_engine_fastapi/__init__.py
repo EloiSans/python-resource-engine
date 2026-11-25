@@ -1,5 +1,6 @@
 """FastAPI adapter for Resource Engine."""
 
+from resource_engine_fastapi.asyncapi import mount_asyncapi
 from resource_engine_fastapi.auth import bearer_actor, bearer_token
 from resource_engine_fastapi.errors import install_exception_handlers, status_for
 from resource_engine_fastapi.events import build_event_receiver, default_decoder
@@ -13,6 +14,7 @@ __all__ = [
     "build_router",
     "default_decoder",
     "install_exception_handlers",
+    "mount_asyncapi",
     "mount_resources",
     "status_for",
 ]

@@ -14,7 +14,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from resource_engine import ResourceManager
-from resource_engine_fastapi import mount_resources
+from resource_engine_fastapi import mount_asyncapi, mount_resources
 from resource_engine_sqlalchemy import unit_of_work_factory
 from sqlalchemy.ext.asyncio import AsyncEngine, async_sessionmaker, create_async_engine
 
@@ -54,6 +54,7 @@ def create_app(engine: AsyncEngine | None = None) -> FastAPI:
         audit=True,  # audit_log table, same transaction as each change
     )
     mount_resources(app, registry, manager)
+    mount_asyncapi(app, registry)  # GET /asyncapi.json: the events it publishes
     return app
 
 

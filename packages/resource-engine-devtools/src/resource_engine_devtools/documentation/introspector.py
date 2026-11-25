@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import dataclasses
 import inspect
 import types
 import typing
@@ -9,11 +10,13 @@ import resource_engine
 from pydantic import BaseModel
 from resource_engine import ResourceDefinition, ResourceRegistry
 from resource_engine.application.hooks import has_external_effect
+from resource_engine.domain.events import event_doc
 
 from resource_engine_devtools.documentation.docstrings import DocText, parse_doc
 from resource_engine_devtools.documentation.model import (
     ActionDoc,
     DocumentationModel,
+    EventDoc,
     FieldDoc,
     HookDoc,
     OperationDoc,
@@ -80,6 +83,26 @@ def _schema_doc(role: str, schema: type[BaseModel]) -> SchemaDoc:
         for name, info in schema.model_fields.items()
     ]
     return SchemaDoc(name=schema.__name__, role=role, fields=fields, doc=parse_doc(schema))
+
+
+def _event_doc(event: type) -> EventDoc:
+    hints = typing.get_type_hints(event)
+    fields = [
+        FieldDoc(
+            name=f.name,
+            type=_type_name(hints.get(f.name, f.type)),
+            required=f.default is dataclasses.MISSING and f.default_factory is dataclasses.MISSING,
+        )
+        for f in dataclasses.fields(event)
+        if f.name != "occurred_at"
+    ]
+    text = event_doc(event)
+    return EventDoc(
+        name=event.__name__,
+        qualname=_qualname(event),
+        doc=parse_doc(inspect.cleandoc(text)) if text else DocText(),
+        fields=fields,
+    )
 
 
 def _qualname(obj: Any) -> str:
@@ -197,6 +220,7 @@ def _resource_doc(d: ResourceDefinition) -> ResourceDoc:
         audit=getattr(d.resource_cls, "audit", True),
         audit_reads=getattr(d.resource_cls, "audit_reads", False),
         audit_exclude=list(getattr(d.resource_cls, "audit_exclude", ())),
+        events=[_event_doc(e) for e in d.events],
         documents=[
             SlotDoc(
                 name=slot.name,

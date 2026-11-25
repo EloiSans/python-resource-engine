@@ -18,6 +18,7 @@ moved to its own repository without code changes.
 |---|---|---|---|
 | `resource-engine` | `resource_engine` | pydantic, python-statemachine | Core: `Resource`, registry, hooks, `ResourceManager`, documents, messaging, ports, in-memory adapters |
 | `resource-engine-fastapi` | `resource_engine_fastapi` | core, FastAPI | HTTP adapter: generated routes, document routes, bearer auth, error mapping, event push endpoint |
+| `resource-engine-mcp` | `resource_engine_mcp` | core, mcp | MCP server: every operation as a tool for AI agents, over stdio or Streamable HTTP with bearer tokens |
 | `resource-engine-sqlalchemy` | `resource_engine_sqlalchemy` | core, SQLAlchemy 2 (async) | Persistence adapter: repository, unit of work, outbox, inbox, documents, permission and audit tables, job leases, Alembic setup (`[alembic]`) |
 | `resource-engine-devtools` | `resource_engine_devtools` | core, docstring-parser | `resource-engine` CLI: inspect, check (architecture and hook/effect lints), docs, AI skill and context (`ai install`, `ai sync`), scaffold, worker |
 | `resource-engine-aws` | `resource_engine_aws` | core, `[sqs,sns]` → aiobotocore | SQS/SNS publishers, SQS consumer source |
@@ -64,7 +65,8 @@ mount_resources(app, registry, manager)  # FastAPI
 This exposes `GET/POST /invoices`, `GET/PATCH/DELETE /invoices/{id}`,
 `GET /invoices/{id}/transitions`, `POST /invoices/{id}/transitions/{event}`,
 `GET /invoices/{id}/history` (with an audit trail) and
-`POST /invoices/{id}/actions/recalculate_totals`.
+`POST /invoices/{id}/actions/recalculate_totals`; `mount_asyncapi` adds
+`GET /asyncapi.json` for the events.
 
 The complete reference module is in [`examples/invoices`](examples/invoices) and is
 part of the test suite.
@@ -94,6 +96,8 @@ uv run uvicorn invoices.app:app --app-dir examples --reload   # then open /docs
 - [Identity](docs/identity.md) — bearer tokens, providers, `Principal`.
 - [Permissions](docs/permissions.md) — system roles, ABAC policies managed from a front end.
 - [External policy engines](docs/authorizers.md) — OPA, Cedar and OpenFGA behind the same port.
+- [AsyncAPI](docs/asyncapi.md) — the events the app publishes and consumes, generated and served next to OpenAPI.
+- [MCP server](docs/mcp.md) — operations as tools for AI agents, permissions per caller.
 - [Scaffolding](docs/scaffold.md) — generate a module, action or state machine.
 - [AI assistance](docs/ai.md) — the skill for coding agents, `ai install`, `ai sync`; [evaluation](evals/README.md).
 - [Observability](docs/observability.md) — traces from request to consumer, metrics hooks, JSON logs.

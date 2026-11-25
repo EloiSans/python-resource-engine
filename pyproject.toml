@@ -13,6 +13,7 @@ members = ["packages/*", "adapters/*"]
 [tool.uv.sources]
 resource-engine = { workspace = true }
 resource-engine-fastapi = { workspace = true }
+resource-engine-mcp = { workspace = true }
 resource-engine-sqlalchemy = { workspace = true }
 resource-engine-devtools = { workspace = true }
 resource-engine-aws = { workspace = true }
@@ -32,6 +33,7 @@ resource-engine-opentelemetry = { workspace = true }
 dev = [
     "resource-engine",
     "resource-engine-fastapi",
+    "resource-engine-mcp",
     "resource-engine-sqlalchemy[alembic]",
     "resource-engine-devtools",
     "resource-engine-aws[all]",
@@ -79,6 +81,10 @@ authz = "invoices.bootstrap:authz"
 policies = "invoices.authz:SEED_POLICIES"
 metadata = "invoices.infrastructure.persistence:metadata"
 paths = ["examples"]
+
+[tool.resource-engine.asyncapi]
+title = "Factures (exemple de Resource Engine)"
+version = "0.1.0"
 
 [tool.ruff.lint.flake8-bugbear]
 # FastAPI dependency markers are meant to be used as defaults.

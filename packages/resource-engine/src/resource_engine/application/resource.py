@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import dataclasses
 import inspect
 import re
 from collections.abc import Mapping, Sequence
@@ -21,6 +22,7 @@ from resource_engine.application.hooks import (
 )
 from resource_engine.application.slots import DocumentSlot
 from resource_engine.application.state_machines import MachineRunner
+from resource_engine.domain.events import DomainEvent
 from resource_engine.errors import ConfigurationError, StateFieldExposed
 
 if TYPE_CHECKING:
@@ -84,6 +86,11 @@ class Resource:
         audit_reads: Also audit ``get`` and ``list``.
         audit_exclude: Fields recorded as changed without their values (restricted
             fields always are).
+        events: Domain events (``DomainEvent`` dataclasses) that the resource's
+            actions and hooks record with ``ctx.record_event``. The engine's own
+            events (created, updated, transitions...) are implicit. Listed in the
+            generated docs and the AsyncAPI document; ``check`` flags undeclared
+            ones (RE-C006).
     """
 
     name: ClassVar[str | None] = None
@@ -111,6 +118,7 @@ class Resource:
     audit: ClassVar[bool] = True
     audit_reads: ClassVar[bool] = False
     audit_exclude: ClassVar[Sequence[str]] = ()
+    events: ClassVar[Sequence[type[DomainEvent]]] = ()
 
     # --- Mapping between schemas and entities. Override when needed. ---
 
@@ -184,6 +192,7 @@ class ResourceDefinition:
     tenant_field: str | None
     version_field: str | None
     require_version: bool
+    events: tuple[type[DomainEvent], ...]
     dispatcher: HookDispatcher = field(repr=False, compare=False)
     machine: MachineRunner | None = field(repr=False, compare=False)
 
@@ -378,6 +387,25 @@ class ResourceDefinition:
                     f"{owner}: restricted field {fld!r} is not part of the read or write schemas"
                 )
 
+        events = tuple(resource_cls.events)
+        for event in events:
+            if not (
+                isinstance(event, type)
+                and issubclass(event, DomainEvent)
+                and dataclasses.is_dataclass(event)
+            ):
+                raise ConfigurationError(
+                    f"{owner}: events must be DomainEvent dataclasses, not {event!r}",
+                    hint="Declare `@dataclass(frozen=True, kw_only=True) class X(DomainEvent)`.",
+                    doc="docs/messaging.md#declaring-events",
+                )
+        if len({e.__name__ for e in events}) != len(events):
+            raise ConfigurationError(
+                f"{owner}: two declared events share a class name",
+                hint="The class name is the event type on the wire; rename one.",
+                doc="docs/messaging.md#declaring-events",
+            )
+
         description = resource_cls.__doc__ and inspect.cleandoc(resource_cls.__doc__)
         return cls(
             name=name,
@@ -403,6 +431,7 @@ class ResourceDefinition:
             tenant_field=tenant_field,
             version_field=version_field,
             require_version=resource_cls.require_version,
+            events=events,
             dispatcher=HookDispatcher(hooks),
             machine=machine,
         )

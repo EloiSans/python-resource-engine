@@ -114,6 +114,20 @@ La factura té un únic document ``summary`` amb les dades actuals.
 
 Desa el document al magatzem de fitxers i emet ``DocumentAttached``.
 
+## Esdeveniments de domini
+
+### `InvoiceTotalsRecalculated`
+
+`invoices.domain.events.InvoiceTotalsRecalculated`
+
+L'import d'una factura s'ha recalculat aplicant un descompte.
+
+| Camp | Tipus | Obligatori |
+|---|---|---|
+| `invoice_id` | `int` | sí |
+| `previous_amount` | `Decimal` | sí |
+| `new_amount` | `Decimal` | sí |
+
 ## Documents
 
 | Ranura | Tipus | Mida màx. | Múltiple | Pujada | Requerit per | Processament | Descripció |

@@ -131,12 +131,17 @@ class InvoiceTotalsRecalculated(DomainEvent):
     new_amount: Decimal
 ```
 
-Record them with `ctx.record_event(...)` in hooks before commit or in actions.
-They are published only if the transaction commits. The engine also publishes
+Declare them on the resource (`events = [InvoiceTotalsRecalculated]`) and record
+them with `ctx.record_event(...)` in hooks before commit or in actions; `check`
+reports undeclared ones (RE-C006), and the generated docs and AsyncAPI document
+list the declared ones. They are published only if the transaction commits. The engine also publishes
 `ResourceCreated`, `ResourceUpdated`, `ResourceDeleted`, `TransitionExecuted` and
 `ActionExecuted` on its own. With `OutboxDelivery` they are stored with the
 change and sent by `OutboxRelay`; consumers use `EventRouter` and
-`MessageProcessor(manager=...)` for exactly-once effects.
+`MessageProcessor(manager=...)` for exactly-once effects. Give consumed events a
+payload model (`router.on("PaymentReceived", payload=PaymentReceived)`): the
+handler gets `(envelope, payment)`, invalid payloads are dead-lettered, and the
+AsyncAPI document shows the schema.
 
 ## Documents
 
@@ -188,3 +193,11 @@ declarative models in the domain.
 Generated HTTP API: `GET/POST /invoices`, `GET/PATCH/DELETE /invoices/{id}`,
 `GET /invoices/{id}/transitions`, `POST /invoices/{id}/transitions/{event}`,
 `POST /invoices/{id}/actions/{name}`.
+
+MCP tools for AI agents (`resource-engine-mcp`): `ResourceMcpServer(registry,
+manager)` turns the same operations into tools (`invoices_list`,
+`invoices_transition_approve`, `invoices_action_recalculate_totals`...) called
+through the manager as the caller; `mcp.mount(app, authenticator=...)` after
+`mount_resources`, or `run_stdio(actor=...)`. Tool descriptions come from
+`operation_docs`, action descriptions and the resource and state machine
+docstrings, so write them for a reader who only sees the tool. See docs/mcp.md.

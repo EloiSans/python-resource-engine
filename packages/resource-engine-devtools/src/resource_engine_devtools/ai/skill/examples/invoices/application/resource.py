@@ -6,6 +6,7 @@ from invoices.application import hooks
 from invoices.application.actions import RecalculateTotals, RenderSummary
 from invoices.application.schemas import InvoiceCreate, InvoiceRead, InvoiceUpdate, RejectInvoice
 from invoices.domain.entities import Invoice
+from invoices.domain.events import InvoiceTotalsRecalculated
 from invoices.domain.state_machine import InvoiceStateMachine
 
 
@@ -37,6 +38,7 @@ class InvoiceResource(Resource):
     state_machine = InvoiceStateMachine
     transition_schemas = {"reject": RejectInvoice}
     actions = [RecalculateTotals, RenderSummary]
+    events = [InvoiceTotalsRecalculated]
     documents = [
         DocumentSlot(
             "signed_pdf",

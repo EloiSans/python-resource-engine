@@ -110,6 +110,15 @@ def render_resource(r: ResourceDoc, audit_resource: str | None = None) -> str:
             out += ["", f"### `{a.name}`", "", f"`{a.qualname}`", ""]
             out += _text(a.doc, heading="####")
 
+    if r.events:
+        out += ["", "## Esdeveniments de domini"]
+        for e in r.events:
+            out += ["", f"### `{e.name}`", "", f"`{e.qualname}`", ""]
+            out += _text(e.doc, heading="####")
+            out += ["", "| Camp | Tipus | Obligatori |", "|---|---|---|"]
+            for f in e.fields:
+                out.append(f"| `{f.name}` | `{_cell(f.type)}` | {'sí' if f.required else 'no'} |")
+
     if r.documents:
         out += [
             "",

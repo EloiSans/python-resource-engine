@@ -61,5 +61,7 @@ carries your own `code`.
 | RE-C003 | `check` | An `after_commit` hook records events, uses `ctx.repository()` / `ctx.uow`, registers `on_rollback`, or changes `ctx.entity`. |
 | RE-C004 | `check` | An enabled operation that only a catch-all system role (`admin`) can perform: no other system role and no seed policy grants it. Needs `policies` in `[tool.resource-engine]`. |
 | RE-C005 | `check` | The registry could not be loaded because the engine refused a declaration (for example RE-E004); reported at the line of your code. |
+| RE-C006 | `check` | A hook or action records a domain event the resource does not declare in `events`; it is still published, but missing from the docs and the AsyncAPI document. |
 | RE-D001…D009 | `docs validate` | Documentation coverage rules (resource, CRUD ops, state machine, states, transitions, actions, postconditions, hooks, document slots). |
 | RE-D010 | `docs validate` | A description is still a `TODO` placeholder (left by `scaffold`); warning, fails with `--strict`. |
+| RE-D011 | `docs validate` | A declared domain event (`Resource.events`) has no docstring; warning. |

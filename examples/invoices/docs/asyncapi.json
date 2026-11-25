@@ -1,0 +1,2220 @@
+{
+  "asyncapi": "3.0.0",
+  "info": {
+    "title": "Factures (exemple de Resource Engine)",
+    "version": "0.1.0"
+  },
+  "defaultContentType": "application/json",
+  "channels": {
+    "invoices": {
+      "address": "invoices",
+      "description": "Gestió de factures de l'organització.",
+      "title": "invoices events",
+      "messages": {
+        "ResourceCreated": {
+          "$ref": "#/components/messages/invoices.ResourceCreated"
+        },
+        "ResourceUpdated": {
+          "$ref": "#/components/messages/invoices.ResourceUpdated"
+        },
+        "ResourceDeleted": {
+          "$ref": "#/components/messages/invoices.ResourceDeleted"
+        },
+        "TransitionExecuted": {
+          "$ref": "#/components/messages/invoices.TransitionExecuted"
+        },
+        "ActionExecuted": {
+          "$ref": "#/components/messages/invoices.ActionExecuted"
+        },
+        "DocumentAttached": {
+          "$ref": "#/components/messages/invoices.DocumentAttached"
+        },
+        "DocumentDetached": {
+          "$ref": "#/components/messages/invoices.DocumentDetached"
+        },
+        "InvoiceTotalsRecalculated": {
+          "$ref": "#/components/messages/invoices.InvoiceTotalsRecalculated"
+        }
+      }
+    },
+    "authz_policies": {
+      "address": "authz_policies",
+      "description": "Access policies (ABAC), managed from the front end.",
+      "title": "authz_policies events",
+      "messages": {
+        "ResourceCreated": {
+          "$ref": "#/components/messages/authz_policies.ResourceCreated"
+        },
+        "ResourceUpdated": {
+          "$ref": "#/components/messages/authz_policies.ResourceUpdated"
+        },
+        "ResourceDeleted": {
+          "$ref": "#/components/messages/authz_policies.ResourceDeleted"
+        },
+        "PolicyChanged": {
+          "$ref": "#/components/messages/authz_policies.PolicyChanged"
+        }
+      }
+    },
+    "authz_roles": {
+      "address": "authz_roles",
+      "description": "Custom roles, created from the front end. System roles are defined in code.",
+      "title": "authz_roles events",
+      "messages": {
+        "ResourceCreated": {
+          "$ref": "#/components/messages/authz_roles.ResourceCreated"
+        },
+        "ResourceUpdated": {
+          "$ref": "#/components/messages/authz_roles.ResourceUpdated"
+        },
+        "ResourceDeleted": {
+          "$ref": "#/components/messages/authz_roles.ResourceDeleted"
+        }
+      }
+    },
+    "authz_role_assignments": {
+      "address": "authz_role_assignments",
+      "description": "Roles given to principals or groups from the front end (used by ``StoredRoleSource``).",
+      "title": "authz_role_assignments events",
+      "messages": {
+        "ResourceCreated": {
+          "$ref": "#/components/messages/authz_role_assignments.ResourceCreated"
+        },
+        "ResourceDeleted": {
+          "$ref": "#/components/messages/authz_role_assignments.ResourceDeleted"
+        },
+        "PolicyChanged": {
+          "$ref": "#/components/messages/authz_role_assignments.PolicyChanged"
+        }
+      }
+    }
+  },
+  "operations": {
+    "publish.invoices": {
+      "action": "send",
+      "channel": {
+        "$ref": "#/channels/invoices"
+      },
+      "title": "Publish invoices events",
+      "summary": "Sent after each committed change, directly or through the outbox.",
+      "messages": [
+        {
+          "$ref": "#/channels/invoices/messages/ResourceCreated"
+        },
+        {
+          "$ref": "#/channels/invoices/messages/ResourceUpdated"
+        },
+        {
+          "$ref": "#/channels/invoices/messages/ResourceDeleted"
+        },
+        {
+          "$ref": "#/channels/invoices/messages/TransitionExecuted"
+        },
+        {
+          "$ref": "#/channels/invoices/messages/ActionExecuted"
+        },
+        {
+          "$ref": "#/channels/invoices/messages/DocumentAttached"
+        },
+        {
+          "$ref": "#/channels/invoices/messages/DocumentDetached"
+        },
+        {
+          "$ref": "#/channels/invoices/messages/InvoiceTotalsRecalculated"
+        }
+      ]
+    },
+    "publish.authz_policies": {
+      "action": "send",
+      "channel": {
+        "$ref": "#/channels/authz_policies"
+      },
+      "title": "Publish authz_policies events",
+      "summary": "Sent after each committed change, directly or through the outbox.",
+      "messages": [
+        {
+          "$ref": "#/channels/authz_policies/messages/ResourceCreated"
+        },
+        {
+          "$ref": "#/channels/authz_policies/messages/ResourceUpdated"
+        },
+        {
+          "$ref": "#/channels/authz_policies/messages/ResourceDeleted"
+        },
+        {
+          "$ref": "#/channels/authz_policies/messages/PolicyChanged"
+        }
+      ]
+    },
+    "publish.authz_roles": {
+      "action": "send",
+      "channel": {
+        "$ref": "#/channels/authz_roles"
+      },
+      "title": "Publish authz_roles events",
+      "summary": "Sent after each committed change, directly or through the outbox.",
+      "messages": [
+        {
+          "$ref": "#/channels/authz_roles/messages/ResourceCreated"
+        },
+        {
+          "$ref": "#/channels/authz_roles/messages/ResourceUpdated"
+        },
+        {
+          "$ref": "#/channels/authz_roles/messages/ResourceDeleted"
+        }
+      ]
+    },
+    "publish.authz_role_assignments": {
+      "action": "send",
+      "channel": {
+        "$ref": "#/channels/authz_role_assignments"
+      },
+      "title": "Publish authz_role_assignments events",
+      "summary": "Sent after each committed change, directly or through the outbox.",
+      "messages": [
+        {
+          "$ref": "#/channels/authz_role_assignments/messages/ResourceCreated"
+        },
+        {
+          "$ref": "#/channels/authz_role_assignments/messages/ResourceDeleted"
+        },
+        {
+          "$ref": "#/channels/authz_role_assignments/messages/PolicyChanged"
+        }
+      ]
+    }
+  },
+  "components": {
+    "messages": {
+      "invoices.ResourceCreated": {
+        "name": "ResourceCreated",
+        "title": "ResourceCreated",
+        "contentType": "application/json",
+        "payload": {
+          "$ref": "#/components/schemas/invoices.ResourceCreated"
+        },
+        "correlationId": {
+          "location": "$message.payload#/correlation_id"
+        },
+        "headers": {
+          "type": "object",
+          "description": "Broker message attributes (SNS/SQS attributes, Service Bus application properties, Pub/Sub attributes, AMQP headers)",
+          "properties": {
+            "event_type": {
+              "const": "ResourceCreated"
+            },
+            "event_id": {
+              "type": "string"
+            },
+            "schema_version": {
+              "const": "1"
+            },
+            "resource": {
+              "type": "string"
+            },
+            "correlation_id": {
+              "type": "string"
+            },
+            "traceparent": {
+              "type": "string"
+            }
+          }
+        },
+        "summary": "A invoices record was created."
+      },
+      "invoices.ResourceUpdated": {
+        "name": "ResourceUpdated",
+        "title": "ResourceUpdated",
+        "contentType": "application/json",
+        "payload": {
+          "$ref": "#/components/schemas/invoices.ResourceUpdated"
+        },
+        "correlationId": {
+          "location": "$message.payload#/correlation_id"
+        },
+        "headers": {
+          "type": "object",
+          "description": "Broker message attributes (SNS/SQS attributes, Service Bus application properties, Pub/Sub attributes, AMQP headers)",
+          "properties": {
+            "event_type": {
+              "const": "ResourceUpdated"
+            },
+            "event_id": {
+              "type": "string"
+            },
+            "schema_version": {
+              "const": "1"
+            },
+            "resource": {
+              "type": "string"
+            },
+            "correlation_id": {
+              "type": "string"
+            },
+            "traceparent": {
+              "type": "string"
+            }
+          }
+        },
+        "summary": "Fields of a invoices record changed."
+      },
+      "invoices.ResourceDeleted": {
+        "name": "ResourceDeleted",
+        "title": "ResourceDeleted",
+        "contentType": "application/json",
+        "payload": {
+          "$ref": "#/components/schemas/invoices.ResourceDeleted"
+        },
+        "correlationId": {
+          "location": "$message.payload#/correlation_id"
+        },
+        "headers": {
+          "type": "object",
+          "description": "Broker message attributes (SNS/SQS attributes, Service Bus application properties, Pub/Sub attributes, AMQP headers)",
+          "properties": {
+            "event_type": {
+              "const": "ResourceDeleted"
+            },
+            "event_id": {
+              "type": "string"
+            },
+            "schema_version": {
+              "const": "1"
+            },
+            "resource": {
+              "type": "string"
+            },
+            "correlation_id": {
+              "type": "string"
+            },
+            "traceparent": {
+              "type": "string"
+            }
+          }
+        },
+        "summary": "A invoices record was deleted."
+      },
+      "invoices.TransitionExecuted": {
+        "name": "TransitionExecuted",
+        "title": "TransitionExecuted",
+        "contentType": "application/json",
+        "payload": {
+          "$ref": "#/components/schemas/invoices.TransitionExecuted"
+        },
+        "correlationId": {
+          "location": "$message.payload#/correlation_id"
+        },
+        "headers": {
+          "type": "object",
+          "description": "Broker message attributes (SNS/SQS attributes, Service Bus application properties, Pub/Sub attributes, AMQP headers)",
+          "properties": {
+            "event_type": {
+              "const": "TransitionExecuted"
+            },
+            "event_id": {
+              "type": "string"
+            },
+            "schema_version": {
+              "const": "1"
+            },
+            "resource": {
+              "type": "string"
+            },
+            "correlation_id": {
+              "type": "string"
+            },
+            "traceparent": {
+              "type": "string"
+            }
+          }
+        },
+        "summary": "A invoices record changed state."
+      },
+      "invoices.ActionExecuted": {
+        "name": "ActionExecuted",
+        "title": "ActionExecuted",
+        "contentType": "application/json",
+        "payload": {
+          "$ref": "#/components/schemas/invoices.ActionExecuted"
+        },
+        "correlationId": {
+          "location": "$message.payload#/correlation_id"
+        },
+        "headers": {
+          "type": "object",
+          "description": "Broker message attributes (SNS/SQS attributes, Service Bus application properties, Pub/Sub attributes, AMQP headers)",
+          "properties": {
+            "event_type": {
+              "const": "ActionExecuted"
+            },
+            "event_id": {
+              "type": "string"
+            },
+            "schema_version": {
+              "const": "1"
+            },
+            "resource": {
+              "type": "string"
+            },
+            "correlation_id": {
+              "type": "string"
+            },
+            "traceparent": {
+              "type": "string"
+            }
+          }
+        },
+        "summary": "An action ran on invoices."
+      },
+      "invoices.DocumentAttached": {
+        "name": "DocumentAttached",
+        "title": "DocumentAttached",
+        "contentType": "application/json",
+        "payload": {
+          "$ref": "#/components/schemas/invoices.DocumentAttached"
+        },
+        "correlationId": {
+          "location": "$message.payload#/correlation_id"
+        },
+        "headers": {
+          "type": "object",
+          "description": "Broker message attributes (SNS/SQS attributes, Service Bus application properties, Pub/Sub attributes, AMQP headers)",
+          "properties": {
+            "event_type": {
+              "const": "DocumentAttached"
+            },
+            "event_id": {
+              "type": "string"
+            },
+            "schema_version": {
+              "const": "1"
+            },
+            "resource": {
+              "type": "string"
+            },
+            "correlation_id": {
+              "type": "string"
+            },
+            "traceparent": {
+              "type": "string"
+            }
+          }
+        },
+        "summary": "A document was attached to a invoices record."
+      },
+      "invoices.DocumentDetached": {
+        "name": "DocumentDetached",
+        "title": "DocumentDetached",
+        "contentType": "application/json",
+        "payload": {
+          "$ref": "#/components/schemas/invoices.DocumentDetached"
+        },
+        "correlationId": {
+          "location": "$message.payload#/correlation_id"
+        },
+        "headers": {
+          "type": "object",
+          "description": "Broker message attributes (SNS/SQS attributes, Service Bus application properties, Pub/Sub attributes, AMQP headers)",
+          "properties": {
+            "event_type": {
+              "const": "DocumentDetached"
+            },
+            "event_id": {
+              "type": "string"
+            },
+            "schema_version": {
+              "const": "1"
+            },
+            "resource": {
+              "type": "string"
+            },
+            "correlation_id": {
+              "type": "string"
+            },
+            "traceparent": {
+              "type": "string"
+            }
+          }
+        },
+        "summary": "A document of a invoices record was removed."
+      },
+      "invoices.InvoiceTotalsRecalculated": {
+        "name": "InvoiceTotalsRecalculated",
+        "title": "InvoiceTotalsRecalculated",
+        "contentType": "application/json",
+        "payload": {
+          "$ref": "#/components/schemas/invoices.InvoiceTotalsRecalculated"
+        },
+        "correlationId": {
+          "location": "$message.payload#/correlation_id"
+        },
+        "headers": {
+          "type": "object",
+          "description": "Broker message attributes (SNS/SQS attributes, Service Bus application properties, Pub/Sub attributes, AMQP headers)",
+          "properties": {
+            "event_type": {
+              "const": "InvoiceTotalsRecalculated"
+            },
+            "event_id": {
+              "type": "string"
+            },
+            "schema_version": {
+              "const": "1"
+            },
+            "resource": {
+              "type": "string"
+            },
+            "correlation_id": {
+              "type": "string"
+            },
+            "traceparent": {
+              "type": "string"
+            }
+          }
+        },
+        "summary": "L'import d'una factura s'ha recalculat aplicant un descompte."
+      },
+      "authz_policies.ResourceCreated": {
+        "name": "ResourceCreated",
+        "title": "ResourceCreated",
+        "contentType": "application/json",
+        "payload": {
+          "$ref": "#/components/schemas/authz_policies.ResourceCreated"
+        },
+        "correlationId": {
+          "location": "$message.payload#/correlation_id"
+        },
+        "headers": {
+          "type": "object",
+          "description": "Broker message attributes (SNS/SQS attributes, Service Bus application properties, Pub/Sub attributes, AMQP headers)",
+          "properties": {
+            "event_type": {
+              "const": "ResourceCreated"
+            },
+            "event_id": {
+              "type": "string"
+            },
+            "schema_version": {
+              "const": "1"
+            },
+            "resource": {
+              "type": "string"
+            },
+            "correlation_id": {
+              "type": "string"
+            },
+            "traceparent": {
+              "type": "string"
+            }
+          }
+        },
+        "summary": "A authz_policies record was created."
+      },
+      "authz_policies.ResourceUpdated": {
+        "name": "ResourceUpdated",
+        "title": "ResourceUpdated",
+        "contentType": "application/json",
+        "payload": {
+          "$ref": "#/components/schemas/authz_policies.ResourceUpdated"
+        },
+        "correlationId": {
+          "location": "$message.payload#/correlation_id"
+        },
+        "headers": {
+          "type": "object",
+          "description": "Broker message attributes (SNS/SQS attributes, Service Bus application properties, Pub/Sub attributes, AMQP headers)",
+          "properties": {
+            "event_type": {
+              "const": "ResourceUpdated"
+            },
+            "event_id": {
+              "type": "string"
+            },
+            "schema_version": {
+              "const": "1"
+            },
+            "resource": {
+              "type": "string"
+            },
+            "correlation_id": {
+              "type": "string"
+            },
+            "traceparent": {
+              "type": "string"
+            }
+          }
+        },
+        "summary": "Fields of a authz_policies record changed."
+      },
+      "authz_policies.ResourceDeleted": {
+        "name": "ResourceDeleted",
+        "title": "ResourceDeleted",
+        "contentType": "application/json",
+        "payload": {
+          "$ref": "#/components/schemas/authz_policies.ResourceDeleted"
+        },
+        "correlationId": {
+          "location": "$message.payload#/correlation_id"
+        },
+        "headers": {
+          "type": "object",
+          "description": "Broker message attributes (SNS/SQS attributes, Service Bus application properties, Pub/Sub attributes, AMQP headers)",
+          "properties": {
+            "event_type": {
+              "const": "ResourceDeleted"
+            },
+            "event_id": {
+              "type": "string"
+            },
+            "schema_version": {
+              "const": "1"
+            },
+            "resource": {
+              "type": "string"
+            },
+            "correlation_id": {
+              "type": "string"
+            },
+            "traceparent": {
+              "type": "string"
+            }
+          }
+        },
+        "summary": "A authz_policies record was deleted."
+      },
+      "authz_policies.PolicyChanged": {
+        "name": "PolicyChanged",
+        "title": "PolicyChanged",
+        "contentType": "application/json",
+        "payload": {
+          "$ref": "#/components/schemas/authz_policies.PolicyChanged"
+        },
+        "correlationId": {
+          "location": "$message.payload#/correlation_id"
+        },
+        "headers": {
+          "type": "object",
+          "description": "Broker message attributes (SNS/SQS attributes, Service Bus application properties, Pub/Sub attributes, AMQP headers)",
+          "properties": {
+            "event_type": {
+              "const": "PolicyChanged"
+            },
+            "event_id": {
+              "type": "string"
+            },
+            "schema_version": {
+              "const": "1"
+            },
+            "resource": {
+              "type": "string"
+            },
+            "correlation_id": {
+              "type": "string"
+            },
+            "traceparent": {
+              "type": "string"
+            }
+          }
+        },
+        "summary": "Policies or role assignments changed: caches must be refreshed."
+      },
+      "authz_roles.ResourceCreated": {
+        "name": "ResourceCreated",
+        "title": "ResourceCreated",
+        "contentType": "application/json",
+        "payload": {
+          "$ref": "#/components/schemas/authz_roles.ResourceCreated"
+        },
+        "correlationId": {
+          "location": "$message.payload#/correlation_id"
+        },
+        "headers": {
+          "type": "object",
+          "description": "Broker message attributes (SNS/SQS attributes, Service Bus application properties, Pub/Sub attributes, AMQP headers)",
+          "properties": {
+            "event_type": {
+              "const": "ResourceCreated"
+            },
+            "event_id": {
+              "type": "string"
+            },
+            "schema_version": {
+              "const": "1"
+            },
+            "resource": {
+              "type": "string"
+            },
+            "correlation_id": {
+              "type": "string"
+            },
+            "traceparent": {
+              "type": "string"
+            }
+          }
+        },
+        "summary": "A authz_roles record was created."
+      },
+      "authz_roles.ResourceUpdated": {
+        "name": "ResourceUpdated",
+        "title": "ResourceUpdated",
+        "contentType": "application/json",
+        "payload": {
+          "$ref": "#/components/schemas/authz_roles.ResourceUpdated"
+        },
+        "correlationId": {
+          "location": "$message.payload#/correlation_id"
+        },
+        "headers": {
+          "type": "object",
+          "description": "Broker message attributes (SNS/SQS attributes, Service Bus application properties, Pub/Sub attributes, AMQP headers)",
+          "properties": {
+            "event_type": {
+              "const": "ResourceUpdated"
+            },
+            "event_id": {
+              "type": "string"
+            },
+            "schema_version": {
+              "const": "1"
+            },
+            "resource": {
+              "type": "string"
+            },
+            "correlation_id": {
+              "type": "string"
+            },
+            "traceparent": {
+              "type": "string"
+            }
+          }
+        },
+        "summary": "Fields of a authz_roles record changed."
+      },
+      "authz_roles.ResourceDeleted": {
+        "name": "ResourceDeleted",
+        "title": "ResourceDeleted",
+        "contentType": "application/json",
+        "payload": {
+          "$ref": "#/components/schemas/authz_roles.ResourceDeleted"
+        },
+        "correlationId": {
+          "location": "$message.payload#/correlation_id"
+        },
+        "headers": {
+          "type": "object",
+          "description": "Broker message attributes (SNS/SQS attributes, Service Bus application properties, Pub/Sub attributes, AMQP headers)",
+          "properties": {
+            "event_type": {
+              "const": "ResourceDeleted"
+            },
+            "event_id": {
+              "type": "string"
+            },
+            "schema_version": {
+              "const": "1"
+            },
+            "resource": {
+              "type": "string"
+            },
+            "correlation_id": {
+              "type": "string"
+            },
+            "traceparent": {
+              "type": "string"
+            }
+          }
+        },
+        "summary": "A authz_roles record was deleted."
+      },
+      "authz_role_assignments.ResourceCreated": {
+        "name": "ResourceCreated",
+        "title": "ResourceCreated",
+        "contentType": "application/json",
+        "payload": {
+          "$ref": "#/components/schemas/authz_role_assignments.ResourceCreated"
+        },
+        "correlationId": {
+          "location": "$message.payload#/correlation_id"
+        },
+        "headers": {
+          "type": "object",
+          "description": "Broker message attributes (SNS/SQS attributes, Service Bus application properties, Pub/Sub attributes, AMQP headers)",
+          "properties": {
+            "event_type": {
+              "const": "ResourceCreated"
+            },
+            "event_id": {
+              "type": "string"
+            },
+            "schema_version": {
+              "const": "1"
+            },
+            "resource": {
+              "type": "string"
+            },
+            "correlation_id": {
+              "type": "string"
+            },
+            "traceparent": {
+              "type": "string"
+            }
+          }
+        },
+        "summary": "A authz_role_assignments record was created."
+      },
+      "authz_role_assignments.ResourceDeleted": {
+        "name": "ResourceDeleted",
+        "title": "ResourceDeleted",
+        "contentType": "application/json",
+        "payload": {
+          "$ref": "#/components/schemas/authz_role_assignments.ResourceDeleted"
+        },
+        "correlationId": {
+          "location": "$message.payload#/correlation_id"
+        },
+        "headers": {
+          "type": "object",
+          "description": "Broker message attributes (SNS/SQS attributes, Service Bus application properties, Pub/Sub attributes, AMQP headers)",
+          "properties": {
+            "event_type": {
+              "const": "ResourceDeleted"
+            },
+            "event_id": {
+              "type": "string"
+            },
+            "schema_version": {
+              "const": "1"
+            },
+            "resource": {
+              "type": "string"
+            },
+            "correlation_id": {
+              "type": "string"
+            },
+            "traceparent": {
+              "type": "string"
+            }
+          }
+        },
+        "summary": "A authz_role_assignments record was deleted."
+      },
+      "authz_role_assignments.PolicyChanged": {
+        "name": "PolicyChanged",
+        "title": "PolicyChanged",
+        "contentType": "application/json",
+        "payload": {
+          "$ref": "#/components/schemas/authz_role_assignments.PolicyChanged"
+        },
+        "correlationId": {
+          "location": "$message.payload#/correlation_id"
+        },
+        "headers": {
+          "type": "object",
+          "description": "Broker message attributes (SNS/SQS attributes, Service Bus application properties, Pub/Sub attributes, AMQP headers)",
+          "properties": {
+            "event_type": {
+              "const": "PolicyChanged"
+            },
+            "event_id": {
+              "type": "string"
+            },
+            "schema_version": {
+              "const": "1"
+            },
+            "resource": {
+              "type": "string"
+            },
+            "correlation_id": {
+              "type": "string"
+            },
+            "traceparent": {
+              "type": "string"
+            }
+          }
+        },
+        "summary": "Policies or role assignments changed: caches must be refreshed."
+      }
+    },
+    "schemas": {
+      "authz_policies.PolicyChanged": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Unique message id"
+          },
+          "type": {
+            "const": "PolicyChanged"
+          },
+          "occurred_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "correlation_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Id of the operation that produced the event"
+          },
+          "resource": {
+            "const": "authz_policies"
+          },
+          "key": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Ordering key: <resource>:<entity_id>"
+          },
+          "schema_version": {
+            "const": "1"
+          },
+          "payload": {
+            "description": "Policies or role assignments changed: caches must be refreshed.",
+            "properties": {
+              "resource": {
+                "title": "Resource",
+                "type": "string"
+              },
+              "entity_id": {
+                "title": "Entity Id"
+              }
+            },
+            "required": [
+              "resource",
+              "entity_id"
+            ],
+            "type": "object"
+          },
+          "trace": {
+            "type": "object",
+            "description": "W3C trace context of the producing operation",
+            "properties": {
+              "traceparent": {
+                "type": "string"
+              },
+              "tracestate": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "required": [
+          "id",
+          "type",
+          "occurred_at",
+          "schema_version",
+          "payload"
+        ]
+      },
+      "authz_policies.ResourceCreated": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Unique message id"
+          },
+          "type": {
+            "const": "ResourceCreated"
+          },
+          "occurred_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "correlation_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Id of the operation that produced the event"
+          },
+          "resource": {
+            "const": "authz_policies"
+          },
+          "key": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Ordering key: <resource>:<entity_id>"
+          },
+          "schema_version": {
+            "const": "1"
+          },
+          "payload": {
+            "type": "object",
+            "properties": {
+              "resource": {
+                "const": "authz_policies"
+              },
+              "entity_id": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "resource",
+              "entity_id"
+            ]
+          },
+          "trace": {
+            "type": "object",
+            "description": "W3C trace context of the producing operation",
+            "properties": {
+              "traceparent": {
+                "type": "string"
+              },
+              "tracestate": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "required": [
+          "id",
+          "type",
+          "occurred_at",
+          "schema_version",
+          "payload"
+        ]
+      },
+      "authz_policies.ResourceDeleted": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Unique message id"
+          },
+          "type": {
+            "const": "ResourceDeleted"
+          },
+          "occurred_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "correlation_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Id of the operation that produced the event"
+          },
+          "resource": {
+            "const": "authz_policies"
+          },
+          "key": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Ordering key: <resource>:<entity_id>"
+          },
+          "schema_version": {
+            "const": "1"
+          },
+          "payload": {
+            "type": "object",
+            "properties": {
+              "resource": {
+                "const": "authz_policies"
+              },
+              "entity_id": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "resource",
+              "entity_id"
+            ]
+          },
+          "trace": {
+            "type": "object",
+            "description": "W3C trace context of the producing operation",
+            "properties": {
+              "traceparent": {
+                "type": "string"
+              },
+              "tracestate": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "required": [
+          "id",
+          "type",
+          "occurred_at",
+          "schema_version",
+          "payload"
+        ]
+      },
+      "authz_policies.ResourceUpdated": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Unique message id"
+          },
+          "type": {
+            "const": "ResourceUpdated"
+          },
+          "occurred_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "correlation_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Id of the operation that produced the event"
+          },
+          "resource": {
+            "const": "authz_policies"
+          },
+          "key": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Ordering key: <resource>:<entity_id>"
+          },
+          "schema_version": {
+            "const": "1"
+          },
+          "payload": {
+            "type": "object",
+            "properties": {
+              "resource": {
+                "const": "authz_policies"
+              },
+              "entity_id": {
+                "type": "string"
+              },
+              "changes": {
+                "type": "object",
+                "description": "Changed fields: [old value, new value]",
+                "additionalProperties": {
+                  "type": "array",
+                  "minItems": 2,
+                  "maxItems": 2
+                }
+              }
+            },
+            "required": [
+              "resource",
+              "entity_id",
+              "changes"
+            ]
+          },
+          "trace": {
+            "type": "object",
+            "description": "W3C trace context of the producing operation",
+            "properties": {
+              "traceparent": {
+                "type": "string"
+              },
+              "tracestate": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "required": [
+          "id",
+          "type",
+          "occurred_at",
+          "schema_version",
+          "payload"
+        ]
+      },
+      "authz_role_assignments.PolicyChanged": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Unique message id"
+          },
+          "type": {
+            "const": "PolicyChanged"
+          },
+          "occurred_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "correlation_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Id of the operation that produced the event"
+          },
+          "resource": {
+            "const": "authz_role_assignments"
+          },
+          "key": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Ordering key: <resource>:<entity_id>"
+          },
+          "schema_version": {
+            "const": "1"
+          },
+          "payload": {
+            "description": "Policies or role assignments changed: caches must be refreshed.",
+            "properties": {
+              "resource": {
+                "title": "Resource",
+                "type": "string"
+              },
+              "entity_id": {
+                "title": "Entity Id"
+              }
+            },
+            "required": [
+              "resource",
+              "entity_id"
+            ],
+            "type": "object"
+          },
+          "trace": {
+            "type": "object",
+            "description": "W3C trace context of the producing operation",
+            "properties": {
+              "traceparent": {
+                "type": "string"
+              },
+              "tracestate": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "required": [
+          "id",
+          "type",
+          "occurred_at",
+          "schema_version",
+          "payload"
+        ]
+      },
+      "authz_role_assignments.ResourceCreated": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Unique message id"
+          },
+          "type": {
+            "const": "ResourceCreated"
+          },
+          "occurred_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "correlation_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Id of the operation that produced the event"
+          },
+          "resource": {
+            "const": "authz_role_assignments"
+          },
+          "key": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Ordering key: <resource>:<entity_id>"
+          },
+          "schema_version": {
+            "const": "1"
+          },
+          "payload": {
+            "type": "object",
+            "properties": {
+              "resource": {
+                "const": "authz_role_assignments"
+              },
+              "entity_id": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "resource",
+              "entity_id"
+            ]
+          },
+          "trace": {
+            "type": "object",
+            "description": "W3C trace context of the producing operation",
+            "properties": {
+              "traceparent": {
+                "type": "string"
+              },
+              "tracestate": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "required": [
+          "id",
+          "type",
+          "occurred_at",
+          "schema_version",
+          "payload"
+        ]
+      },
+      "authz_role_assignments.ResourceDeleted": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Unique message id"
+          },
+          "type": {
+            "const": "ResourceDeleted"
+          },
+          "occurred_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "correlation_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Id of the operation that produced the event"
+          },
+          "resource": {
+            "const": "authz_role_assignments"
+          },
+          "key": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Ordering key: <resource>:<entity_id>"
+          },
+          "schema_version": {
+            "const": "1"
+          },
+          "payload": {
+            "type": "object",
+            "properties": {
+              "resource": {
+                "const": "authz_role_assignments"
+              },
+              "entity_id": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "resource",
+              "entity_id"
+            ]
+          },
+          "trace": {
+            "type": "object",
+            "description": "W3C trace context of the producing operation",
+            "properties": {
+              "traceparent": {
+                "type": "string"
+              },
+              "tracestate": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "required": [
+          "id",
+          "type",
+          "occurred_at",
+          "schema_version",
+          "payload"
+        ]
+      },
+      "authz_roles.ResourceCreated": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Unique message id"
+          },
+          "type": {
+            "const": "ResourceCreated"
+          },
+          "occurred_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "correlation_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Id of the operation that produced the event"
+          },
+          "resource": {
+            "const": "authz_roles"
+          },
+          "key": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Ordering key: <resource>:<entity_id>"
+          },
+          "schema_version": {
+            "const": "1"
+          },
+          "payload": {
+            "type": "object",
+            "properties": {
+              "resource": {
+                "const": "authz_roles"
+              },
+              "entity_id": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "resource",
+              "entity_id"
+            ]
+          },
+          "trace": {
+            "type": "object",
+            "description": "W3C trace context of the producing operation",
+            "properties": {
+              "traceparent": {
+                "type": "string"
+              },
+              "tracestate": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "required": [
+          "id",
+          "type",
+          "occurred_at",
+          "schema_version",
+          "payload"
+        ]
+      },
+      "authz_roles.ResourceDeleted": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Unique message id"
+          },
+          "type": {
+            "const": "ResourceDeleted"
+          },
+          "occurred_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "correlation_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Id of the operation that produced the event"
+          },
+          "resource": {
+            "const": "authz_roles"
+          },
+          "key": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Ordering key: <resource>:<entity_id>"
+          },
+          "schema_version": {
+            "const": "1"
+          },
+          "payload": {
+            "type": "object",
+            "properties": {
+              "resource": {
+                "const": "authz_roles"
+              },
+              "entity_id": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "resource",
+              "entity_id"
+            ]
+          },
+          "trace": {
+            "type": "object",
+            "description": "W3C trace context of the producing operation",
+            "properties": {
+              "traceparent": {
+                "type": "string"
+              },
+              "tracestate": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "required": [
+          "id",
+          "type",
+          "occurred_at",
+          "schema_version",
+          "payload"
+        ]
+      },
+      "authz_roles.ResourceUpdated": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Unique message id"
+          },
+          "type": {
+            "const": "ResourceUpdated"
+          },
+          "occurred_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "correlation_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Id of the operation that produced the event"
+          },
+          "resource": {
+            "const": "authz_roles"
+          },
+          "key": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Ordering key: <resource>:<entity_id>"
+          },
+          "schema_version": {
+            "const": "1"
+          },
+          "payload": {
+            "type": "object",
+            "properties": {
+              "resource": {
+                "const": "authz_roles"
+              },
+              "entity_id": {
+                "type": "string"
+              },
+              "changes": {
+                "type": "object",
+                "description": "Changed fields: [old value, new value]",
+                "additionalProperties": {
+                  "type": "array",
+                  "minItems": 2,
+                  "maxItems": 2
+                }
+              }
+            },
+            "required": [
+              "resource",
+              "entity_id",
+              "changes"
+            ]
+          },
+          "trace": {
+            "type": "object",
+            "description": "W3C trace context of the producing operation",
+            "properties": {
+              "traceparent": {
+                "type": "string"
+              },
+              "tracestate": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "required": [
+          "id",
+          "type",
+          "occurred_at",
+          "schema_version",
+          "payload"
+        ]
+      },
+      "invoices.ActionExecuted": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Unique message id"
+          },
+          "type": {
+            "const": "ActionExecuted"
+          },
+          "occurred_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "correlation_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Id of the operation that produced the event"
+          },
+          "resource": {
+            "const": "invoices"
+          },
+          "key": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Ordering key: <resource>:<entity_id>"
+          },
+          "schema_version": {
+            "const": "1"
+          },
+          "payload": {
+            "type": "object",
+            "properties": {
+              "resource": {
+                "const": "invoices"
+              },
+              "entity_id": {
+                "type": "integer"
+              },
+              "action": {
+                "enum": [
+                  "recalculate_totals",
+                  "render_summary"
+                ]
+              }
+            },
+            "required": [
+              "resource",
+              "entity_id",
+              "action"
+            ]
+          },
+          "trace": {
+            "type": "object",
+            "description": "W3C trace context of the producing operation",
+            "properties": {
+              "traceparent": {
+                "type": "string"
+              },
+              "tracestate": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "required": [
+          "id",
+          "type",
+          "occurred_at",
+          "schema_version",
+          "payload"
+        ]
+      },
+      "invoices.DocumentAttached": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Unique message id"
+          },
+          "type": {
+            "const": "DocumentAttached"
+          },
+          "occurred_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "correlation_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Id of the operation that produced the event"
+          },
+          "resource": {
+            "const": "invoices"
+          },
+          "key": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Ordering key: <resource>:<entity_id>"
+          },
+          "schema_version": {
+            "const": "1"
+          },
+          "payload": {
+            "type": "object",
+            "properties": {
+              "resource": {
+                "const": "invoices"
+              },
+              "entity_id": {
+                "type": "integer"
+              },
+              "document_id": {
+                "type": "string"
+              },
+              "slot": {
+                "enum": [
+                  "signed_pdf",
+                  "attachments",
+                  "summary"
+                ]
+              },
+              "content_type": {
+                "type": "string"
+              },
+              "size": {
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "processing": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "resource",
+              "entity_id",
+              "document_id",
+              "slot",
+              "content_type",
+              "size",
+              "processing"
+            ]
+          },
+          "trace": {
+            "type": "object",
+            "description": "W3C trace context of the producing operation",
+            "properties": {
+              "traceparent": {
+                "type": "string"
+              },
+              "tracestate": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "required": [
+          "id",
+          "type",
+          "occurred_at",
+          "schema_version",
+          "payload"
+        ]
+      },
+      "invoices.DocumentDetached": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Unique message id"
+          },
+          "type": {
+            "const": "DocumentDetached"
+          },
+          "occurred_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "correlation_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Id of the operation that produced the event"
+          },
+          "resource": {
+            "const": "invoices"
+          },
+          "key": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Ordering key: <resource>:<entity_id>"
+          },
+          "schema_version": {
+            "const": "1"
+          },
+          "payload": {
+            "type": "object",
+            "properties": {
+              "resource": {
+                "const": "invoices"
+              },
+              "entity_id": {
+                "type": "integer"
+              },
+              "document_id": {
+                "type": "string"
+              },
+              "slot": {
+                "enum": [
+                  "signed_pdf",
+                  "attachments",
+                  "summary"
+                ]
+              }
+            },
+            "required": [
+              "resource",
+              "entity_id",
+              "document_id",
+              "slot"
+            ]
+          },
+          "trace": {
+            "type": "object",
+            "description": "W3C trace context of the producing operation",
+            "properties": {
+              "traceparent": {
+                "type": "string"
+              },
+              "tracestate": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "required": [
+          "id",
+          "type",
+          "occurred_at",
+          "schema_version",
+          "payload"
+        ]
+      },
+      "invoices.InvoiceTotalsRecalculated": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Unique message id"
+          },
+          "type": {
+            "const": "InvoiceTotalsRecalculated"
+          },
+          "occurred_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "correlation_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Id of the operation that produced the event"
+          },
+          "resource": {
+            "const": "invoices"
+          },
+          "key": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Ordering key: <resource>:<entity_id>"
+          },
+          "schema_version": {
+            "const": "1"
+          },
+          "payload": {
+            "description": "L'import d'una factura s'ha recalculat aplicant un descompte.",
+            "properties": {
+              "invoice_id": {
+                "title": "Invoice Id",
+                "type": "integer"
+              },
+              "previous_amount": {
+                "title": "Previous Amount",
+                "type": "string"
+              },
+              "new_amount": {
+                "title": "New Amount",
+                "type": "string"
+              }
+            },
+            "required": [
+              "invoice_id",
+              "previous_amount",
+              "new_amount"
+            ],
+            "type": "object"
+          },
+          "trace": {
+            "type": "object",
+            "description": "W3C trace context of the producing operation",
+            "properties": {
+              "traceparent": {
+                "type": "string"
+              },
+              "tracestate": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "required": [
+          "id",
+          "type",
+          "occurred_at",
+          "schema_version",
+          "payload"
+        ]
+      },
+      "invoices.ResourceCreated": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Unique message id"
+          },
+          "type": {
+            "const": "ResourceCreated"
+          },
+          "occurred_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "correlation_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Id of the operation that produced the event"
+          },
+          "resource": {
+            "const": "invoices"
+          },
+          "key": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Ordering key: <resource>:<entity_id>"
+          },
+          "schema_version": {
+            "const": "1"
+          },
+          "payload": {
+            "type": "object",
+            "properties": {
+              "resource": {
+                "const": "invoices"
+              },
+              "entity_id": {
+                "type": "integer"
+              }
+            },
+            "required": [
+              "resource",
+              "entity_id"
+            ]
+          },
+          "trace": {
+            "type": "object",
+            "description": "W3C trace context of the producing operation",
+            "properties": {
+              "traceparent": {
+                "type": "string"
+              },
+              "tracestate": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "required": [
+          "id",
+          "type",
+          "occurred_at",
+          "schema_version",
+          "payload"
+        ]
+      },
+      "invoices.ResourceDeleted": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Unique message id"
+          },
+          "type": {
+            "const": "ResourceDeleted"
+          },
+          "occurred_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "correlation_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Id of the operation that produced the event"
+          },
+          "resource": {
+            "const": "invoices"
+          },
+          "key": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Ordering key: <resource>:<entity_id>"
+          },
+          "schema_version": {
+            "const": "1"
+          },
+          "payload": {
+            "type": "object",
+            "properties": {
+              "resource": {
+                "const": "invoices"
+              },
+              "entity_id": {
+                "type": "integer"
+              }
+            },
+            "required": [
+              "resource",
+              "entity_id"
+            ]
+          },
+          "trace": {
+            "type": "object",
+            "description": "W3C trace context of the producing operation",
+            "properties": {
+              "traceparent": {
+                "type": "string"
+              },
+              "tracestate": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "required": [
+          "id",
+          "type",
+          "occurred_at",
+          "schema_version",
+          "payload"
+        ]
+      },
+      "invoices.ResourceUpdated": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Unique message id"
+          },
+          "type": {
+            "const": "ResourceUpdated"
+          },
+          "occurred_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "correlation_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Id of the operation that produced the event"
+          },
+          "resource": {
+            "const": "invoices"
+          },
+          "key": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Ordering key: <resource>:<entity_id>"
+          },
+          "schema_version": {
+            "const": "1"
+          },
+          "payload": {
+            "type": "object",
+            "properties": {
+              "resource": {
+                "const": "invoices"
+              },
+              "entity_id": {
+                "type": "integer"
+              },
+              "changes": {
+                "type": "object",
+                "description": "Changed fields: [old value, new value]",
+                "additionalProperties": {
+                  "type": "array",
+                  "minItems": 2,
+                  "maxItems": 2
+                }
+              }
+            },
+            "required": [
+              "resource",
+              "entity_id",
+              "changes"
+            ]
+          },
+          "trace": {
+            "type": "object",
+            "description": "W3C trace context of the producing operation",
+            "properties": {
+              "traceparent": {
+                "type": "string"
+              },
+              "tracestate": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "required": [
+          "id",
+          "type",
+          "occurred_at",
+          "schema_version",
+          "payload"
+        ]
+      },
+      "invoices.TransitionExecuted": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Unique message id"
+          },
+          "type": {
+            "const": "TransitionExecuted"
+          },
+          "occurred_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "correlation_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Id of the operation that produced the event"
+          },
+          "resource": {
+            "const": "invoices"
+          },
+          "key": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Ordering key: <resource>:<entity_id>"
+          },
+          "schema_version": {
+            "const": "1"
+          },
+          "payload": {
+            "type": "object",
+            "properties": {
+              "resource": {
+                "const": "invoices"
+              },
+              "entity_id": {
+                "type": "integer"
+              },
+              "transition": {
+                "enum": [
+                  "submit",
+                  "approve",
+                  "reject",
+                  "pay",
+                  "reopen"
+                ]
+              },
+              "source": {
+                "enum": [
+                  "draft",
+                  "pending",
+                  "approved",
+                  "rejected",
+                  "paid"
+                ]
+              },
+              "target": {
+                "enum": [
+                  "draft",
+                  "pending",
+                  "approved",
+                  "rejected",
+                  "paid"
+                ]
+              }
+            },
+            "required": [
+              "resource",
+              "entity_id",
+              "transition",
+              "source",
+              "target"
+            ]
+          },
+          "trace": {
+            "type": "object",
+            "description": "W3C trace context of the producing operation",
+            "properties": {
+              "traceparent": {
+                "type": "string"
+              },
+              "tracestate": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "required": [
+          "id",
+          "type",
+          "occurred_at",
+          "schema_version",
+          "payload"
+        ]
+      }
+    }
+  }
+}

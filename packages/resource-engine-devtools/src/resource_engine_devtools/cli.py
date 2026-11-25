@@ -161,13 +161,58 @@ def cmd_inspect(args: argparse.Namespace) -> int:
     return 0
 
 
+def _asyncapi(args: argparse.Namespace, registry: ResourceRegistry) -> dict[str, Any]:
+    """The AsyncAPI document with ``[tool.resource-engine.asyncapi]`` options."""
+    from resource_engine.messaging.asyncapi import asyncapi_document
+
+    from resource_engine_devtools.loader import load_consumers
+
+    options = dict(find_config(Path.cwd()).get("asyncapi") or {})  # type: ignore[call-overload]
+    allowed = {
+        "title",
+        "version",
+        "description",
+        "resources",
+        "servers",
+        "channels",
+        "format",
+        "source",
+        "type_prefix",
+    }
+    unknown = sorted(set(options) - allowed)
+    if unknown:
+        raise SystemExit(
+            f"Unknown [tool.resource-engine.asyncapi] keys: {', '.join(unknown)} "
+            f"(allowed: {', '.join(sorted(allowed))})"
+        )
+    consumers = load_consumers(getattr(args, "consumer", None), Path.cwd())
+    return asyncapi_document(registry, consumers=consumers, **options)  # type: ignore[arg-type]
+
+
+def cmd_docs_asyncapi(args: argparse.Namespace) -> int:
+    document = _asyncapi(args, _registry(args))
+    text = json.dumps(document, indent=2, ensure_ascii=False) + "\n"
+    if args.out:
+        target = Path(args.out)
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(text, encoding="utf-8")
+        print(json.dumps({"written": [str(target)]}) if args.json else f"wrote {target}")
+    else:
+        sys.stdout.write(text)
+    return 0
+
+
 def cmd_docs_generate(args: argparse.Namespace) -> int:
-    model = introspect(_registry(args), load_authz(Path.cwd()))
+    registry = _registry(args)
+    model = introspect(registry, load_authz(Path.cwd()))
     out = Path(args.out)
     if args.format == "json":
         files = {"documentation.json": render_json(model)}
     else:
         files = render_markdown(model)
+    asyncapi = _asyncapi(args, registry)
+    if asyncapi["channels"]:
+        files["asyncapi.json"] = json.dumps(asyncapi, indent=2, ensure_ascii=False) + "\n"
     for rel, content in files.items():
         target = out / rel
         target.parent.mkdir(parents=True, exist_ok=True)
@@ -364,6 +409,7 @@ def cmd_check(args: argparse.Namespace) -> int:
     from resource_engine.errors import ResourceEngineError
 
     from resource_engine_devtools import gates_check
+    from resource_engine_devtools.events_check import check_events
     from resource_engine_devtools.hooks_check import check_hooks
 
     try:
@@ -373,6 +419,7 @@ def cmd_check(args: argparse.Namespace) -> int:
         violations.append(gates_check.load_error(exc))
     if registry is not None:
         violations += check_hooks(registry)
+        violations += check_events(registry)
         seed = args.policies or find_config(Path.cwd()).get("policies")
         if seed:
             violations += gates_check.check_gates(
@@ -414,6 +461,16 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--out", default="docs/functional")
     p.add_argument("--format", choices=["markdown", "json"], default="markdown")
     p.set_defaults(func=cmd_docs_generate)
+    p = docs.add_parser(
+        "asyncapi", parents=[common], help="AsyncAPI 3.0 document of published and consumed events"
+    )
+    p.add_argument("--out", help="file to write (default: standard output)")
+    p.add_argument(
+        "--consumer",
+        action="append",
+        help="EventRouter as module:attribute (repeatable; default: pyproject consumers)",
+    )
+    p.set_defaults(func=cmd_docs_asyncapi)
     p = docs.add_parser("validate", parents=[common])
     p.add_argument("--strict", action="store_true", help="fail on warnings too")
     p.add_argument("-v", "--verbose", action="store_true", help="also list passing checks")

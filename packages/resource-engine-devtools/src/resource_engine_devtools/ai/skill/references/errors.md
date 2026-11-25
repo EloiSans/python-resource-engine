@@ -67,4 +67,5 @@ Your own business errors subclass `resource_engine.domain.DomainError`, set a
 | RE-C003 | `check` | Do it before commit, or start a new operation |
 | RE-C004 | `check` | Grant the operation: a seed policy, a system role, or remove the operation |
 | RE-C005 | `check` | The engine refused a declaration: read the `RE-E` code and hint in the message |
-| RE-D001…D010 | `docs validate` | Add the missing docstring or section ([docstrings.md](docstrings.md)) |
+| RE-C006 | `check` | Add the recorded event class to the resource's `events` |
+| RE-D001…D011 | `docs validate` | Add the missing docstring or section ([docstrings.md](docstrings.md)) |

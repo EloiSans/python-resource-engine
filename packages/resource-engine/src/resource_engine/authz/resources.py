@@ -148,6 +148,7 @@ class PolicyResource(Resource):
     """
 
     name = "authz_policies"
+    events = (PolicyChanged,)
     model = Policy
     id_type = str
     schemas = {"create": PolicyCreate, "update": PolicyUpdate, "read": PolicyRead}
@@ -258,6 +259,7 @@ class RoleAssignmentResource(Resource):
     """
 
     name = "authz_role_assignments"
+    events = (PolicyChanged,)
     model = RoleAssignment
     id_type = str
     schemas = {"create": AssignmentCreate, "read": AssignmentRead}

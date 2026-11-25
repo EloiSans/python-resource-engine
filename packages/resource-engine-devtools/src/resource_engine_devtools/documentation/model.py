@@ -82,6 +82,16 @@ class ActionDoc:
 
 
 @dataclass
+class EventDoc:
+    """A domain event the resource declares (``Resource.events``)."""
+
+    name: str
+    qualname: str
+    doc: DocText
+    fields: list[FieldDoc]
+
+
+@dataclass
 class SlotDoc:
     name: str
     description: str | None
@@ -115,6 +125,7 @@ class ResourceDoc:
     audit: bool = True
     audit_reads: bool = False
     audit_exclude: list[str] = field(default_factory=list)
+    events: list[EventDoc] = field(default_factory=list)
 
 
 @dataclass

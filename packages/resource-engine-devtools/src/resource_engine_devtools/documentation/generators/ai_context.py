@@ -37,6 +37,11 @@ def render_ai_context(model: DocumentationModel) -> str:
             out.append(
                 "  actions: " + ", ".join(f"{a.name}({a.input_schema or ''})" for a in r.actions)
             )
+        if r.events:
+            out.append(
+                "  events: "
+                + ", ".join(f"{e.name}({', '.join(f.name for f in e.fields)})" for e in r.events)
+            )
         if r.documents:
             out.append(
                 "  documents: "

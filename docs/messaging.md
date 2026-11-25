@@ -19,6 +19,25 @@ FIFO queues, sessions and ordering keys.
 With a tracer configured, envelopes also carry `"trace": {"traceparent": …}`,
 so consumers continue the producer's trace ([observability](observability.md#from-the-operation-to-the-consumer)).
 
+### Declaring events
+
+Declare the domain events a resource's actions and hooks record:
+
+```python
+class InvoiceResource(Resource):
+    actions = [RecalculateTotals]
+    events = [InvoiceTotalsRecalculated]  # DomainEvent dataclasses
+```
+
+- **Where they appear:** declared events are listed in the generated docs and
+  in the [AsyncAPI document](asyncapi.md).
+- **Undeclared events:** they are still published. `resource-engine check`
+  reports them as RE-C006.
+- **Engine events:** created, updated, deleted, transition, action and document
+  events need no declaration.
+- **Validation:** an entry that isn't a `DomainEvent` dataclass, or two events
+  with the same class name (the type on the wire), is refused at registration.
+
 ## Delivery modes
 
 | Mode | Class | Guarantee |
@@ -96,6 +115,34 @@ await consumer.run_forever(stop_event)
 
 Raise `MessageRejected` from a handler when a message can never succeed.
 `permanent_errors=` changes the list of non-retryable exceptions.
+
+### Typed payloads
+
+Events from other services arrive as dicts. Give the router a payload type
+(a Pydantic model, a dataclass, or anything Pydantic validates) to validate
+them before the handler runs:
+
+```python
+class PaymentReceived(BaseModel):
+    invoice_id: int
+    amount: Decimal
+
+
+@router.on("PaymentReceived", payload=PaymentReceived)
+async def mark_paid(envelope, payment: PaymentReceived):
+    await manager.transition("invoices", payment.invoice_id, "pay")
+```
+
+- **Handler arguments:** a handler registered with `payload=` gets
+  `(envelope, payload)`. Untyped handlers still get only the envelope.
+- **Invalid payloads:** they raise `MessageRejected` (RE-E406) with
+  Pydantic's errors in `details`, so the message is dead-lettered without
+  retries. Fix the producer or the model, then replay it.
+- **One type per event:** an event type has one payload type. Registering a
+  different one is a `ConfigurationError`.
+- **Documentation:** the type is the message schema in the
+  [AsyncAPI document](asyncapi.md). `EventRouter(name=..., description=...)`
+  names and describes the consumer's channel.
 
 ### Ordering
 
