@@ -37,6 +37,14 @@ def render_ai_context(model: DocumentationModel) -> str:
             out.append(
                 "  actions: " + ", ".join(f"{a.name}({a.input_schema or ''})" for a in r.actions)
             )
+        if r.references:
+            out.append(
+                "  references: "
+                + ", ".join(
+                    f"{x.name}={x.field}->{x.resource}(on_delete={x.on_delete})"
+                    for x in r.references
+                )
+            )
         if r.events:
             out.append(
                 "  events: "

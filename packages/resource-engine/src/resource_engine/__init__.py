@@ -19,6 +19,7 @@ from resource_engine.application.idempotency import IdempotencyJanitor
 from resource_engine.application.manager import ResourceManager
 from resource_engine.application.query import ListQuery, Page
 from resource_engine.application.registry import ResourceRegistry
+from resource_engine.application.relations import Reference
 from resource_engine.application.resource import (
     CRUD_OPERATIONS,
     ActionDefinition,
@@ -45,6 +46,7 @@ __all__ = [
     "ListQuery",
     "OperationContext",
     "Page",
+    "Reference",
     "Resource",
     "ResourceCreated",
     "ResourceDefinition",

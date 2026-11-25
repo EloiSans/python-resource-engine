@@ -27,6 +27,8 @@ and a `doc` link. Read the hint first.
 | RE-E105 | `VersionConflict` | 409 | Stale version: reload and retry |
 | RE-E106 | `VersionRequired` | 428 | `require_version`: send `If-Match` / `expected_version` |
 | RE-E107 | `IdempotencyKeyReused` | 422 | The idempotency key was used for a different request |
+| RE-E108 | `ReferenceNotFound` | 422 | A reference points to a missing or unreadable record: use an existing id |
+| RE-E109 | `ReferenceInUse` | 409 | Other records still reference it: change or delete them first |
 | RE-E201 | `TransitionNotAllowed` | 409 | Not possible from the current state (`details.allowed`) |
 | RE-E202 | `UnknownTransition` | 404 | No such transition |
 | RE-E301 | `ActionNotFound` | 404 | No such action |

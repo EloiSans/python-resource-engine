@@ -194,6 +194,14 @@ Generated HTTP API: `GET/POST /invoices`, `GET/PATCH/DELETE /invoices/{id}`,
 `GET /invoices/{id}/transitions`, `POST /invoices/{id}/transitions/{event}`,
 `POST /invoices/{id}/actions/{name}`.
 
+References to other resources: `references = {"customer_id":
+Reference("customers", name="customer_record")}` (`on_delete="restrict"` by
+default, or `"set_null"`, `"cascade"`). Writes check the referenced record
+exists and is readable (RE-E108); deleting a referenced record is refused
+(RE-E109); `get`/`list` take `expand=["customer_record"]` (`?expand=` over HTTP)
+and `list` filters on `customer_record.<filterable field>`. Never check
+references in hooks or join by hand. See docs/relationships.md.
+
 MCP tools for AI agents (`resource-engine-mcp`): `ResourceMcpServer(registry,
 manager)` turns the same operations into tools (`invoices_list`,
 `invoices_transition_approve`, `invoices_action_recalculate_totals`...) called

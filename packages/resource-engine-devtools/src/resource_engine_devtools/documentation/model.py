@@ -82,6 +82,17 @@ class ActionDoc:
 
 
 @dataclass
+class ReferenceDoc:
+    """A reference to another resource (``Resource.references``)."""
+
+    name: str
+    field: str
+    resource: str
+    on_delete: str
+    description: str | None = None
+
+
+@dataclass
 class EventDoc:
     """A domain event the resource declares (``Resource.events``)."""
 
@@ -126,6 +137,8 @@ class ResourceDoc:
     audit_reads: bool = False
     audit_exclude: list[str] = field(default_factory=list)
     events: list[EventDoc] = field(default_factory=list)
+    references: list[ReferenceDoc] = field(default_factory=list)
+    referenced_by: list[ReferenceDoc] = field(default_factory=list)
 
 
 @dataclass

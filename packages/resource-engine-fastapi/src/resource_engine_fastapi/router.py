@@ -15,7 +15,7 @@ from fastapi import APIRouter, Body, Depends, FastAPI, Header, Path, Query, Resp
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, create_model
 from resource_engine import ListQuery, ResourceDefinition, ResourceManager, ResourceRegistry
-from resource_engine.authz.fields import hidden_fields
+from resource_engine.application.relations import dump_read, needs_dump
 from resource_engine.errors import InvalidQuery
 
 from resource_engine_fastapi.documents import (
@@ -50,7 +50,7 @@ def _summary(text: str | None) -> str | None:
 
 
 def _dump(value: Any) -> Any:
-    return value.model_dump(mode="json", by_alias=True, exclude=set(hidden_fields(value)))
+    return dump_read(value)
 
 
 def _respond(
@@ -60,12 +60,13 @@ def _respond(
     version_field: str | None = None,
     response: Response | None = None,
 ) -> Any:
-    """Results with hidden fields (field-level permissions) are serialized without
-    them, bypassing response-model validation, which would require them.
-    Versioned resources answer with ``ETag: "<version>"``."""
+    """Results with hidden fields (field-level permissions) or expanded related
+    records are serialized directly, bypassing response-model validation, which
+    would require the hidden fields and drop the expansions. Versioned
+    resources answer with ``ETag: "<version>"``."""
     version = getattr(value, version_field, None) if version_field else None
     etag = None if version is None else f'"{version}"'
-    if hidden_fields(value):
+    if needs_dump(value):
         reply = JSONResponse(_dump(value), status_code=status_code)
         if etag:
             reply.headers["ETag"] = etag
@@ -91,7 +92,7 @@ def parse_if_match(value: str | None) -> int | None:
 
 def _respond_page(page: dict[str, Any]) -> Any:
     items = page["items"]
-    if not any(hidden_fields(i) for i in items):
+    if not any(needs_dump(i) for i in items):
         return page
     return JSONResponse({**page, "items": [_dump(i) for i in items]})
 
@@ -104,6 +105,10 @@ def _page_model(read: type[BaseModel]) -> type[BaseModel]:
         offset=(int, ...),
         limit=(int, ...),
     )
+
+
+def registry_of(manager: ResourceManager) -> ResourceRegistry:
+    return manager.registry
 
 
 def build_resource_router(
@@ -169,6 +174,26 @@ def build_resource_router(
         )
     ]
 
+    relations = list(definition.references)
+    expand_params = (
+        [
+            _param(
+                "expand",
+                str | None,
+                Query(
+                    None,
+                    description="Comma-separated relations to include: " + ", ".join(relations),
+                ),
+            )
+        ]
+        if relations
+        else []
+    )
+
+    def expand_of(kw: dict[str, Any]) -> tuple[str, ...]:
+        raw = kw.get("expand") or ""
+        return tuple(part.strip() for part in raw.split(",") if part.strip())
+
     def reply(value: Any, kw: dict[str, Any], status_code: int = 200) -> Any:
         return _respond(
             value, status_code, version_field=version_field, response=kw.get("response")
@@ -182,20 +207,47 @@ def build_resource_router(
             filter_params.append(
                 _param(f"filter__{fld}", annotation | None, Query(None, alias=fld))  # type: ignore[operator]
             )
+        for ref in definition.references.values():
+            target = registry_of(manager).get(ref.target)
+            target_read = target.schemas.get("read")
+            for fld in target.filterable:
+                annotation = target_read.model_fields[fld].annotation if target_read else str
+                filter_params.append(
+                    _param(
+                        f"related__{ref.name}__{fld}",
+                        annotation | None,  # type: ignore[operator]
+                        Query(
+                            None,
+                            alias=f"{ref.name}.{fld}",
+                            description=f"Filter by the related {ref.target} record's {fld}",
+                        ),
+                    )
+                )
 
         async def list_endpoint(**kw: Any) -> Any:
             order = kw.pop("order_by")
+            filters = {
+                k.removeprefix("filter__"): v
+                for k, v in kw.items()
+                if k.startswith("filter__") and v is not None
+            }
+            for k, v in kw.items():
+                if k.startswith("related__") and v is not None:
+                    relation, _, fld = k.removeprefix("related__").partition("__")
+                    filters[f"{relation}.{fld}"] = v
             query = ListQuery(
                 offset=kw.pop("offset"),
                 limit=kw.pop("limit"),
                 order_by=[o for o in (order or "").split(",") if o],
-                filters={
-                    k.removeprefix("filter__"): v
-                    for k, v in kw.items()
-                    if k.startswith("filter__") and v is not None
-                },
+                filters=filters,
             )
-            page = await manager.list(name, query, actor=kw.get("actor"), tenant=kw.get("tenant"))
+            page = await manager.list(
+                name,
+                query,
+                actor=kw.get("actor"),
+                tenant=kw.get("tenant"),
+                expand=expand_of(kw),
+            )
             return _respond_page(
                 {
                     "items": page.items,
@@ -220,6 +272,7 @@ def build_resource_router(
                         ),
                     ),
                     *filter_params,
+                    *expand_params,
                     *tenant_params,
                     actor_param,
                 ],
@@ -235,7 +288,11 @@ def build_resource_router(
 
         async def get_endpoint(**kw: Any) -> Any:
             result = await manager.get(
-                name, kw["entity_id"], actor=kw["actor"], tenant=kw.get("tenant")
+                name,
+                kw["entity_id"],
+                actor=kw["actor"],
+                tenant=kw.get("tenant"),
+                expand=expand_of(kw),
             )
             return reply(result, kw)
 
@@ -243,7 +300,7 @@ def build_resource_router(
             "/{entity_id}",
             _endpoint(
                 get_endpoint,
-                [id_param, *tenant_params, actor_param, response_param],
+                [id_param, *expand_params, *tenant_params, actor_param, response_param],
                 f"get_{name}",
             ),
             methods=["GET"],

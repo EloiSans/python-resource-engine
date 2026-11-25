@@ -20,10 +20,11 @@ logged and never undo a committed operation.
 
 from __future__ import annotations
 
+import contextlib
 import dataclasses
 import inspect
 import logging
-from collections.abc import AsyncIterator, Mapping, Sequence
+from collections.abc import AsyncIterator, Collection, Mapping, Sequence
 from contextlib import asynccontextmanager
 from datetime import timedelta
 from typing import TYPE_CHECKING, Any
@@ -47,6 +48,11 @@ from resource_engine.application.idempotency import (
 )
 from resource_engine.application.query import ListQuery, Page
 from resource_engine.application.registry import ResourceRegistry
+from resource_engine.application.relations import (
+    ReferenceDefinition,
+    related_filter_names,
+    split_filters,
+)
 from resource_engine.application.resource import Resource, ResourceDefinition
 from resource_engine.application.transaction import Transaction
 from resource_engine.application.transaction import current as current_transaction
@@ -61,6 +67,8 @@ from resource_engine.errors import (
     InvalidQuery,
     OperationNotEnabled,
     PermissionDenied,
+    ReferenceInUse,
+    ReferenceNotFound,
     TenantMismatch,
     TenantRequired,
     TransactionDoomed,
@@ -82,6 +90,9 @@ from resource_engine.tracing import get_tracer, traced
 
 if TYPE_CHECKING:
     from resource_engine.documents.manager import DocumentManager
+
+#: Related records a filter like ``customer.country`` may match (docs/relationships.md).
+MAX_RELATED_MATCHES = 1000
 
 logger = logging.getLogger("resource_engine")
 
@@ -138,6 +149,10 @@ class ResourceManager:
                 hint="Call registry.register_audit() (and map its table with SQLAlchemy).",
                 doc="docs/audit.md#setup",
             )
+        from resource_engine.application.relations import check_references
+
+        #: References pointing to each resource, by target name (docs/relationships.md).
+        self.dependents = check_references(registry)
         self.documents: DocumentManager | None = None
         if blob_store is not None:
             from resource_engine.documents.manager import DocumentManager
@@ -747,15 +762,24 @@ class ResourceManager:
         *,
         actor: Any = None,
         tenant: str | None = None,
+        expand: Sequence[str] = (),
     ) -> Page[Any]:
         definition = self.registry.get(resource)
         self._require(definition, "list")
         query = query or ListQuery()
-        bad_filters = [f for f in query.filters if f not in definition.filterable]
+        own, related = split_filters(query.filters)
+        bad_filters = [f for f in own if f not in definition.filterable]
+        for name, fields in related.items():
+            ref = definition.references.get(name)
+            target = self.registry.get(ref.target) if ref is not None else None
+            bad_filters += [
+                f"{name}.{f}" for f in fields if target is None or f not in target.filterable
+            ]
         bad_order = [
             o.lstrip("-") for o in query.order_by if o.lstrip("-") not in definition.sortable
         ]
         if bad_filters or bad_order:
+            related_names = related_filter_names(definition, self.registry)
             raise InvalidQuery(
                 f"Invalid query for {definition.name}: "
                 + "; ".join(
@@ -767,16 +791,18 @@ class ResourceManager:
                     if part
                 ),
                 hint=(
-                    f"Filterable: {list(definition.filterable)}; "
+                    f"Filterable: {[*definition.filterable, *related_names]}; "
                     f"sortable: {list(definition.sortable)}"
                 ),
             )
+        self._check_expand(definition, expand)
         if query.limit < 1 or query.limit > definition.max_page_size or query.offset < 0:
             raise InvalidQuery(
                 f"limit must be between 1 and {definition.max_page_size} and offset >= 0",
             )
         ctx = self._context(definition, "list", actor=actor, raw_input=query, tenant=tenant)
         await self._gate(ctx, "list")
+        query = dataclasses.replace(query, filters=own)
         tenant_query = self._tenant_query(ctx, query)
         if tenant_query is None:
             return Page([], 0, query.offset, query.limit)
@@ -785,14 +811,24 @@ class ResourceManager:
         await self._gate_query(ctx, query, rules)
         async with self._reading(ctx):
             scoped = await self._scoped(ctx, query)
+            if scoped is not None and related:
+                scoped = await self._related_scope(ctx, scoped, related)
             if scoped is None:
                 return Page([], 0, query.offset, query.limit)
             page = await ctx.repository().list(scoped)
             result = page.map(lambda e: self._to_read(ctx, e, rules))
+            if expand:
+                await self._expand(ctx, page.items, result.items, expand)
         await self._audit_read(
             ctx,
             {
-                "filters": {k: str(v) for k, v in query.filters.items()},
+                "filters": {
+                    k: str(v)
+                    for k, v in {
+                        **query.filters,
+                        **{f"{n}.{f}": v for n, fs in related.items() for f, v in fs.items()},
+                    }.items()
+                },
                 "order_by": list(query.order_by),
                 "offset": query.offset,
                 "returned": len(result.items),
@@ -803,18 +839,218 @@ class ResourceManager:
 
     @traced("get")
     async def get(
-        self, resource: ResourceRef, entity_id: Any, *, actor: Any = None, tenant: str | None = None
+        self,
+        resource: ResourceRef,
+        entity_id: Any,
+        *,
+        actor: Any = None,
+        tenant: str | None = None,
+        expand: Sequence[str] = (),
     ) -> Any:
         definition = self.registry.get(resource)
         self._require(definition, "get")
+        self._check_expand(definition, expand)
         ctx = self._context(definition, "get", actor=actor, entity_id=entity_id, tenant=tenant)
         await self._gate(ctx, "get")
         async with self._reading(ctx):
             entity = await self._load(ctx)
             await self._gate_record(ctx, "get", entity)
             result = self._to_read(ctx, entity, await self._read_rules(ctx))
+            if expand:
+                await self._expand(ctx, [entity], [result], expand)
         await self._audit_read(ctx, {})
         return result
+
+    # --------------------------------------------------------------- references
+
+    def _check_expand(self, definition: ResourceDefinition, expand: Sequence[str]) -> None:
+        unknown = [n for n in expand if n not in definition.references]
+        if unknown:
+            raise InvalidQuery(
+                f"{definition.name} has no relation {', '.join(map(repr, unknown))} to expand",
+                hint=f"Relations: {list(definition.references) or '(none)'}",
+                doc="docs/relationships.md#expanding",
+            )
+
+    async def _related_context(
+        self, ctx: OperationContext, target: ResourceDefinition
+    ) -> OperationContext | None:
+        """A read context on ``target`` for the same caller and operation (no
+        audit, no idempotency); ``None`` when the caller has no tenant scope there."""
+        tctx = OperationContext(
+            resource=target,
+            operation="get",
+            actor=ctx.actor,
+            services=self.services,
+            correlation_id=ctx.correlation_id,
+            uow=ctx.uow,
+        )
+        if target.tenant_field is not None:
+            from resource_engine.tenancy import resolve_tenant
+
+            try:
+                scope = await resolve_tenant(
+                    ctx.actor, self.authorizer, ctx.extras.get("requested_tenant") or ctx.tenant
+                )
+            except (TenantRequired, TenantMismatch):
+                return None
+            tctx._tenant_scope = scope
+            tctx.tenant = scope.tenant
+        return tctx
+
+    async def _visible(self, tctx: OperationContext, entity: Any) -> bool:
+        field_name = tctx.resource.tenant_field
+        if (
+            field_name
+            and tctx.tenant is not None
+            and getattr(entity, field_name, None) != tctx.tenant
+        ):
+            return False
+        if self.authorizer is None:
+            return True
+        decision = await self.authorizer.check(
+            tctx.actor, f"{tctx.resource.name}:get", resource=entity
+        )
+        return decision.allowed is True
+
+    async def _related(
+        self, ctx: OperationContext, ref: ReferenceDefinition, ids: list[Any], *, read: bool = True
+    ) -> dict[Any, Any]:
+        """The records of ``ref.target`` with these ids that the caller may read
+        (read models, or entities with ``read=False``), by id."""
+        target = self.registry.get(ref.target)
+        tctx = await self._related_context(ctx, target)
+        if tctx is None or not ids:
+            return {}
+        repository = ctx.uow.repository(target.name)  # type: ignore[union-attr]
+        if len(ids) > 1 and getattr(repository, "supports_conditions", False):
+            condition = {"in": [{"attr": f"resource.{target.id_field}"}, list(ids)]}
+            entities = (await repository.list(ListQuery(limit=len(ids), condition=condition))).items
+        else:
+            entities = [e for i in ids if (e := await repository.get(i)) is not None]
+        rules = await self._read_rules(tctx) if read else None
+        found: dict[Any, Any] = {}
+        for entity in entities:
+            if await self._visible(tctx, entity):
+                key = getattr(entity, target.id_field)
+                found[key] = self._to_read(tctx, entity, rules) if read else entity
+        return found
+
+    async def _check_references(
+        self, ctx: OperationContext, entity: Any, fields: Collection[str] | None = None
+    ) -> None:
+        """Writes: each reference set (or changed) points to a record the
+        caller can read (RE-E108)."""
+        for ref in ctx.resource.references.values():
+            if fields is not None and ref.field not in fields:
+                continue
+            value = getattr(entity, ref.field, None)
+            if value is None:
+                continue
+            found = await self._related(ctx, ref, [value], read=False)
+            if value not in found:
+                raise ReferenceNotFound(
+                    f"{ctx.resource.name}.{ref.field}: there is no {ref.target} record {value!r}",
+                    hint=f"Use the id of an existing {ref.target} record you can read.",
+                    details={"field": ref.field, "resource": ref.target, "id": value},
+                    doc="docs/relationships.md#integrity",
+                )
+
+    async def _expand(
+        self, ctx: OperationContext, entities: list[Any], results: list[Any], names: Sequence[str]
+    ) -> None:
+        from resource_engine.application.relations import attach, unique
+
+        for name in dict.fromkeys(names):
+            ref = ctx.resource.references[name]
+            ids = unique(getattr(e, ref.field, None) for e in entities)
+            found = await self._related(ctx, ref, ids)
+            for entity, result in zip(entities, results, strict=True):
+                value = getattr(entity, ref.field, None)
+                attach(result, {name: None if value is None else found.get(value)})
+
+    async def _related_scope(
+        self, ctx: OperationContext, query: ListQuery, related: Mapping[str, Mapping[str, Any]]
+    ) -> ListQuery | None:
+        """``list`` filters on related records → ``<field> in [ids]``; ``None``
+        when no related record matches."""
+        from resource_engine.authz.conditions import conjunction
+
+        if not getattr(ctx.repository(), "supports_conditions", False):
+            raise ConditionNotSupported(
+                f"The repository of {ctx.resource.name!r} cannot filter by related records",
+                hint="Use a repository with supports_conditions (in-memory, SQLAlchemy), or "
+                "filter by the reference id.",
+                doc="docs/relationships.md#filtering",
+            )
+        condition = query.condition
+        for name, filters in related.items():
+            ref = ctx.resource.references[name]
+            target = self.registry.get(ref.target)
+            tctx = await self._related_context(ctx, target)
+            if tctx is None:
+                return None
+            await self._gate_query(tctx, ListQuery(filters=filters), await self._read_rules(tctx))
+            own = dict(filters)
+            if target.tenant_field and tctx.tenant is not None:
+                own[target.tenant_field] = tctx.tenant
+            page = await ctx.uow.repository(target.name).list(  # type: ignore[union-attr]
+                ListQuery(filters=own, limit=MAX_RELATED_MATCHES + 1)
+            )
+            if page.total > MAX_RELATED_MATCHES or len(page.items) > MAX_RELATED_MATCHES:
+                raise InvalidQuery(
+                    f"The filter on {name} matches more than {MAX_RELATED_MATCHES} "
+                    f"{target.name} records",
+                    hint="Narrow the related filter, or filter by the reference id.",
+                    doc="docs/relationships.md#filtering",
+                )
+            ids = [getattr(e, target.id_field) for e in page.items if await self._visible(tctx, e)]
+            if not ids:
+                return None
+            condition = conjunction(condition, {"in": [{"attr": f"resource.{ref.field}"}, ids]})
+        return dataclasses.replace(query, condition=condition)
+
+    async def _release_dependents(
+        self, ctx: OperationContext, dependents: Sequence[ReferenceDefinition]
+    ) -> None:
+        """Delete: refuse while restricting references exist (RE-E109); clear
+        or delete the records of ``set_null`` / ``cascade`` references, through
+        the manager as the same caller."""
+        entity_id = ctx.entity_id
+        for ref in dependents:
+            if ref.on_delete != "restrict":
+                continue
+            page = await ctx.uow.repository(ref.owner).list(  # type: ignore[union-attr]
+                ListQuery(filters={ref.field: entity_id}, limit=1)
+            )
+            if page.items or page.total:
+                raise ReferenceInUse(
+                    f"{ctx.resource.name} {entity_id!r} is referenced by {ref.owner}.{ref.field}",
+                    hint=f"Delete or change those {ref.owner} records first.",
+                    details={"resource": ref.owner, "field": ref.field, "id": entity_id},
+                    doc="docs/relationships.md#deleting",
+                )
+        tenant = ctx.extras.get("requested_tenant")
+        for ref in dependents:
+            if ref.on_delete == "restrict":
+                continue
+            owner = self.registry.get(ref.owner)
+            done: set[Any] = set()
+            while True:
+                page = await ctx.uow.repository(ref.owner).list(  # type: ignore[union-attr]
+                    ListQuery(filters={ref.field: entity_id}, limit=100)
+                )
+                pending = [i for e in page.items if (i := getattr(e, owner.id_field)) not in done]
+                if not pending:
+                    break
+                for child_id in pending:
+                    done.add(child_id)
+                    if ref.on_delete == "cascade":
+                        await self.delete(ref.owner, child_id, actor=ctx.actor, tenant=tenant)
+                    else:
+                        await self.update(
+                            ref.owner, child_id, {ref.field: None}, actor=ctx.actor, tenant=tenant
+                        )
 
     # -------------------------------------------------------------------- write
 
@@ -846,6 +1082,7 @@ class ResourceManager:
             await self._gate(ctx, "create", resource=entity, input=ctx.data)
             await self._gate_fields(ctx, entity, ctx.data)
             await hooks.run(HookPoint.BEFORE_CREATE, ctx)
+            await self._check_references(ctx, ctx.entity)
             entity = await ctx.repository().add(ctx.entity)
             ctx.entity = entity
             ctx.entity_id = self._id_of(ctx, entity)
@@ -898,6 +1135,7 @@ class ResourceManager:
                 for k, old in before.items()
                 if getattr(entity, k, None) != old
             }
+            await self._check_references(ctx, entity, changes)
             ctx.entity = await self._write(ctx, entity)
             ctx.record_event(
                 ResourceUpdated(resource=definition.name, entity_id=entity_id, changes=changes)
@@ -933,11 +1171,18 @@ class ResourceManager:
         )
         await self._gate(ctx, "delete")
         hooks = definition.dispatcher
-        async with self._transaction(ctx) as uow:
+        dependents = self.dependents.get(definition.name, ())
+        # set_null / cascade change other records: one transaction for all of them
+        grouped = any(r.on_delete != "restrict" for r in dependents)
+        async with (
+            self.transaction() if grouped else contextlib.nullcontext(),
+            self._transaction(ctx) as uow,
+        ):
             entity = await self._load(ctx)
             await self._gate_record(ctx, "delete", entity)
             await self._check_version(ctx, entity)
             await hooks.run(HookPoint.BEFORE_DELETE, ctx)
+            await self._release_dependents(ctx, dependents)
             await self._remove(ctx, entity)
             if self.documents is not None and definition.document_slots:
                 await self.documents.cascade(ctx)

@@ -113,3 +113,37 @@ def test_idempotency_key(client):
         "/invoices", json={**body, "amount": "76"}, headers={"Idempotency-Key": "order-7"}
     )
     assert other.status_code == 422 and other.json()["error"]["code"] == "RE-E107"
+
+
+def test_customers_and_references(client):
+    acme = client.post("/customers", json={"name": "ACME", "tax_id": "B11111111"}).json()
+    globex = client.post(
+        "/customers", json={"name": "Globex", "tax_id": "B22222222", "country": "FR"}
+    ).json()
+    for customer in (acme, globex, acme):
+        r = client.post(
+            "/invoices", json={"customer": "x", "amount": "1", "customer_id": customer["id"]}
+        )
+        assert r.status_code == 201, r.text
+
+    r = client.post("/invoices", json={"customer": "x", "amount": "1", "customer_id": 99})
+    assert r.status_code == 422 and r.json()["error"]["code"] == "RE-E108"
+
+    one = client.get("/invoices/1", params={"expand": "customer_record"}).json()
+    assert one["customer_record"]["name"] == "ACME"
+    assert "customer_record" not in client.get("/invoices/1").json()
+
+    page = client.get(
+        "/invoices", params={"customer_record.country": "FR", "expand": "customer_record"}
+    ).json()
+    assert [i["customer_record"]["name"] for i in page["items"]] == ["Globex"]
+    assert client.get("/invoices", params={"expand": "vendor"}).status_code == 400
+
+    r = client.delete(f"/customers/{globex['id']}")
+    assert r.status_code == 409 and r.json()["error"]["code"] == "RE-E109"
+    assert client.delete("/invoices/2").status_code == 204
+    assert client.delete(f"/customers/{globex['id']}").status_code == 204
+
+    spec = client.get("/openapi.json").json()
+    params = {p["name"] for p in spec["paths"]["/invoices"]["get"]["parameters"]}
+    assert {"expand", "customer_record.country", "customer_id"} <= params

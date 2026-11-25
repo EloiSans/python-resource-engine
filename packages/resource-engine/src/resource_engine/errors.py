@@ -153,6 +153,20 @@ class IdempotencyKeyReused(ResourceEngineError):
     code = "RE-E107"
 
 
+class ReferenceNotFound(ResourceEngineError):
+    """A reference field points to a record that does not exist or that the
+    caller may not read. ``details``: ``field``, ``resource``, ``id``."""
+
+    code = "RE-E108"
+
+
+class ReferenceInUse(ResourceEngineError):
+    """The record cannot be deleted: other records reference it
+    (``on_delete="restrict"``). ``details``: ``resource``, ``field``, ``id``."""
+
+    code = "RE-E109"
+
+
 class TransitionNotAllowed(ResourceEngineError):
     code = "RE-E201"
 

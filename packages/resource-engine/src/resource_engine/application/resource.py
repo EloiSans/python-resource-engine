@@ -20,6 +20,11 @@ from resource_engine.application.hooks import (
     HookPoint,
     normalize_hooks,
 )
+from resource_engine.application.relations import (
+    Reference,
+    ReferenceDefinition,
+    normalize_references,
+)
 from resource_engine.application.slots import DocumentSlot
 from resource_engine.application.state_machines import MachineRunner
 from resource_engine.domain.events import DomainEvent
@@ -91,6 +96,10 @@ class Resource:
             events (created, updated, transitions...) are implicit. Listed in the
             generated docs and the AsyncAPI document; ``check`` flags undeclared
             ones (RE-C006).
+        references: Fields holding ids of other resources' records:
+            ``{"customer_id": Reference("customers")}``. Integrity on writes,
+            ``on_delete`` behaviour, ``expand`` and related filters (see
+            docs/relationships.md).
     """
 
     name: ClassVar[str | None] = None
@@ -119,6 +128,7 @@ class Resource:
     audit_reads: ClassVar[bool] = False
     audit_exclude: ClassVar[Sequence[str]] = ()
     events: ClassVar[Sequence[type[DomainEvent]]] = ()
+    references: ClassVar[Mapping[str, Reference]] = {}
 
     # --- Mapping between schemas and entities. Override when needed. ---
 
@@ -193,6 +203,7 @@ class ResourceDefinition:
     version_field: str | None
     require_version: bool
     events: tuple[type[DomainEvent], ...]
+    references: Mapping[str, ReferenceDefinition]
     dispatcher: HookDispatcher = field(repr=False, compare=False)
     machine: MachineRunner | None = field(repr=False, compare=False)
 
@@ -432,6 +443,7 @@ class ResourceDefinition:
             version_field=version_field,
             require_version=resource_cls.require_version,
             events=events,
+            references=normalize_references(name, owner, resource_cls.references, known_fields),
             dispatcher=HookDispatcher(hooks),
             machine=machine,
         )

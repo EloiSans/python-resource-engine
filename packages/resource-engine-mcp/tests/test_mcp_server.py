@@ -343,3 +343,32 @@ async def test_stdio():
         )
         assert created.structured_content["customer"] == "ACME"
         assert "invoices_list" in _names((await client.list_tools()).tools)
+
+
+async def test_expand_and_related_filters(manager):
+    server = ResourceMcpServer(registry, manager)
+    get = server.tools["invoices_get"].to_mcp()
+    assert get.input_schema["properties"]["expand"]["items"]["enum"] == ["customer_record"]
+    filters = server.tools["invoices_list"].to_mcp().input_schema["properties"]["filters"]
+    assert "customer_record.country" in filters["properties"]
+    async with Client(server.server) as client:
+        await client.list_tools()  # outputs are validated against these schemas
+        customer = await client.call_tool(
+            "customers_create", {"data": {"name": "Globex", "tax_id": "B22", "country": "FR"}}
+        )
+        cid = customer.structured_content["id"]
+        created = await client.call_tool(
+            "invoices_create", {"data": {"customer": "x", "amount": 1, "customer_id": cid}}
+        )
+        iid = created.structured_content["id"]
+        one = await client.call_tool("invoices_get", {"id": iid, "expand": ["customer_record"]})
+        assert not one.is_error
+        assert one.structured_content["customer_record"]["name"] == "Globex"
+        page = await client.call_tool(
+            "invoices_list", {"filters": {"customer_record.country": "FR"}}
+        )
+        assert [i["id"] for i in page.structured_content["items"]] == [iid]
+        missing = await client.call_tool(
+            "invoices_create", {"data": {"customer": "x", "amount": 1, "customer_id": 404}}
+        )
+        assert missing.structured_content["error"]["code"] == "RE-E108"

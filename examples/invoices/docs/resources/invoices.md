@@ -34,7 +34,7 @@ Facturació
 | `recalculate_totals` | action | `POST /invoices/{id}/actions/recalculate_totals` | ApplyDiscount |  | Aplica un descompte percentual a l'import d'una factura. |
 | `render_summary` | action | `POST /invoices/{id}/actions/render_summary` |  |  | Genera un resum en Markdown de la factura i l'adjunta a la ranura ``summary``. |
 
-Filtres: `status`, `customer` · Ordenació: `id`, `amount`, `issue_date`
+Filtres: `status`, `customer`, `customer_id` · Ordenació: `id`, `amount`, `issue_date`
 
 Concurrència optimista: el camp `version` és la versió del registre (capçalera `ETag`); les modificacions envien `If-Match` i una versió antiga es rebutja amb 409.
 
@@ -114,6 +114,14 @@ La factura té un únic document ``summary`` amb les dades actuals.
 
 Desa el document al magatzem de fitxers i emet ``DocumentAttached``.
 
+## Referències
+
+| Relació | Camp | Recurs | En eliminar-lo | Descripció |
+|---|---|---|---|---|
+| `customer_record` | `customer_id` | [customers](customers.md) | es denega mentre hi hagi referències | Client registrat al qual s'emet la factura. |
+
+Amb `expand` (`?expand=` per HTTP) la resposta inclou el registre relacionat; els filtres `<relació>.<camp>` filtren pels camps filtrables del recurs relacionat.
+
 ## Esdeveniments de domini
 
 ### `InvoiceTotalsRecalculated`
@@ -155,6 +163,7 @@ L'import d'una factura s'ha recalculat aplicant un descompte.
 | `customer` | `str` | sí | Nom del client |
 | `amount` | `Decimal` | sí | Import total |
 | `issue_date` | `date \| None` | no | Data d'emissió |
+| `customer_id` | `int \| None` | no | Client registrat (customers); el nom de `customer` es manté per compatibilitat |
 | `notes` | `str \| None` | no | — |
 
 ### InvoiceUpdate (update)
@@ -164,6 +173,7 @@ L'import d'una factura s'ha recalculat aplicant un descompte.
 | `customer` | `str \| None` | no | — |
 | `amount` | `Decimal \| None` | no | — |
 | `issue_date` | `date \| None` | no | — |
+| `customer_id` | `int \| None` | no | — |
 | `notes` | `str \| None` | no | — |
 
 ### InvoiceRead (read)
@@ -174,6 +184,7 @@ L'import d'una factura s'ha recalculat aplicant un descompte.
 | `customer` | `str` | sí | — |
 | `amount` | `Decimal` | sí | — |
 | `issue_date` | `date \| None` | sí | — |
+| `customer_id` | `int \| None` | no | Client registrat (customers); el nom de `customer` es manté per compatibilitat |
 | `notes` | `str \| None` | sí | — |
 | `status` | `str` | sí | — |
 | `rejection_reason` | `str \| None` | sí | — |

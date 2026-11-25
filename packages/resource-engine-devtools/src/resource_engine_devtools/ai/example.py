@@ -23,6 +23,7 @@ EXAMPLE_FILES = (
     "domain/state_machine.py",
     "application/__init__.py",
     "application/schemas.py",
+    "application/customers.py",
     "application/resource.py",
     "application/hooks.py",
     "application/actions.py",

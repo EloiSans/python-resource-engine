@@ -9,6 +9,11 @@ Els rols de sistema es defineixen al codi i no es poden modificar des del front-
 
 | Acció | `admin` | `viewer` |
 |---|---|---|
+| `customers:list` | ✓ | ✓ |
+| `customers:get` | ✓ | ✓ |
+| `customers:create` | ✓ |  |
+| `customers:update` | ✓ |  |
+| `customers:delete` | ✓ |  |
 | `invoices:list` | ✓ | ✓ |
 | `invoices:get` | ✓ | ✓ |
 | `invoices:create` | ✓ |  |

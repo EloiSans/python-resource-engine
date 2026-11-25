@@ -20,6 +20,7 @@ from resource_engine_devtools.documentation.model import (
     FieldDoc,
     HookDoc,
     OperationDoc,
+    ReferenceDoc,
     ResourceDoc,
     SchemaDoc,
     SlotDoc,
@@ -102,6 +103,16 @@ def _event_doc(event: type) -> EventDoc:
         qualname=_qualname(event),
         doc=parse_doc(inspect.cleandoc(text)) if text else DocText(),
         fields=fields,
+    )
+
+
+def _reference_doc(ref: Any) -> ReferenceDoc:
+    return ReferenceDoc(
+        name=ref.name,
+        field=ref.field,
+        resource=ref.target if hasattr(ref, "target") else ref.resource,
+        on_delete=ref.on_delete,
+        description=ref.description,
     )
 
 
@@ -221,6 +232,7 @@ def _resource_doc(d: ResourceDefinition) -> ResourceDoc:
         audit_reads=getattr(d.resource_cls, "audit_reads", False),
         audit_exclude=list(getattr(d.resource_cls, "audit_exclude", ())),
         events=[_event_doc(e) for e in d.events],
+        references=[_reference_doc(r) for r in d.references.values()],
         documents=[
             SlotDoc(
                 name=slot.name,
@@ -261,8 +273,22 @@ def introspect(registry: ResourceRegistry, authz: Any = None) -> DocumentationMo
             }
         )
         roles.append(SystemRoleDoc(role.name, role.description, list(role.grants), covered))
+    resources = [_resource_doc(d) for d in registry]
+    by_name = {r.name: r for r in resources}
+    for d in registry:
+        for ref in d.references.values():
+            if ref.target in by_name:
+                by_name[ref.target].referenced_by.append(
+                    ReferenceDoc(
+                        name=ref.name,
+                        field=f"{d.name}.{ref.field}",
+                        resource=d.name,
+                        on_delete=ref.on_delete,
+                        description=ref.description,
+                    )
+                )
     return DocumentationModel(
-        resources=[_resource_doc(d) for d in registry],
+        resources=resources,
         engine_version=resource_engine.__version__,
         actions=documented,
         audit_resource="audit_log" if "audit_log" in registry else None,

@@ -20,6 +20,12 @@ APPROVER_POLICIES: list[dict[str, Any]] = [
         "condition": {"lt": [{"attr": "resource.amount"}, 10000]},
     },
     {
+        "name": "Approvers see customers",
+        "effect": "allow",
+        "subjects": {"roles": ["approver"]},
+        "actions": ["customers:list", "customers:get"],
+    },
+    {
         "name": "Approvers read internal notes",
         "effect": "allow",
         "subjects": {"roles": ["approver"]},
@@ -53,6 +59,18 @@ ISSUER_POLICIES: list[dict[str, Any]] = [
             "invoices:attach:*",
             "invoices:detach:*",
             "invoices:download:*",
+        ],
+    },
+    {
+        "name": "Issuers manage customers",
+        "effect": "allow",
+        "subjects": {"roles": ["issuer"]},
+        "actions": [
+            "customers:list",
+            "customers:get",
+            "customers:create",
+            "customers:update",
+            "customers:delete",
         ],
     },
 ]

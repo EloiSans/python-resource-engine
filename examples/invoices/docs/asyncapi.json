@@ -6,6 +6,22 @@
   },
   "defaultContentType": "application/json",
   "channels": {
+    "customers": {
+      "address": "customers",
+      "description": "Clients als quals l'organització emet factures.",
+      "title": "customers events",
+      "messages": {
+        "ResourceCreated": {
+          "$ref": "#/components/messages/customers.ResourceCreated"
+        },
+        "ResourceUpdated": {
+          "$ref": "#/components/messages/customers.ResourceUpdated"
+        },
+        "ResourceDeleted": {
+          "$ref": "#/components/messages/customers.ResourceDeleted"
+        }
+      }
+    },
     "invoices": {
       "address": "invoices",
       "description": "Gestió de factures de l'organització.",
@@ -90,6 +106,25 @@
     }
   },
   "operations": {
+    "publish.customers": {
+      "action": "send",
+      "channel": {
+        "$ref": "#/channels/customers"
+      },
+      "title": "Publish customers events",
+      "summary": "Sent after each committed change, directly or through the outbox.",
+      "messages": [
+        {
+          "$ref": "#/channels/customers/messages/ResourceCreated"
+        },
+        {
+          "$ref": "#/channels/customers/messages/ResourceUpdated"
+        },
+        {
+          "$ref": "#/channels/customers/messages/ResourceDeleted"
+        }
+      ]
+    },
     "publish.invoices": {
       "action": "send",
       "channel": {
@@ -187,6 +222,114 @@
   },
   "components": {
     "messages": {
+      "customers.ResourceCreated": {
+        "name": "ResourceCreated",
+        "title": "ResourceCreated",
+        "contentType": "application/json",
+        "payload": {
+          "$ref": "#/components/schemas/customers.ResourceCreated"
+        },
+        "correlationId": {
+          "location": "$message.payload#/correlation_id"
+        },
+        "headers": {
+          "type": "object",
+          "description": "Broker message attributes (SNS/SQS attributes, Service Bus application properties, Pub/Sub attributes, AMQP headers)",
+          "properties": {
+            "event_type": {
+              "const": "ResourceCreated"
+            },
+            "event_id": {
+              "type": "string"
+            },
+            "schema_version": {
+              "const": "1"
+            },
+            "resource": {
+              "type": "string"
+            },
+            "correlation_id": {
+              "type": "string"
+            },
+            "traceparent": {
+              "type": "string"
+            }
+          }
+        },
+        "summary": "A customers record was created."
+      },
+      "customers.ResourceUpdated": {
+        "name": "ResourceUpdated",
+        "title": "ResourceUpdated",
+        "contentType": "application/json",
+        "payload": {
+          "$ref": "#/components/schemas/customers.ResourceUpdated"
+        },
+        "correlationId": {
+          "location": "$message.payload#/correlation_id"
+        },
+        "headers": {
+          "type": "object",
+          "description": "Broker message attributes (SNS/SQS attributes, Service Bus application properties, Pub/Sub attributes, AMQP headers)",
+          "properties": {
+            "event_type": {
+              "const": "ResourceUpdated"
+            },
+            "event_id": {
+              "type": "string"
+            },
+            "schema_version": {
+              "const": "1"
+            },
+            "resource": {
+              "type": "string"
+            },
+            "correlation_id": {
+              "type": "string"
+            },
+            "traceparent": {
+              "type": "string"
+            }
+          }
+        },
+        "summary": "Fields of a customers record changed."
+      },
+      "customers.ResourceDeleted": {
+        "name": "ResourceDeleted",
+        "title": "ResourceDeleted",
+        "contentType": "application/json",
+        "payload": {
+          "$ref": "#/components/schemas/customers.ResourceDeleted"
+        },
+        "correlationId": {
+          "location": "$message.payload#/correlation_id"
+        },
+        "headers": {
+          "type": "object",
+          "description": "Broker message attributes (SNS/SQS attributes, Service Bus application properties, Pub/Sub attributes, AMQP headers)",
+          "properties": {
+            "event_type": {
+              "const": "ResourceDeleted"
+            },
+            "event_id": {
+              "type": "string"
+            },
+            "schema_version": {
+              "const": "1"
+            },
+            "resource": {
+              "type": "string"
+            },
+            "correlation_id": {
+              "type": "string"
+            },
+            "traceparent": {
+              "type": "string"
+            }
+          }
+        },
+        "summary": "A customers record was deleted."
+      },
       "invoices.ResourceCreated": {
         "name": "ResourceCreated",
         "title": "ResourceCreated",
@@ -1523,6 +1666,226 @@
               },
               "entity_id": {
                 "type": "string"
+              },
+              "changes": {
+                "type": "object",
+                "description": "Changed fields: [old value, new value]",
+                "additionalProperties": {
+                  "type": "array",
+                  "minItems": 2,
+                  "maxItems": 2
+                }
+              }
+            },
+            "required": [
+              "resource",
+              "entity_id",
+              "changes"
+            ]
+          },
+          "trace": {
+            "type": "object",
+            "description": "W3C trace context of the producing operation",
+            "properties": {
+              "traceparent": {
+                "type": "string"
+              },
+              "tracestate": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "required": [
+          "id",
+          "type",
+          "occurred_at",
+          "schema_version",
+          "payload"
+        ]
+      },
+      "customers.ResourceCreated": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Unique message id"
+          },
+          "type": {
+            "const": "ResourceCreated"
+          },
+          "occurred_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "correlation_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Id of the operation that produced the event"
+          },
+          "resource": {
+            "const": "customers"
+          },
+          "key": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Ordering key: <resource>:<entity_id>"
+          },
+          "schema_version": {
+            "const": "1"
+          },
+          "payload": {
+            "type": "object",
+            "properties": {
+              "resource": {
+                "const": "customers"
+              },
+              "entity_id": {
+                "type": "integer"
+              }
+            },
+            "required": [
+              "resource",
+              "entity_id"
+            ]
+          },
+          "trace": {
+            "type": "object",
+            "description": "W3C trace context of the producing operation",
+            "properties": {
+              "traceparent": {
+                "type": "string"
+              },
+              "tracestate": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "required": [
+          "id",
+          "type",
+          "occurred_at",
+          "schema_version",
+          "payload"
+        ]
+      },
+      "customers.ResourceDeleted": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Unique message id"
+          },
+          "type": {
+            "const": "ResourceDeleted"
+          },
+          "occurred_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "correlation_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Id of the operation that produced the event"
+          },
+          "resource": {
+            "const": "customers"
+          },
+          "key": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Ordering key: <resource>:<entity_id>"
+          },
+          "schema_version": {
+            "const": "1"
+          },
+          "payload": {
+            "type": "object",
+            "properties": {
+              "resource": {
+                "const": "customers"
+              },
+              "entity_id": {
+                "type": "integer"
+              }
+            },
+            "required": [
+              "resource",
+              "entity_id"
+            ]
+          },
+          "trace": {
+            "type": "object",
+            "description": "W3C trace context of the producing operation",
+            "properties": {
+              "traceparent": {
+                "type": "string"
+              },
+              "tracestate": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "required": [
+          "id",
+          "type",
+          "occurred_at",
+          "schema_version",
+          "payload"
+        ]
+      },
+      "customers.ResourceUpdated": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Unique message id"
+          },
+          "type": {
+            "const": "ResourceUpdated"
+          },
+          "occurred_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "correlation_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Id of the operation that produced the event"
+          },
+          "resource": {
+            "const": "customers"
+          },
+          "key": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Ordering key: <resource>:<entity_id>"
+          },
+          "schema_version": {
+            "const": "1"
+          },
+          "payload": {
+            "type": "object",
+            "properties": {
+              "resource": {
+                "const": "customers"
+              },
+              "entity_id": {
+                "type": "integer"
               },
               "changes": {
                 "type": "object",

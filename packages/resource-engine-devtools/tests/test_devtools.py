@@ -13,7 +13,8 @@ from resource_engine_devtools.documentation.generators import render_markdown, r
 
 
 def test_mermaid_comes_from_executable_machine():
-    sm = introspect(registry).resources[0].state_machine
+    [invoices] = [r for r in introspect(registry).resources if r.name == "invoices"]
+    sm = invoices.state_machine
     diagram = render_state_machine(sm)
     assert diagram.startswith("stateDiagram-v2")
     assert "[*] --> draft" in diagram

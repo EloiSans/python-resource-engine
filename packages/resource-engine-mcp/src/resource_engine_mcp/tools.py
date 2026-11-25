@@ -134,12 +134,14 @@ def _relaxed(schema: dict[str, Any]) -> dict[str, Any]:
     return schema
 
 
-def _page_output(read: type[BaseModel] | None) -> dict[str, Any]:
+def _page_output(read: type[BaseModel] | None, relations: Iterable[str] = ()) -> dict[str, Any]:
     item: dict[str, Any] = {"type": "object"}
     defs: dict[str, Any] = {}
     if read is not None:
         item = _relaxed(read.model_json_schema(by_alias=True, mode="serialization"))
         defs = item.pop("$defs", {})
+    for name in relations:
+        item.setdefault("properties", {})[name] = {"type": ["object", "null"]}
     schema: dict[str, Any] = {
         "type": "object",
         "properties": {
@@ -193,6 +195,20 @@ class _Builder:
         id_schema.setdefault("description", f"Id of the {self.d.name} record")
         schema.add("id", id_schema, required=True)
 
+    def _expand(self, schema: _Schema) -> None:
+        if self.d.references:
+            schema.add(
+                "expand",
+                {
+                    "type": "array",
+                    "items": {"type": "string", "enum": list(self.d.references)},
+                    "description": "Related records to include: "
+                    + "; ".join(
+                        f"{r.name} ({r.target} via {r.field})" for r in self.d.references.values()
+                    ),
+                },
+            )
+
     def _tail(self, schema: _Schema, *, write: bool, versioned: bool = False) -> None:
         if self.d.tenant_field:
             schema.add(
@@ -239,10 +255,22 @@ class _Builder:
             )
         return ResourceTool(name=name, resource=self.d.name, **kw)
 
+    def _with_relations(self, schema: dict[str, Any] | None) -> dict[str, Any] | None:
+        if schema is None or not self.d.references:
+            return schema
+        schema = {**schema, "properties": dict(schema.get("properties", {}))}
+        for ref in self.d.references.values():
+            schema["properties"][ref.name] = {
+                "type": ["object", "null"],
+                "description": f"The {ref.target} record (with expand), null when unreadable",
+            }
+        return schema
+
     def build(self) -> list[ResourceTool]:
         d = self.d
         tools: list[ResourceTool] = []
         read_output, _ = _output(self.read)
+        expanded_output = self._with_relations(read_output)
 
         if d.enabled("list"):
             schema = _Schema()
@@ -261,11 +289,23 @@ class _Builder:
                         "description": "Fields to sort by; prefix '-' for descending",
                     },
                 )
-            if d.filterable:
+            if d.filterable or d.references:
                 filters = _Schema()
                 for field_name in d.filterable:
                     annotation = self.read.model_fields[field_name].annotation if self.read else str
                     filters.add(field_name, filters.type(annotation))
+                for ref in d.references.values():
+                    target = self.manager.registry.get(ref.target)
+                    target_read = target.schemas.get("read")
+                    for field_name in target.filterable:
+                        annotation = (
+                            target_read.model_fields[field_name].annotation if target_read else str
+                        )
+                        related = filters.type(annotation)
+                        related.setdefault(
+                            "description", f"The related {ref.target} record's {field_name}"
+                        )
+                        filters.add(f"{ref.name}.{field_name}", related)
                 schema.defs.update(filters.defs)
                 schema.add(
                     "filters",
@@ -273,9 +313,11 @@ class _Builder:
                         "type": "object",
                         "properties": filters.properties,
                         "additionalProperties": False,
-                        "description": "Equality filters",
+                        "description": "Equality filters; '<relation>.<field>' filters "
+                        "by the related record",
                     },
                 )
+            self._expand(schema)
             self._tail(schema, write=False)
             tools.append(
                 self.tool(
@@ -285,7 +327,7 @@ class _Builder:
                     title=f"List {d.name}",
                     description=_describe(d, self.docs.get("list") or f"List {d.name}, paged."),
                     input_schema=schema.build(),
-                    output_schema=_page_output(self.read),
+                    output_schema=_page_output(self.read, list(d.references)),
                     instance=False,
                 )
             )
@@ -293,6 +335,7 @@ class _Builder:
         if d.enabled("get"):
             schema = _Schema()
             self._id(schema)
+            self._expand(schema)
             self._tail(schema, write=False)
             tools.append(
                 self.tool(
@@ -302,7 +345,7 @@ class _Builder:
                     title=f"Get one of {d.name}",
                     description=_describe(d, self.docs.get("get") or f"Read one {d.name} record."),
                     input_schema=schema.build(),
-                    output_schema=read_output,
+                    output_schema=expanded_output,
                 )
             )
 

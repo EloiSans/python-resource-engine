@@ -12,6 +12,22 @@ class InvoiceError(DomainError):
 
 
 @dataclass
+class Customer:
+    """Client de l'organització al qual s'emeten factures.
+
+    Business Rules:
+        - El NIF identifica el client; no es pot repetir.
+        - No es pot eliminar un client que encara té factures.
+    """
+
+    name: str
+    tax_id: str
+    country: str = "ES"
+    email: str | None = None
+    id: int | None = field(default=None)
+
+
+@dataclass
 class Invoice:
     """Factura emesa a un client.
 
@@ -23,6 +39,7 @@ class Invoice:
     customer: str
     amount: Decimal
     issue_date: date | None = None
+    customer_id: int | None = None
     notes: str | None = None
     status: str | None = None
     rejection_reason: str | None = None

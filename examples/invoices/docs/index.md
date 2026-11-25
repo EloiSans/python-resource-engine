@@ -2,6 +2,7 @@
 
 | Recurs | Descripció | Operacions |
 |---|---|---|
+| [customers](resources/customers.md) | Clients als quals l'organització emet factures. | `list`, `get`, `create`, `update`, `delete` |
 | [invoices](resources/invoices.md) | Gestió de factures de l'organització. | `list`, `get`, `create`, `update`, `delete`, `submit`, `approve`, `reject`, `pay`, `reopen`, `recalculate_totals`, `render_summary` |
 | [documents](resources/documents.md) | Files attached to entities of other resources. | `list`, `get`, `confirm`, `start_processing`, `reject`, `discard`, `complete` |
 | [authz_policies](resources/authz_policies.md) | Access policies (ABAC), managed from the front end. | `list`, `get`, `create`, `update`, `delete` |

@@ -5,6 +5,7 @@ from __future__ import annotations
 from decimal import Decimal
 
 import pytest
+from invoices.application.customers import CustomerResource
 from invoices.application.resource import InvoiceResource
 from resource_engine import ListQuery, OperationContext, ResourceManager, ResourceRegistry
 from resource_engine.domain import DomainError
@@ -191,6 +192,7 @@ async def test_hook_order_is_contractual():
         }
 
     registry = ResourceRegistry()
+    registry.register(CustomerResource)  # invoices reference customers
     registry.register(TracedInvoices)
     manager = ResourceManager(registry, InMemoryStore.from_registry(registry).unit_of_work)
     await manager.create("traced", {"customer": "ACME", "amount": "1"})
@@ -210,6 +212,7 @@ async def test_disabled_operation():
         operations = ["list", "get"]
 
     registry = ResourceRegistry()
+    registry.register(CustomerResource)  # invoices reference customers
     registry.register(ReadOnlyInvoices)
     manager = ResourceManager(registry, InMemoryStore.from_registry(registry).unit_of_work)
     with pytest.raises(OperationNotEnabled):

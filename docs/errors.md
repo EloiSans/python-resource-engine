@@ -21,6 +21,8 @@ them as `{"error": {...}}`.
 | <a id="re-e105"></a>RE-E105 | `VersionConflict` | 409 | The record changed since the client read it; `details.expected` and `details.current`. Reload and retry. |
 | <a id="re-e106"></a>RE-E106 | `VersionRequired` | 428 | The resource has `require_version`; send `If-Match` (or `expected_version=`). |
 | <a id="re-e107"></a>RE-E107 | `IdempotencyKeyReused` | 422 | The caller already used the idempotency key for a different request; `details.first` names it. Use a new key per request. |
+| <a id="re-e108"></a>RE-E108 | `ReferenceNotFound` | 422 | A reference field points to a record that does not exist or that the caller may not read; `details` has `field`, `resource`, `id` ([relationships](relationships.md#integrity)). |
+| <a id="re-e109"></a>RE-E109 | `ReferenceInUse` | 409 | The record is still referenced (`on_delete="restrict"`); `details` names the referencing `resource` and `field`. Change or delete those records first. |
 | <a id="re-e201"></a>RE-E201 | `TransitionNotAllowed` | 409 | Transition not possible from the current state (or a guard failed); `details.allowed` lists valid ones. |
 | <a id="re-e202"></a>RE-E202 | `UnknownTransition` | 404 | The resource has no such transition (or no state machine). |
 | <a id="re-e301"></a>RE-E301 | `ActionNotFound` | 404 | The resource has no such action. |

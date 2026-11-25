@@ -10,6 +10,13 @@ _TITLES = {key: title for title, key in FUNCTIONAL_SECTIONS.items()}
 UNDOCUMENTED = "_Sense descripció._"
 
 
+_ON_DELETE = {
+    "restrict": "es denega mentre hi hagi referències",
+    "set_null": "el camp es buida",
+    "cascade": "s'eliminen en cascada",
+}
+
+
 def _text(doc: DocText, *, heading: str = "###") -> list[str]:
     out: list[str] = []
     if doc.summary:
@@ -109,6 +116,35 @@ def render_resource(r: ResourceDoc, audit_resource: str | None = None) -> str:
         for a in r.actions:
             out += ["", f"### `{a.name}`", "", f"`{a.qualname}`", ""]
             out += _text(a.doc, heading="####")
+
+    if r.references:
+        out += [
+            "",
+            "## Referències",
+            "",
+            "| Relació | Camp | Recurs | En eliminar-lo | Descripció |",
+            "|---|---|---|---|---|",
+        ]
+        for ref in r.references:
+            out.append(
+                f"| `{ref.name}` | `{ref.field}` | [{ref.resource}]({ref.resource}.md) "
+                f"| {_ON_DELETE[ref.on_delete]} | {_cell(ref.description) or '—'} |"
+            )
+        out += [
+            "",
+            "Amb `expand` (`?expand=` per HTTP) la resposta inclou el registre relacionat; "
+            "els filtres `<relació>.<camp>` filtren pels camps filtrables del recurs relacionat.",
+        ]
+    if r.referenced_by:
+        out += [
+            "",
+            "Hi fan referència: "
+            + ", ".join(
+                f"[{ref.field}]({ref.resource}.md) ({_ON_DELETE[ref.on_delete]})"
+                for ref in r.referenced_by
+            )
+            + ".",
+        ]
 
     if r.events:
         out += ["", "## Esdeveniments de domini"]

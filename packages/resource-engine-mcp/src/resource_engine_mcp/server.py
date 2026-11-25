@@ -33,7 +33,7 @@ from resource_engine import (
     ResourceManager,
     ResourceRegistry,
 )
-from resource_engine.authz.fields import hidden_fields
+from resource_engine.application.relations import dump_read
 from resource_engine.errors import ValidationFailed
 from resource_engine.ports.identity import Authenticator
 
@@ -101,7 +101,7 @@ def token_principal(ctx: ServerRequestContext[Any, Any]) -> Any:
 
 def _dump(value: Any) -> Any:
     if isinstance(value, BaseModel):
-        return value.model_dump(mode="json", by_alias=True, exclude=set(hidden_fields(value)))
+        return dump_read(value)
     if isinstance(value, list):
         return [_dump(v) for v in value]
     if isinstance(value, dict):
@@ -262,10 +262,11 @@ class ResourceMcpServer:
         data = args.pop("data", None)
         version = args.pop("expected_version", None)
         key = args.pop("idempotency_key", None)
+        expand = tuple(args.pop("expand", None) or ())
         op = tool.operation
 
         if op == "list":
-            filters = _filters(definition, args.pop("filters", None) or {})
+            filters = _filters(definition, args.pop("filters", None) or {}, self.registry)
             query = ListQuery(
                 offset=args.pop("offset", 0),
                 limit=args.pop("limit", 50),
@@ -273,7 +274,7 @@ class ResourceMcpServer:
                 filters=filters,
             )
             _no_extra(tool, args)
-            page = await m.list(tool.resource, query, **kw)
+            page = await m.list(tool.resource, query, expand=expand, **kw)
             return {
                 "items": _dump(page.items),
                 "total": page.total,
@@ -282,7 +283,7 @@ class ResourceMcpServer:
             }
         _no_extra(tool, args)
         if op == "get":
-            return _dump(await m.get(tool.resource, entity_id, **kw))
+            return _dump(await m.get(tool.resource, entity_id, expand=expand, **kw))
         if op == "allowed_transitions":
             return {"transitions": await m.allowed_transitions(tool.resource, entity_id, **kw)}
         if op == "history":
@@ -412,13 +413,17 @@ def _id(id_type: Any, value: Any) -> Any:
         ) from exc
 
 
-def _filters(definition: Any, filters: Mapping[str, Any]) -> dict[str, Any]:
-    read = definition.schemas.get("read")
+def _filters(definition: Any, filters: Mapping[str, Any], registry: Any) -> dict[str, Any]:
     out: dict[str, Any] = {}
     for name, value in filters.items():
         if value is None:
             continue
-        field = read.model_fields.get(name) if read else None
+        owner, field_name = definition, name
+        relation, dot, rest = name.partition(".")
+        if dot and relation in definition.references:
+            owner, field_name = registry.get(definition.references[relation].target), rest
+        read = owner.schemas.get("read")
+        field = read.model_fields.get(field_name) if read else None
         if field is None:
             out[name] = value  # the manager refuses unknown filters (RE-E103)
             continue

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from resource_engine import DocumentSlot, Resource
+from resource_engine import DocumentSlot, Reference, Resource
 
 from invoices.application import hooks
 from invoices.application.actions import RecalculateTotals, RenderSummary
@@ -67,7 +67,15 @@ class InvoiceResource(Resource):
         "before_delete": [hooks.ensure_editable],
         "after_commit": [hooks.notify_approval],
     }
-    filterable = ["status", "customer"]
+    # the registered customer; deleting a customer with invoices is refused (409)
+    references = {
+        "customer_id": Reference(
+            "customers",
+            name="customer_record",
+            description="Client registrat al qual s'emet la factura.",
+        )
+    }
+    filterable = ["status", "customer", "customer_id"]
     sortable = ["id", "amount", "issue_date"]
     # internal notes: only roles granted invoices:read:notes / invoices:write:notes
     restricted_fields = ["notes"]

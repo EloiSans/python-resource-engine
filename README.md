@@ -52,7 +52,8 @@ class InvoiceResource(Resource):
     transition_schemas = {"reject": RejectInvoice}
     actions = [RecalculateTotals]
     hooks = {"before_update": [ensure_editable], "after_commit": [notify_approval]}
-    filterable = ["status", "customer"]
+    references = {"customer_id": Reference("customers", name="customer_record")}
+    filterable = ["status", "customer_id"]
 
 
 registry = ResourceRegistry()
@@ -64,7 +65,8 @@ mount_resources(app, registry, manager)  # FastAPI
 
 This exposes `GET/POST /invoices`, `GET/PATCH/DELETE /invoices/{id}`,
 `GET /invoices/{id}/transitions`, `POST /invoices/{id}/transitions/{event}`,
-`GET /invoices/{id}/history` (with an audit trail) and
+`GET /invoices/{id}/history` (with an audit trail), `?expand=customer_record`
+and `?customer_record.country=ES` on reads, and
 `POST /invoices/{id}/actions/recalculate_totals`; `mount_asyncapi` adds
 `GET /asyncapi.json` for the events.
 
@@ -96,6 +98,7 @@ uv run uvicorn invoices.app:app --app-dir examples --reload   # then open /docs
 - [Identity](docs/identity.md) — bearer tokens, providers, `Principal`.
 - [Permissions](docs/permissions.md) — system roles, ABAC policies managed from a front end.
 - [External policy engines](docs/authorizers.md) — OPA, Cedar and OpenFGA behind the same port.
+- [Relationships](docs/relationships.md) — references between resources: integrity, deletes, `expand`, related filters.
 - [AsyncAPI](docs/asyncapi.md) — the events the app publishes and consumes, generated and served next to OpenAPI.
 - [MCP server](docs/mcp.md) — operations as tools for AI agents, permissions per caller.
 - [Scaffolding](docs/scaffold.md) — generate a module, action or state machine.

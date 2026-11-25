@@ -102,6 +102,11 @@
   CloudEvents; servers and channels from configuration. `Resource.events` with
   `check` RE-C006 and docs RE-D011; typed consumer payloads
   (`router.on(..., payload=Model)`, invalid ones dead-lettered).
+- Relationships (`Resource.references`): integrity on writes (RE-E108),
+  `on_delete` restrict (RE-E109), `set_null` and `cascade` through the manager
+  in one transaction; `expand` on `get`/`list` (batched, caller's permissions,
+  unreadable records as null) and `<relation>.<field>` filters, over HTTP and
+  MCP; shown in the generated docs; the example gains a `customers` resource.
 
 ## Next
 
@@ -111,9 +116,8 @@ what follows builds on it.
 
 ### Soon
 
-- Relationships between resources: declared references (`customer_id` →
-  `customers`) with integrity checks, filters and expansion on `list`/`get`,
-  permissions applied to the related records, shown in the generated docs.
+- Relationships, next steps: reverse relations (`customers/{id}/invoices`),
+  nested expansion, many-to-many through a join resource.
 - Consuming external AsyncAPI documents: payload models and handler stubs
   scaffolded from a provider's AsyncAPI (`resource-engine scaffold consumer`).
 - Development MCP server (`resource-engine mcp`): the CLI's inspect, check,
@@ -121,8 +125,8 @@ what follows builds on it.
 
 ### Later
 
-- GraphQL adapter (queries for `list`/`get`, mutations for writes,
-  transitions and actions), after relationships between resources exist.
+- GraphQL adapter (queries for `list`/`get` with relations, mutations for
+  writes, transitions and actions).
 - SOAP server adapter (WSDL from the schemas), only for a concrete integration
   that needs it; the SOAP client side already exists.
 - Example app with authentication (Keycloak) so `invoices` can be tenant-scoped.
