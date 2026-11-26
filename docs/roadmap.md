@@ -145,8 +145,35 @@ what follows builds on it.
 - Example app with authentication (Keycloak) so `invoices` can be tenant-scoped.
 - GraphQL next steps: subscriptions from the outbox events, Relay connections,
   persisted queries and query cost limits.
+- Timed transitions: deadlines declared on the state machine (expire a quote
+  after 30 days, remind about an unpaid invoice, escalate a stuck approval),
+  run by the job worker as a system principal with the usual permissions,
+  hooks, audit and events; visible in the docs and the record's history.
+- Process managers (sagas) for long-running processes across resources: react
+  to events, keep their own state, issue manager operations, time out and run
+  compensations; built on consumers, the outbox, jobs and leases.
+- Several state machines per resource (an invoice's approval and payment
+  states), each with its own field, transitions, permissions, routes and
+  history.
+- View resources: read-only resources backed by a query (aggregates,
+  projections, joins such as invoices with their balance or totals per
+  customer) with the same filters, sorting, permissions, `expand`, docs,
+  GraphQL and MCP tools as entity resources.
 
 ### Later
+
+- Versioning: versions of resource schemas, actions and events published side
+  by side (`/v2/...`, `schema_version` per event type), deprecation notices in
+  OpenAPI, AsyncAPI and GraphQL, and the contract checks comparing versions.
+- Documentation site: the generated functional docs as a browsable static site
+  (MkDocs or plain HTML) with the state diagrams and the permission matrix, for
+  people who do not read the repository.
+- Complete scaffolding: hooks, domain events (declared on the resource),
+  document slots, references and seed policies, so every functional element
+  can start from `resource-engine scaffold` and the development MCP server.
+- Visual explorer (read-only): a local web UI with the resources, their state
+  diagrams, relations, the permission matrix and a try-it console against a
+  running app, for functional reviews; code stays the source of truth.
 
 - SOAP server adapter (WSDL from the schemas), only for a concrete integration
   that needs it; the SOAP client side already exists.
