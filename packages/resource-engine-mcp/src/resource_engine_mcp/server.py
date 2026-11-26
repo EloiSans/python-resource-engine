@@ -144,6 +144,8 @@ class ResourceMcpServer:
         resolve_actor: ``(ctx) -> actor`` (sync or async) for any other
             identity scheme; by default the bearer token's ``Principal`` (HTTP),
             then ``actor``.
+        rate_limiter: A ``RateLimiter`` whose ``default`` limit applies to each
+            tool call per caller (``actions`` limits apply in the manager).
     """
 
     def __init__(
@@ -160,7 +162,9 @@ class ResourceMcpServer:
         filter_tools: bool = True,
         actor: Any = None,
         resolve_actor: ActorResolver | None = None,
+        rate_limiter: Any = None,
     ) -> None:
+        self.rate_limiter = rate_limiter
         self.registry = registry
         self.manager = manager
         self.actor = actor
@@ -248,6 +252,8 @@ class ResourceMcpServer:
         if actor is None:
             actor = self.actor
         try:
+            if self.rate_limiter is not None:
+                await self.rate_limiter.caller(actor)
             value = await self._dispatch(tool, dict(arguments), actor)
         except (ResourceEngineError, DomainError) as exc:
             await _report(exc, tool, actor)  # only engine failures (RE-E501...)

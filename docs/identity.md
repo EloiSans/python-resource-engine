@@ -44,6 +44,12 @@ Other OIDC providers (Auth0, Okta, Zitadel, Authentik…) work with
 `OidcAuthenticator(issuer=..., audience=...)` and discovery; pass `to_principal`
 to map their role claims.
 
+## API keys
+
+Machine clients that can't use OAuth get API keys: `registry.register_api_keys()`
+and `ApiKeyAuthenticator(uow_factory, fallback=oidc)` in front of the OIDC
+verifier. See [API keys](api-keys.md).
+
 ## Outbound: calling other services
 
 `resource_engine_http.OAuth2ClientCredentials` gets and caches client-credentials

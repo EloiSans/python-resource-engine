@@ -15,7 +15,7 @@ Packages are named after what they talk to:
 | Kind | Name | Examples |
 |---|---|---|
 | A provider's own services | `resource-engine-<provider>` | `aws` (SQS, SNS), `azure` (Service Bus), `gcp` (Pub/Sub), `sap` (Event Mesh) |
-| A protocol many vendors implement | `resource-engine-<protocol>` | `s3` (AWS S3, Garage, MinIO, Ceph, R2), `oidc` (Keycloak, Cognito, Entra ID, Google), `http` (REST, SOAP), `rabbitmq` (AMQP) |
+| A protocol many vendors implement | `resource-engine-<protocol>` | `s3` (AWS S3, Garage, MinIO, Ceph, R2), `oidc` (Keycloak, Cognito, Entra ID, Google), `http` (REST, SOAP), `rabbitmq` (AMQP), `redis` (Redis, Valkey) |
 | A product with its own engine | `resource-engine-<product>` | `opa`, `cedar`, `openfga`, `sqlalchemy`, `fastapi` |
 
 Inside a provider package, each service is an extra and a module:
@@ -190,6 +190,24 @@ See [identity](identity.md).
 
 See [background jobs](jobs.md#one-worker-at-a-time).
 
+## Rate limits — `RateLimitStore`
+
+| Backend | Package | Class | Tested against | Status |
+|---|---|---|---|---|
+| Redis / Valkey | `resource-engine-redis` | `RedisRateLimitStore` | Valkey 8 (compose) | experimental |
+| In-memory | `resource-engine` (`resource_engine.ratelimit`) | `InMemoryRateLimitStore` | unit tests | experimental |
+
+See [rate limits](rate-limits.md).
+
+## Cache — `Cache`
+
+| Backend | Package | Class | Tested against | Status |
+|---|---|---|---|---|
+| Redis / Valkey | `resource-engine-redis` | `RedisCache` (signed entries) | Valkey 8 (compose) | experimental |
+| In-memory | `resource-engine` (`resource_engine.cache`) | `InMemoryCache` | unit tests | experimental |
+
+See [caching](caching.md).
+
 ## Tracing — `Tracer`
 
 | Backend | Package | Class | Tested against | Status |
@@ -279,6 +297,7 @@ uv run pytest -m emulator
 |---|---|---|---|
 | Garage (S3) | `dxflrs/garage:v2.4.1` | no official UI; S3 on :3910 | Run `uv run python docker/garage/init.py` once (layout, bucket `resource-engine`, dev key); the S3 tests run it too. AGPL, used only as a dev tool. |
 | RabbitMQ | `rabbitmq:4-management` | http://127.0.0.1:15672 (guest/guest) | AMQP on :5672. |
+| Valkey | `valkey/valkey:8-alpine` | no UI; Redis protocol on :6380 | Rate-limit counters (`resource-engine-redis`). |
 | Keycloak | `quay.io/keycloak/keycloak:26.4` | http://127.0.0.1:8180 (admin/admin) | Realm imported from `docker/keycloak/`. |
 | OPA | `openpolicyagent/opa:1.22.4` | REST on :8181 | Serves `docker/opa/*.rego` and reloads on change. |
 | OpenFGA | `openfga/openfga:v1.22.0` | playground http://127.0.0.1:3000; API on :8080 | In-memory datastore: tests create a store per test. |

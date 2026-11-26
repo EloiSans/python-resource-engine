@@ -45,6 +45,8 @@ class InvoiceResource(Resource):
 | `operation_docs` | `{}` | One sentence per enabled CRUD operation (`docs validate` needs it) |
 | `hooks` | `{}` | `{"<point>[:<qualifier>]": fn or [fn, ...]}`; see [lifecycle.md](lifecycle.md) |
 | `state_machine`, `state_field` | `None`, `"status"` | See [state-machines.md](state-machines.md) |
+| `cache_ttl` | `None` | Seconds the manager's record cache keeps records read by id (`ResourceManager(cache=)`); writes forget them |
+| `cache_control` | `None` | `Cache-Control` of GET answers (default `private, no-cache`; ETag and 304 always) |
 | `view` | `None` | A read-only resource computed by a query: `Aggregate("invoices", group_by=[...], values={...})` or `True` (custom; docs/views.md) |
 | `discriminator` | `None` | On a base resource with subtypes: the field naming each record's kind (docs/polymorphism.md) |
 | `extends`, `identity` | `None` | On a subtype: the base resource class and its discriminator value |
@@ -266,3 +268,10 @@ Totals, counts and balances are a view resource, not a stored field kept up
 to date in hooks and not a custom endpoint: see
 `examples/invoices/application/balances.py`. `map_views(mapper_registry,
 registry)` after mapping the sources; nothing to migrate.
+
+## Caching
+
+Don't hand-roll caches in hooks or repositories: set `cache_ttl` on resources
+read far more than written and pass `cache=InMemoryCache()` (one instance) or
+`RedisCache(redis, secret=...)` to the manager. Permissions still run per
+caller on cached records. HTTP ETag/304 is automatic. See docs/caching.md.

@@ -50,6 +50,7 @@ them as `{"error": {...}}`.
 | <a id="re-e707"></a>RE-E707 | `FieldNotReadable` | 403 | A `list` filters or sorts by fields the principal may not read; `details.fields`. |
 | <a id="re-e708"></a>RE-E708 | `TenantRequired` | 403 | A tenant-scoped resource needs a tenant: the caller has none, or a cross-tenant caller did not name one to create. |
 | <a id="re-e709"></a>RE-E709 | `TenantMismatch` | 403 | The operation names a tenant other than the caller's. |
+| <a id="re-e710"></a>RE-E710 | `RateLimited` | 429 | Too many requests from the caller or address in the window: wait `details.retry_after` seconds (`Retry-After`). See [rate limits](rate-limits.md). |
 
 `DomainError` (business rule violations raised by your code) maps to HTTP 422 and
 carries your own `code`.

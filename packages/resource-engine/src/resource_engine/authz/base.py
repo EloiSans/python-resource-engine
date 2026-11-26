@@ -59,6 +59,8 @@ class RoleBasedAuthorizer:
 
     async def roles_of(self, principal: Principal) -> frozenset[str]:
         roles = set(await self.role_source.roles(principal))
+        if principal.provider == "apikey" and principal.issuer == "resource-engine":
+            roles |= principal.roles  # an API key carries application roles, checked on create
         for provider_role in principal.roles | principal.groups:
             if provider_role in self.config.bootstrap:
                 roles.add(self.config.bootstrap[provider_role])

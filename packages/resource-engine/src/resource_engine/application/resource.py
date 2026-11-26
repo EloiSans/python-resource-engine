@@ -129,6 +129,12 @@ class Resource:
             machines and CRUD hooks.
         identity: The subtype's value in the discriminator field (default: its
             name).
+        cache_ttl: Seconds the manager's cache (``ResourceManager(cache=)``)
+            keeps records read by id; writes through the manager forget them
+            (see docs/caching.md). ``None``: not cached.
+        cache_control: ``Cache-Control`` of the HTTP ``GET`` answers
+            (``"private, max-age=30"``); the default lets clients store
+            answers but revalidate them (ETag, 304).
         view: A read-only resource computed by a query: an ``Aggregate`` over
             another resource (computed by every storage adapter), or ``True``
             for a custom view the storage adapter defines (see docs/views.md).
@@ -171,6 +177,8 @@ class Resource:
     extends: ClassVar[type[Resource] | None] = None
     identity: ClassVar[str | None] = None
     view: ClassVar[Any] = None
+    cache_ttl: ClassVar[float | None] = None
+    cache_control: ClassVar[str | None] = None
 
     # --- Mapping between schemas and entities. Override when needed. ---
 
@@ -254,6 +262,8 @@ class ResourceDefinition:
     discriminator: str | None = None
     identity: str | None = None
     view: Any = None
+    cache_ttl: float | None = None
+    cache_control: str | None = None
     #: The base resource's definition, on a subtype.
     parent: ResourceDefinition | None = field(default=None, repr=False, compare=False)
 
@@ -563,6 +573,8 @@ class ResourceDefinition:
             identity=(resource_cls.identity or name) if parent else None,
             parent=parent,
             view=resource_cls.view,
+            cache_ttl=_cache_ttl(owner, resource_cls.cache_ttl),
+            cache_control=resource_cls.cache_control,
         )
 
 
@@ -810,3 +822,9 @@ def _check_view_resource(
             f"{owner}: a view only lists and reads; remove {', '.join(problems)}",
             doc="docs/views.md",
         )
+
+
+def _cache_ttl(owner: str, ttl: float | None) -> float | None:
+    if ttl is not None and not ttl > 0:
+        raise ConfigurationError(f"{owner}: cache_ttl must be positive seconds or None")
+    return ttl

@@ -36,6 +36,7 @@ def build_registry(*, tenant_scoped: bool = False) -> ResourceRegistry:
         registry.register(_tenant_scoped(resource) if tenant_scoped else resource)
     registry.register_documents()
     registry.register_authz()
+    registry.register_api_keys()  # keys for machine clients (Bearer rek_...)
     registry.register_audit()
     return registry
 

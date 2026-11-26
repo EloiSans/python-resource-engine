@@ -126,8 +126,16 @@ class ResourceManager:
         audit_failures: bool = False,
         idempotency_ttl: timedelta = DEFAULT_TTL,
         observers: Sequence[OperationObserver] = (),
+        rate_limiter: Any = None,
+        cache: Any = None,
     ) -> None:
         self.registry = registry
+        from resource_engine.cache import RecordCache
+
+        #: Records read by id, for resources with ``cache_ttl`` (docs/caching.md).
+        self.records = RecordCache(cache) if cache is not None else None
+        #: ``RateLimiter`` whose ``actions`` limits apply to every operation (RE-E710).
+        self.rate_limiter = rate_limiter
         self.observers: list[OperationObserver] = list(observers)
         self.uow_factory = uow_factory
         if event_publisher is not None and event_delivery is not None:
@@ -250,7 +258,17 @@ class ResourceManager:
         await hooks.run(HookPoint.AFTER_VALIDATE, ctx, None)
 
     async def _load(self, ctx: OperationContext) -> Any:
-        entity = await ctx.repository().get(ctx.entity_id)
+        cached = (
+            self.records is not None
+            and ctx.resource.cache_ttl is not None
+            and ctx.operation == "get"  # reads only; writes load the stored record
+            and self._joined() is None
+        )
+        entity = await self.records.load(ctx.resource, ctx.entity_id) if cached else None
+        if entity is None:
+            entity = await ctx.repository().get(ctx.entity_id)
+            if cached and entity is not None:
+                await self.records.store(ctx.resource, entity)
         if entity is None:
             raise EntityNotFound(
                 f"{ctx.resource.name} {ctx.entity_id!r} does not exist",
@@ -348,6 +366,8 @@ class ResourceManager:
     ) -> None:
         """Step 2 (``resource`` unknown) or 5b (record known): raise when denied.
         Tenant-scoped resources resolve the caller's tenant first."""
+        if resource is ... and self.rate_limiter is not None:
+            await self.rate_limiter.action(ctx.actor, f"{ctx.resource.name}:{action}")
         await self._ensure_tenant(ctx)
         if self.authorizer is None:
             return
@@ -770,6 +790,16 @@ class ResourceManager:
             tx.after_commit.append((ctx, qualifier))
             return
         ctx.uow = None
+        if (
+            self.records is not None
+            and ctx.resource.cache_ttl is not None
+            and ctx.entity_id is not None
+            and ctx.operation != "get"
+        ):
+            try:
+                await self.records.forget(ctx.resource, ctx.entity_id)
+            except Exception as exc:  # the change is committed: report, don't fail it
+                await report_error(exc, where="after_commit", force=True, cache="forget")
         await _run_callbacks(ctx._on_commit, "on_commit", ctx)
         for hook in ctx.resource.dispatcher.for_point(HookPoint.AFTER_COMMIT, None):
             try:

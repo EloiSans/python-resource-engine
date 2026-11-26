@@ -270,6 +270,7 @@ def build_resource_router(
                 }
             )
 
+        list_endpoint.cache_control = definition.cache_control  # type: ignore[attr-defined]
         router.add_api_route(
             "",
             _endpoint(
@@ -309,6 +310,7 @@ def build_resource_router(
             )
             return reply(result, kw)
 
+        get_endpoint.cache_control = definition.cache_control  # type: ignore[attr-defined]
         router.add_api_route(
             "/{entity_id}",
             _endpoint(
@@ -690,9 +692,11 @@ def mount_resources(
     actor_dependency: ActorDependency = _no_actor,
     redirect_downloads: bool = False,
     access_log: bool = False,
+    http_cache: bool = True,
 ) -> None:
     """Include every registered resource in ``app`` and install error handlers.
-    ``access_log`` adds the access log and request ids (``install_access_log``)."""
+    ``access_log`` adds the access log and request ids (``install_access_log``);
+    ``http_cache`` the ETag / 304 handling of ``GET`` (docs/caching.md)."""
     app.include_router(
         build_router(
             registry,
@@ -703,6 +707,10 @@ def mount_resources(
         )
     )
     install_exception_handlers(app)
+    if http_cache:
+        from resource_engine_fastapi.caching import ConditionalGetMiddleware
+
+        app.add_middleware(ConditionalGetMiddleware)
     if access_log:
         from resource_engine_fastapi.access import install_access_log
 

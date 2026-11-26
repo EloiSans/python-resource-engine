@@ -22,9 +22,16 @@ from typing import Any
 
 from fastapi import FastAPI
 from resource_engine import ResourceManager
-from resource_engine.authz import PolicyAuthorizer, system_principal
+from resource_engine.authz import ApiKeyAuthenticator, PolicyAuthorizer, system_principal
+from resource_engine.cache import InMemoryCache
 from resource_engine.messaging import OutboxDelivery
 from resource_engine.ports.identity import Authenticator
+from resource_engine.ratelimit import (
+    InMemoryRateLimitStore,
+    Limit,
+    RateLimiter,
+    SlidingWindowLimiter,
+)
 from resource_engine_fastapi import bearer_actor, mount_asyncapi, mount_resources
 from resource_engine_sqlalchemy import unit_of_work_factory
 from sqlalchemy.ext.asyncio import AsyncEngine, async_sessionmaker, create_async_engine
@@ -48,7 +55,42 @@ def keycloak_authenticator() -> Authenticator:
     )
 
 
-def build_manager(session_factory: async_sessionmaker, *, blob_store: Any) -> ResourceManager:
+def rate_limiter() -> RateLimiter:
+    """Limits per caller, per anonymous address, on failed sign-ins (brute force)
+    and on creating invoices. Counters in Valkey/Redis when ``REDIS_URL`` is set
+    (shared by every instance), otherwise in this process."""
+    url = os.getenv("REDIS_URL")
+    if url:
+        from redis.asyncio import Redis
+        from resource_engine_redis import RedisRateLimitStore
+
+        store: Any = RedisRateLimitStore(Redis.from_url(url))
+    else:
+        store = InMemoryRateLimitStore()
+    return SlidingWindowLimiter(
+        store,
+        default=Limit(600, per=60),
+        anonymous=Limit(60, per=60),
+        failed_auth=Limit(20, per=300),
+        actions={"invoices:create": Limit(120, per=60)},
+    )
+
+
+def record_cache() -> Any:
+    """The manager's record cache: Valkey/Redis when ``REDIS_URL`` is set
+    (shared, signed with ``CACHE_SECRET``), otherwise this process's memory."""
+    url = os.getenv("REDIS_URL")
+    if url:
+        from redis.asyncio import Redis
+        from resource_engine_redis import RedisCache
+
+        return RedisCache(Redis.from_url(url), secret=os.environ["CACHE_SECRET"])
+    return InMemoryCache()
+
+
+def build_manager(
+    session_factory: async_sessionmaker, *, blob_store: Any, limiter: RateLimiter | None = None
+) -> ResourceManager:
     """The manager the app and the worker share: SQL, permissions, audit, and
     events through the outbox (the worker feeds them to the processes)."""
     registry = tenant_registry
@@ -66,6 +108,8 @@ def build_manager(session_factory: async_sessionmaker, *, blob_store: Any) -> Re
         authorizer=PolicyAuthorizer(authz, uow),  # system roles + policies as data
         event_delivery=OutboxDelivery(),  # events stored in the change's transaction
         audit=True,  # audit_log table, same transaction as each change
+        rate_limiter=limiter,  # its per-action limits, whatever the adapter
+        cache=record_cache(),  # records of resources with cache_ttl (customers)
     )
 
 
@@ -95,9 +139,14 @@ def create_app(
             yield
 
     app = FastAPI(title="Invoices (Resource Engine example)", lifespan=lifespan_with_store)
-    manager = build_manager(session_factory, blob_store=blob_store)
+    limiter = rate_limiter()
+    manager = build_manager(session_factory, blob_store=blob_store, limiter=limiter)
     app.state.manager = manager
-    actor = bearer_actor(authenticator or keycloak_authenticator())
+    # API keys (rek_...) for machine clients; every other token goes to Keycloak
+    keys = ApiKeyAuthenticator(
+        manager.uow_factory, fallback=authenticator or keycloak_authenticator()
+    )
+    actor = bearer_actor(keys, rate_limiter=limiter)  # 429 with Retry-After
     mount_resources(app, registry, manager, actor_dependency=actor, access_log=True)
     mount_asyncapi(app, registry)  # GET /asyncapi.json: the events it publishes
     return app

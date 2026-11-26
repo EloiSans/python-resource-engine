@@ -59,6 +59,13 @@ class ResourceRegistry:
         for resource_cls in (PolicyResource, RoleResource, RoleAssignmentResource):
             self.register(resource_cls)
 
+    def register_api_keys(self) -> None:
+        """Register ``authz_api_keys``: keys for machine clients (docs/api-keys.md).
+        Needs ``register_authz`` (keys carry its roles)."""
+        from resource_engine.authz.apikeys import ApiKeyResource
+
+        self.register(ApiKeyResource)
+
     def register_audit(
         self, resource_cls: type[Resource] | None = None, *, seals: bool = False
     ) -> type[Resource]:

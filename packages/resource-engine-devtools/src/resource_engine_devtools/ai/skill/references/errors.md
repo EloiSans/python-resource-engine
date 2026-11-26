@@ -56,6 +56,7 @@ and a `doc` link. Read the hint first.
 | RE-E707 | `FieldNotReadable` | 403 | Filter or sort by a field the caller may not read |
 | RE-E708 | `TenantRequired` | 403 | Tenant-scoped resource without a tenant |
 | RE-E709 | `TenantMismatch` | 403 | Another tenant named |
+| RE-E710 | `RateLimited` | 429 | Too many requests: wait `details.retry_after` (Retry-After) |
 
 Your own business errors subclass `resource_engine.domain.DomainError`, set a
 `code`, and map to HTTP 422.

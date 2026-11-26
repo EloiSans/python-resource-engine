@@ -35,6 +35,7 @@ def mount_graphql(
     persisted: PersistedQueries | None = None,
     authenticator: Any = None,
     auth_required: bool = True,
+    rate_limiter: Any = None,
 ) -> GraphQLAdapter:
     """Serve the generated schema at ``path`` on a FastAPI ``app``.
 
@@ -46,7 +47,9 @@ def mount_graphql(
     - ``hub`` (an ``EventHub``): adds subscriptions, served over WebSocket on
       the same path (``graphql-transport-ws``). ``authenticator`` checks the
       token the client sends in ``connection_init``; ``auth_required=False``
-      lets anonymous sockets in.
+      lets anonymous sockets in; ``rate_limiter`` refuses addresses with too
+      many failed authentications (HTTP requests are limited by the
+      ``actor_dependency``: ``bearer_actor(..., rate_limiter=)``).
     - ``max_cost`` / ``persisted``: see ``GraphQLAdapter``. ``extensions``
       (APQ) is read from the POST body or the GET parameter (JSON).
 
@@ -122,7 +125,11 @@ def mount_graphql(
 
         async def socket(websocket: WebSocket) -> None:
             await serve_websocket(
-                websocket, adapter, authenticator=authenticator, required=auth_required
+                websocket,
+                adapter,
+                authenticator=authenticator,
+                required=auth_required,
+                rate_limiter=rate_limiter,
             )
 
         app.add_api_websocket_route(path, socket)

@@ -105,6 +105,14 @@ Idempotency-Key: 6f1c2e4a-...
   transition instead (`POST /invoices/7/transitions/submit`). Build the action
   buttons from `GET /invoices/7/transitions`: it already applies the user's
   permissions and the record's state.
+- **Let ETags save downloads.** Every `GET` answer has an `ETag`. The
+  browser's HTTP cache sends `If-None-Match` and gets a 304 when nothing
+  changed, so refetching on focus or after a mutation is cheap. See
+  [caching](caching.md).
+- **Back off on 429.** A `RE-E710` answer means too many requests. Wait the
+  `Retry-After` seconds before retrying, and show the user why, instead of
+  retrying in a loop. `RateLimit-Remaining` on normal answers tells you how
+  close you are. See [rate limits](rate-limits.md).
 - **Retry safely.** Send an `Idempotency-Key` (a fresh UUID per user intent)
   on every `POST`, `PATCH` and `DELETE`. A retry with the same key, after a
   timeout or double click, returns the first result instead of acting twice.

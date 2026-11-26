@@ -12,6 +12,7 @@
 | [authz_policies](resources/authz_policies.md) | Access policies (ABAC), managed from the front end. | `list`, `get`, `create`, `update`, `delete` |
 | [authz_roles](resources/authz_roles.md) | Custom roles, created from the front end. System roles are defined in code. | `list`, `get`, `create`, `update`, `delete` |
 | [authz_role_assignments](resources/authz_role_assignments.md) | Roles given to principals or groups from the front end (used by | `list`, `get`, `create`, `delete` |
+| [authz_api_keys](resources/authz_api_keys.md) | API keys for machine clients that cannot use OAuth. | `list`, `get`, `create`, `update`, `revoke` |
 | [audit_log](resources/audit_log.md) | Audit trail: committed changes and refused attempts. | `list`, `get` |
 
 Vegeu també la [matriu de permisos](permissions.md).

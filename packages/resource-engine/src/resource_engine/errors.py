@@ -380,3 +380,10 @@ class TenantMismatch(ResourceEngineError):
     """The operation names a tenant other than the caller's."""
 
     code = "RE-E709"
+
+
+class RateLimited(ResourceEngineError):
+    """Too many requests from this caller (or address) in the current window.
+    ``details.retry_after`` says how many seconds to wait."""
+
+    code = "RE-E710"

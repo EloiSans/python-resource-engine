@@ -92,6 +92,7 @@ engine = engine_tables(
     metadata,
     documents=True,
     authz=True,
+    api_keys=True,
     audit=True,
     idempotency=True,
     outbox=True,  # events stored with each change, then fed to processes and brokers

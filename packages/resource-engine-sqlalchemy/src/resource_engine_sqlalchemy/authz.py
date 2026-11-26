@@ -65,3 +65,28 @@ def map_authz(registry: orm_registry, tables: AuthzTables) -> None:
     ):
         if sa_inspect(entity, raiseerr=False) is None:
             registry.map_imperatively(entity, table)
+
+
+def api_keys_table(metadata: MetaData, name: str = "resource_engine_api_keys") -> Table:
+    """API keys (``registry.register_api_keys``): only the secret's hash is stored."""
+    return Table(
+        name,
+        metadata,
+        Column("id", String(32), primary_key=True),
+        Column("name", String(200), nullable=False),
+        Column("secret_hash", String(64), nullable=False),
+        Column("roles", JSON, nullable=False),
+        Column("tenant", String(200), index=True),
+        Column("status", String(16), nullable=False),
+        Column("expires_at", DateTime(timezone=True)),
+        Column("last_used_at", DateTime(timezone=True)),
+        Column("created_at", DateTime(timezone=True)),
+        Column("created_by", String(300), index=True),
+    )
+
+
+def map_api_keys(registry: orm_registry, table: Table) -> None:
+    from resource_engine.authz.apikeys import ApiKey
+
+    if sa_inspect(ApiKey, raiseerr=False) is None:
+        registry.map_imperatively(ApiKey, table)

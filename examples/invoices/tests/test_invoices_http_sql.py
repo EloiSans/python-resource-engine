@@ -303,3 +303,62 @@ def test_customer_balances_view(app, tokens):
         assert c.post("/customer_balances", json={}, headers=acme).status_code == 405
         ranked = c.get("/customer_balances", headers=globex, params={"order_by": "-total"})
         assert ranked.json()["items"][0]["total"] == "7.00"
+
+
+def test_api_keys_for_machine_clients(app, tokens):
+    admin = tokens.headers("root", ["invoices-admin"])
+    with TestClient(app) as c:
+        made = c.post(
+            "/authz_api_keys",
+            json={"name": "ERP sync", "roles": ["viewer"], "tenant": "acme"},
+            headers=admin,
+        )
+        assert made.status_code == 201, made.json()
+        key = made.json()["key"]
+        assert (
+            key.startswith("rek_")
+            and c.get(f"/authz_api_keys/{made.json()['id']}", headers=admin).json()["key"] is None
+        )
+        c.post(
+            "/invoices",
+            json={"customer": "A", "amount": "1"},
+            headers=tokens.headers("eli", ["issuer"], "acme"),
+        )
+        for headers in ({"Authorization": f"Bearer {key}"}, {"X-API-Key": key}):
+            seen = c.get("/invoices", headers=headers)
+            assert seen.status_code == 200 and seen.json()["total"] == 1  # acme, read-only
+        refused = c.post("/invoices", json={"customer": "x", "amount": "1"}, headers=headers)
+        assert refused.status_code == 403
+        c.post(f"/authz_api_keys/{made.json()['id']}/transitions/revoke", headers=admin)
+        assert c.get("/invoices", headers={"X-API-Key": key}).status_code == 401
+
+
+def test_guessing_keys_is_rate_limited(app, tokens):
+    with TestClient(app) as c:
+        for _ in range(20):
+            assert c.get("/invoices", headers={"X-API-Key": "rek_x_guess"}).status_code == 401
+        blocked = c.get("/invoices", headers=tokens.headers("eli", ["issuer"], "acme"))
+        assert blocked.status_code == 429 and "retry-after" in blocked.headers
+
+
+def test_cached_records_and_conditional_gets(app, tokens):
+    acme = tokens.headers("eli", ["issuer"], "acme")
+    globex = tokens.headers("gina", ["issuer"], "globex")
+    with TestClient(app) as c:
+        made = c.post("/customers", json={"name": "Bar", "tax_id": "B321"}, headers=acme).json()
+        first = c.get(f"/customers/{made['id']}", headers=acme)  # loaded, then cached
+        etag = first.headers["etag"]
+        assert first.headers["cache-control"] == "private, no-cache"
+        assert "Authorization" in first.headers["vary"]
+        again = c.get(f"/customers/{made['id']}", headers={**acme, "If-None-Match": etag})
+        assert again.status_code == 304 and again.content == b""
+        # the cached record still goes through tenancy: another organization sees nothing
+        assert c.get(f"/customers/{made['id']}", headers=globex).status_code == 404
+        c.patch(f"/customers/{made['id']}", json={"name": "Bar & Co"}, headers=acme)
+        changed = c.get(f"/customers/{made['id']}", headers={**acme, "If-None-Match": etag})
+        assert changed.status_code == 200 and changed.json()["name"] == "Bar & Co"
+        page = c.get("/customers", headers=acme)
+        assert (
+            c.get("/customers", headers={**acme, "If-None-Match": page.headers["etag"]}).status_code
+            == 304
+        )

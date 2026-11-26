@@ -23,6 +23,7 @@ members = [
     "resource-engine-openfga",
     "resource-engine-opentelemetry",
     "resource-engine-rabbitmq",
+    "resource-engine-redis",
     "resource-engine-s3",
     "resource-engine-sap",
     "resource-engine-sentry",
@@ -2131,6 +2132,15 @@ wheels = [
 ]
 
 [[package]]
+name = "redis"
+version = "8.2.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/10/8a/408dd829367bb62972bd5d91bd8cc283c24c8344f80a880d4b3901ce43fd/redis-8.2.0.tar.gz", hash = "sha256:58b1493d83ba8f0e3ffe6bd781194ca5c01c91267ae03d29c1087b0b3c7d79c9", size = 5809579, upload-time = "2026-11-23T08:31:56.692Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/ea/8f/98458650cca985032598a59caca0641e7889cf4d536dc12dc032bef7df47/redis-8.2.0-py3-none-any.whl", hash = "sha256:4ff649f10fae5e7e97798fb2a84e84a0a66e98310d75cad2b5a572ce0f9f15a7", size = 732892, upload-time = "2026-11-23T08:31:55.011Z" },
+]
+
+[[package]]
 name = "referencing"
 version = "0.37.0"
 source = { registry = "https://pypi.org/simple" }
@@ -2471,6 +2481,21 @@ requires-dist = [
 ]
 
 [[package]]
+name = "resource-engine-redis"
+version = "0.1.0.dev0"
+source = { editable = "adapters/resource-engine-redis" }
+dependencies = [
+    { name = "redis" },
+    { name = "resource-engine" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "redis", specifier = ">=5.0" },
+    { name = "resource-engine", editable = "packages/resource-engine" },
+]
+
+[[package]]
 name = "resource-engine-s3"
 version = "0.1.0.dev0"
 source = { editable = "adapters/resource-engine-s3" }
@@ -2566,6 +2591,7 @@ dev = [
     { name = "resource-engine-openfga" },
     { name = "resource-engine-opentelemetry" },
     { name = "resource-engine-rabbitmq" },
+    { name = "resource-engine-redis" },
     { name = "resource-engine-s3" },
     { name = "resource-engine-sap" },
     { name = "resource-engine-sentry" },
@@ -2599,6 +2625,7 @@ dev = [
     { name = "resource-engine-openfga", editable = "adapters/resource-engine-openfga" },
     { name = "resource-engine-opentelemetry", editable = "adapters/resource-engine-opentelemetry" },
     { name = "resource-engine-rabbitmq", editable = "adapters/resource-engine-rabbitmq" },
+    { name = "resource-engine-redis", editable = "adapters/resource-engine-redis" },
     { name = "resource-engine-s3", editable = "adapters/resource-engine-s3" },
     { name = "resource-engine-sap", extras = ["all"], editable = "adapters/resource-engine-sap" },
     { name = "resource-engine-sentry", editable = "adapters/resource-engine-sentry" },

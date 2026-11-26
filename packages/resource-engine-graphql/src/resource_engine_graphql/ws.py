@@ -12,7 +12,8 @@ https://github.com/enisdenjo/graphql-ws/blob/master/PROTOCOL.md
 - ``complete`` from the client stops one; ``ping``/``pong`` keep it alive.
 
 Close codes: 4400 bad message, 4401 not initialised or not authenticated,
-4403 forbidden, 4408 init timeout, 4409 duplicate id, 4429 too many inits.
+4403 forbidden, 4408 init timeout, 4409 duplicate id, 4429 too many inits or
+too many failed authentications from the address (``rate_limiter``).
 """
 
 from __future__ import annotations
@@ -23,7 +24,7 @@ import json
 import logging
 from typing import Any
 
-from resource_engine.errors import AuthenticationFailed
+from resource_engine.errors import AuthenticationFailed, RateLimited
 
 from resource_engine_graphql.execution import GraphQLAdapter
 
@@ -40,6 +41,7 @@ async def serve_websocket(
     required: bool = True,
     init_timeout: float = 10.0,
     max_operations: int = 50,
+    rate_limiter: Any = None,
 ) -> None:
     """Run one ``graphql-transport-ws`` connection (a Starlette ``WebSocket``)."""
     from starlette.websockets import WebSocketDisconnect
@@ -68,9 +70,18 @@ async def serve_websocket(
         if first is None or first.get("type") != "connection_init":
             await close(4401, "Unauthorized")
             return
+        client = websocket.scope.get("client")
+        address = client[0] if client else None
         try:
+            if rate_limiter is not None:
+                await rate_limiter.before_auth(address)
             actor = await _authenticate(first.get("payload"), authenticator, required)
+        except RateLimited:
+            await close(4429, "Too many failed authentications")
+            return
         except AuthenticationFailed as exc:
+            if rate_limiter is not None:
+                await rate_limiter.failed(address)
             await close(4403, exc.message[:120])
             return
         await send({"type": "connection_ack"})

@@ -88,3 +88,19 @@ user = Principal(subject="ana", issuer="idp", roles=frozenset({"approver"}))
 with pytest.raises(PermissionDenied):
     await manager.transition("invoices", 1, "approve", actor=user)
 ```
+
+## Machine clients
+
+Clients that cannot use OAuth client credentials get API keys
+(`registry.register_api_keys()`, `ApiKeyAuthenticator(uow_factory,
+fallback=oidc)` in `bearer_actor`), not a hand-made token table or a shared
+secret in settings. Keys carry roles (at most the creator's), a tenant and an
+expiry, and are revoked with the `revoke` transition. See docs/api-keys.md.
+
+## Rate limits
+
+Limits are configuration, not code in hooks or endpoints: a `RateLimiter`
+(`default` per caller, `anonymous` per address, `failed_auth`, `actions` per
+engine action) passed to `ResourceManager(rate_limiter=)` and
+`bearer_actor(..., rate_limiter=)`; `RedisRateLimitStore` with several
+instances. Refusals are RE-E710 (429). See docs/rate-limits.md.

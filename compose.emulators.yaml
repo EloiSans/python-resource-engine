@@ -72,6 +72,16 @@ services:
       interval: 3s
       retries: 30
 
+  valkey:
+    # Valkey (BSD, Redis-compatible): shared rate-limit counters.
+    image: valkey/valkey:8-alpine
+    ports:
+      - "127.0.0.1:6380:6379"
+    healthcheck:
+      test: ["CMD", "valkey-cli", "ping"]
+      interval: 2s
+      retries: 30
+
   keycloak:
     # Admin console: http://127.0.0.1:8180 (admin / admin). Realm "resource-engine".
     image: quay.io/keycloak/keycloak:26.4

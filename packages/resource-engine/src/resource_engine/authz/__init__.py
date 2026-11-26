@@ -3,6 +3,7 @@
 See docs/permissions.md.
 """
 
+from resource_engine.authz.apikeys import ApiKey, ApiKeyAuthenticator, ApiKeyResource
 from resource_engine.authz.base import RoleBasedAuthorizer, subject_view
 from resource_engine.authz.catalog import ActionInfo, AttributeInfo, Catalog, action_matches
 from resource_engine.authz.conditions import UNKNOWN, Env, evaluate, partial, validate
@@ -31,6 +32,9 @@ from resource_engine.authz.roles import (
 )
 
 __all__ = [
+    "ApiKey",
+    "ApiKeyAuthenticator",
+    "ApiKeyResource",
     "UNKNOWN",
     "ActionInfo",
     "AttributeInfo",

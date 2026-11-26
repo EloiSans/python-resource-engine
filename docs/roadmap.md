@@ -168,6 +168,23 @@
   tools. `Aggregate` views (`Count`, `Sum`, `Min`, `Max`, `Avg`, with `where`)
   run in every storage adapter (one `GROUP BY` in SQL, `map_views`); custom
   views map any `select` (`map_view`). The example gains `customer_balances`.
+- API keys (`registry.register_api_keys()`, `ApiKeyAuthenticator`): `rek_<id>_<secret>`
+  sent as a bearer token or `X-API-Key`, the secret hashed and shown once
+  (also kept out of idempotency records), roles limited to the creator's
+  permissions, the creator's tenant, expiry, the `revoke` transition,
+  `last_used_at`; other tokens fall back to OIDC. The example app accepts them.
+- Rate limits (`RateLimiter`): per caller, per anonymous address, failed
+  authentications per address (checked before the credentials), and per
+  engine action in the manager for every adapter; sliding window, 429 with
+  `Retry-After` and `RateLimit-*` headers (RE-E710). Counters in memory or in
+  Redis/Valkey (`resource-engine-redis`, atomic, fail open). `RateLimiter` is
+  a port: `SlidingWindowLimiter` is the built-in implementation.
+- Caching: a `Cache` port with `InMemoryCache` and a signed `RedisCache`; the
+  manager caches records read by id for resources with `cache_ttl`, permission
+  checks still run per caller, writes through the manager forget them after
+  commit. HTTP: ETag on every JSON `GET` (version or body hash), 304 on
+  `If-None-Match`, `Cache-Control` (default `private, no-cache`, per resource
+  `cache_control`) and `Vary` on the credentials.
 - `resource-engine scaffold consumer`: payload models, a typed `EventRouter`
   and contract tests from a provider's AsyncAPI (3.0 or 2.x; envelope,
   CloudEvents or raw bodies). Contract testing on both sides:
@@ -192,9 +209,6 @@ what follows builds on it.
 - Opaque access tokens: an `Authenticator` using OAuth token introspection
   (RFC 7662) with a short cache, for providers that do not issue JWTs and for
   immediate revocation; presets for Keycloak, Okta and Auth0.
-- API keys for machine clients that cannot use OAuth: keys stored hashed in a
-  resource managed through the API (prefix shown, secret once), each mapped to
-  a principal with roles and a tenant, expiry and revocation, audited use.
 
 ### Later
 

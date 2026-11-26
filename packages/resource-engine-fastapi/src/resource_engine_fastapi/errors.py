@@ -39,6 +39,7 @@ STATUS_BY_ERROR: list[tuple[type[ResourceEngineError], int]] = [
     (e.StorageFailed, 502),
     (e.ConfigurationError, 500),
     (e.RemoteCallFailed, 502),
+    (e.RateLimited, 429),
 ]
 
 
@@ -67,6 +68,15 @@ def install_exception_handlers(app: FastAPI) -> None:
                 "WWW-Authenticate": "Bearer"
                 + (f' error="invalid_token", error_description="{reason}"' if reason else "")
             }
+        elif isinstance(exc, e.RateLimited):
+            details = exc.details if isinstance(exc.details, dict) else {}
+            retry = int(details.get("retry_after") or 1)
+            headers = {
+                "Retry-After": str(retry),
+                "RateLimit-Limit": str(details.get("limit")),
+                "RateLimit-Remaining": "0",
+                "RateLimit-Reset": str(retry),
+            }
         return JSONResponse(status_code=status, content={"error": exc.to_dict()}, headers=headers)
 
     @app.exception_handler(DomainError)
@@ -74,6 +84,36 @@ def install_exception_handlers(app: FastAPI) -> None:
         return JSONResponse(status_code=422, content={"error": exc.to_dict()})
 
     app.add_middleware(UnexpectedErrorMiddleware)
+    app.add_middleware(RateLimitHeadersMiddleware)
+
+
+class RateLimitHeadersMiddleware:
+    """``RateLimit-Limit``, ``-Remaining`` and ``-Reset`` on responses to callers
+    the actor dependency rate-limited (``bearer_actor(..., rate_limiter=)``)."""
+
+    def __init__(self, app: Any) -> None:
+        self.app = app
+
+    async def __call__(self, scope: Any, receive: Any, send: Any) -> None:
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+
+        async def with_headers(message: Any) -> None:
+            if message["type"] == "http.response.start":
+                decision = (scope.get("state") or {}).get("rate_limit")
+                if decision is not None:
+                    names = {k.lower() for k, _ in message.get("headers", [])}
+                    if b"ratelimit-limit" not in names:
+                        message["headers"] = [
+                            *message.get("headers", []),
+                            (b"ratelimit-limit", str(decision.limit).encode()),
+                            (b"ratelimit-remaining", str(decision.remaining).encode()),
+                            (b"ratelimit-reset", str(decision.reset).encode()),
+                        ]
+            await send(message)
+
+        await self.app(scope, receive, with_headers)
 
 
 class UnexpectedErrorMiddleware:

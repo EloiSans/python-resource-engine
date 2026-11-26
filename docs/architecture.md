@@ -29,6 +29,8 @@ so the same class is used by the domain, the in-memory adapter and SQLAlchemy.
 - `MessageSource` (+ `SupportsDeadLetter`): pull side of a broker (`receive`, `ack`, `retry`).
 - `InboxStore` / `SupportsInbox`: processed message ids for idempotent consumers; `purge` for retention (`MessagingJanitor`).
 - `ErrorReporter`: receives every unexpected failure once, with its context (`LoggingReporter` by default, `SentryReporter` in `resource-engine-sentry`; [observability](observability.md#error-reporting)).
+- `RateLimiter`: decides whether a caller may make one more request (`SlidingWindowLimiter` over a `RateLimitStore`: `InMemoryRateLimitStore`, `RedisRateLimitStore` in `resource-engine-redis`; [rate limits](rate-limits.md)).
+- `Cache`: values with a TTL, for the manager's record cache (`InMemoryCache`, `RedisCache`; [caching](caching.md)).
 - `OperationObserver`: metrics hook called after every manager operation (`OperationMetrics` in `resource-engine-opentelemetry`; [observability](observability.md#metrics)).
 - `JobObserver`: called after every `JobRunner` run (`JobMetrics` in `resource-engine-opentelemetry`).
 - `MessageObserver`: metrics hook called after every processed message (`LoggingObserver` in the core, `ConsumerMetrics` in `resource-engine-opentelemetry`).

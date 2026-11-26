@@ -101,7 +101,10 @@ def encode(ctx: OperationContext, result: Any) -> dict[str, Any]:
         return {
             "kind": "model",
             "schema": schema,
-            "data": result.model_dump(mode="json", exclude=set(hidden)),
+            # secrets shown once (an API key) are never stored for replays
+            "data": result.model_dump(
+                mode="json", exclude=set(hidden) | set(ctx.extras.get("never_store", ()))
+            ),
             "hidden": hidden,
         }
     return {"kind": "json", "data": jsonable(result)}

@@ -26,7 +26,13 @@ from sqlalchemy import MetaData, Table
 from sqlalchemy.orm import registry as orm_registry
 
 from resource_engine_sqlalchemy.audit import audit_seal_table, audit_table, map_audit
-from resource_engine_sqlalchemy.authz import AuthzTables, authz_tables, map_authz
+from resource_engine_sqlalchemy.authz import (
+    AuthzTables,
+    api_keys_table,
+    authz_tables,
+    map_api_keys,
+    map_authz,
+)
 from resource_engine_sqlalchemy.documents import documents_table, map_documents
 from resource_engine_sqlalchemy.idempotency import idempotency_table
 from resource_engine_sqlalchemy.inbox import inbox_table
@@ -56,6 +62,7 @@ class EngineTables:
     documents: Table | None = None
     locks: Table | None = None
     idempotency: Table | None = None
+    api_keys: Table | None = None
 
     def all(self) -> list[Table]:
         tables = [
@@ -66,6 +73,7 @@ class EngineTables:
             self.documents,
             self.locks,
             self.idempotency,
+            self.api_keys,
         ]
         if self.authz is not None:
             tables += [self.authz.policies, self.authz.roles, self.authz.assignments]
@@ -83,6 +91,7 @@ def engine_tables(
     documents: bool = False,
     locks: bool = False,
     idempotency: bool = False,
+    api_keys: bool = False,
     names: dict[str, Any] | None = None,
 ) -> EngineTables:
     """Declare the engine tables an application uses on ``metadata``.
@@ -95,6 +104,7 @@ def engine_tables(
         documents: Attached documents (``registry.register_documents``).
         locks: Leases for ``JobRunner`` jobs with ``single=True``.
         idempotency: Results of writes sent with an idempotency key.
+        api_keys: Keys for machine clients (``registry.register_api_keys``).
         names: Custom table names, by the same keys (``authz`` takes a prefix).
     """
     if seals and not audit:
@@ -113,6 +123,7 @@ def engine_tables(
         documents=named("documents", documents_table) if documents else None,
         locks=named("locks", locks_table) if locks else None,
         idempotency=named("idempotency", idempotency_table) if idempotency else None,
+        api_keys=named("api_keys", api_keys_table) if api_keys else None,
     )
 
 
@@ -125,3 +136,5 @@ def map_engine(registry: orm_registry, tables: EngineTables) -> None:
         map_authz(registry, tables.authz)
     if tables.documents is not None:
         map_documents(registry, tables.documents)
+    if tables.api_keys is not None:
+        map_api_keys(registry, tables.api_keys)

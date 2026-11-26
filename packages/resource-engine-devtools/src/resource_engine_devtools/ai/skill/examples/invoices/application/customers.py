@@ -30,5 +30,7 @@ class CustomerResource(Resource):
         "update": "Modifica les dades d'un client.",
         "delete": "Elimina un client que no té factures.",
     }
+    # read often, changed rarely: kept in the manager's cache for 5 minutes
+    cache_ttl = 300
     filterable = ["country", "name", "tax_id"]
     sortable = ["id", "name"]
