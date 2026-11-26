@@ -104,7 +104,10 @@ Set up this repository for Resource Engine development with AI agents.
 2. Make sure pyproject.toml has a [tool.resource-engine] table with `registry`
    pointing to the application's ResourceRegistry ("pkg.bootstrap:registry"),
    and `paths` if the code is not importable from the root. Add `authz`,
-   `policies` and `consumers` if the project has them.
+   `policies` and `consumers` if the project has them. If it publishes events,
+   add a [tool.resource-engine.asyncapi] table (title, version, servers and
+   channel addresses) and write the document with
+   `resource-engine docs asyncapi --out docs/asyncapi.json`.
 3. Run `resource-engine ai install --mcp --target claude,agents` (add cursor
    and copilot if the team uses them). It installs the skill and registers the
    development MCP server in .mcp.json (and .cursor/mcp.json,
@@ -114,7 +117,10 @@ Set up this repository for Resource Engine development with AI agents.
    listed.
 5. Verify: `resource-engine check`, `resource-engine docs validate --strict`
    and the tests. Fix what they report, using the explain_error tool for codes.
-6. Add `resource-engine ai sync --check` to CI next to check and docs validate.
+6. Add `resource-engine ai sync --check` to CI next to check and docs validate,
+   and, if docs/asyncapi.json is committed,
+   `resource-engine docs asyncapi --check docs/asyncapi.json` so changes that
+   would break the consumers of its events fail the build.
 7. Summarise what you changed, and commit only when I ask.
 ```
 
