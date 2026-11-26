@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import inspect
 from collections.abc import Callable
-from typing import Any, Literal
+from typing import Any, Literal, Union
 
 from fastapi import APIRouter, Body, Depends, FastAPI, Header, Path, Query, Response, status
 from fastapi.responses import JSONResponse
@@ -98,9 +98,9 @@ def _respond_page(page: dict[str, Any]) -> Any:
     return JSONResponse({**page, "items": [_dump(i) for i in items]})
 
 
-def _page_model(read: type[BaseModel]) -> type[BaseModel]:
+def _page_model(read: Any, name: str | None = None) -> type[BaseModel]:
     return create_model(
-        f"{read.__name__}Page",
+        f"{name or read.__name__}Page",
         items=(list[read], ...),  # type: ignore[valid-type]
         total=(int, ...),
         offset=(int, ...),
@@ -141,6 +141,9 @@ def build_resource_router(
         else []
     )
     read = definition.schemas.get("read")
+    # a base resource answers with each record's subtype schema
+    subtypes = [d.schemas["read"] for d in registry_of(manager).subtypes(name).values()]
+    out: Any = Union[tuple(subtypes)] if subtypes else read  # noqa: UP007
     docs = definition.operation_docs
     version_field = definition.version_field
     # versioned resources: responses carry ETag, writes accept If-Match
@@ -289,7 +292,7 @@ def build_resource_router(
                 f"list_{name}",
             ),
             methods=["GET"],
-            response_model=_page_model(read) if read else None,
+            response_model=_page_model(out, read.__name__) if read else None,
             summary=_summary(docs.get("list")) or f"List {name}",
             description=docs.get("list"),
         )
@@ -314,7 +317,7 @@ def build_resource_router(
                 f"get_{name}",
             ),
             methods=["GET"],
-            response_model=read,
+            response_model=out,
             summary=_summary(docs.get("get")) or f"Get one of {name}",
             description=docs.get("get"),
         )
@@ -346,7 +349,7 @@ def build_resource_router(
             ),
             methods=["POST"],
             status_code=status.HTTP_201_CREATED,
-            response_model=read,
+            response_model=out,
             summary=_summary(docs.get("create")) or f"Create {name}",
             description=docs.get("create"),
         )
@@ -381,7 +384,7 @@ def build_resource_router(
                 f"update_{name}",
             ),
             methods=["PATCH"],
-            response_model=read,
+            response_model=out,
             summary=_summary(docs.get("update")) or f"Update {name}",
             description=docs.get("update"),
         )
@@ -479,7 +482,7 @@ def build_resource_router(
                     [*tenant_params, *match_params, *key_params, actor_param, response_param],
                 ),
                 methods=["POST"],
-                response_model=read,
+                response_model=out,
                 summary=f"Transition: {event}",
                 description=sm_doc or None,
             )
@@ -521,7 +524,7 @@ def build_resource_router(
             if action.instance
             else f"/actions/{action.name}"
         )
-        response_model = action.output_schema or (read if action.instance else None)
+        response_model = action.output_schema or (out if action.instance else None)
         router.add_api_route(
             path,
             make_action(),

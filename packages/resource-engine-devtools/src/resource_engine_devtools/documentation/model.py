@@ -171,6 +171,12 @@ class ResourceDoc:
     #: For process managers: the correlation field and the events they react to.
     correlation: str | None = None
     reacts: list[ReactionDoc] = field(default_factory=list)
+    #: Polymorphic resources: a base's discriminator and subtypes (by identity),
+    #: or the base a subtype extends and its identity.
+    discriminator: str | None = None
+    subtypes: dict[str, str] = field(default_factory=dict)
+    extends: str | None = None
+    identity: str | None = None
 
 
 @dataclass

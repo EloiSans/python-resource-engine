@@ -117,6 +117,17 @@ class Resource:
             tags an ``invoices`` one (many-to-many).
         link_names: Names of those relations, by link field
             (``{"invoice_id": "labels"}``: the invoices' relation is ``labels``).
+        discriminator: On a base resource with subtypes (``requests``): the
+            field holding each record's subtype. The base lists and reads every
+            type and runs its state machines and actions on them; records are
+            created, updated and deleted through the subtypes (see
+            docs/polymorphism.md).
+        extends: On a subtype: the base resource class. The subtype's model
+            subclasses the base model, its read schema includes the base's
+            fields, and it shares the base's ids, tenancy, versioning, state
+            machines and CRUD hooks.
+        identity: The subtype's value in the discriminator field (default: its
+            name).
     """
 
     name: ClassVar[str | None] = None
@@ -152,6 +163,9 @@ class Resource:
     timers: ClassVar[Sequence[Timer]] = ()
     internal_operations: ClassVar[Sequence[str]] = ()
     link_names: ClassVar[Mapping[str, str]] = {}
+    discriminator: ClassVar[str | None] = None
+    extends: ClassVar[type[Resource] | None] = None
+    identity: ClassVar[str | None] = None
 
     # --- Mapping between schemas and entities. Override when needed. ---
 
@@ -232,6 +246,10 @@ class ResourceDefinition:
     #: The first (or only) machine; ``machines`` has them all, by name.
     machine: MachineRunner | None = field(repr=False, compare=False)
     machines: Mapping[str, MachineRunner] = field(default_factory=dict, repr=False, compare=False)
+    discriminator: str | None = None
+    identity: str | None = None
+    #: The base resource's definition, on a subtype.
+    parent: ResourceDefinition | None = field(default=None, repr=False, compare=False)
 
     def enabled(self, operation: str) -> bool:
         return operation in self.operations
@@ -246,8 +264,18 @@ class ResourceDefinition:
         return tuple(e for m in self.machines.values() for e in m.info.events)
 
     @property
+    def record_machines(self) -> Mapping[str, MachineRunner]:
+        """The machines a record of this resource has: a subtype's are its base's."""
+        return self.parent.machines if self.parent is not None else self.machines
+
+    @property
     def state_fields(self) -> tuple[str, ...]:
-        return tuple(m.state_field for m in self.machines.values())
+        return tuple(m.state_field for m in self.record_machines.values())
+
+    @property
+    def family(self) -> str:
+        """The resource whose table holds the records: the base for a subtype."""
+        return self.parent.name if self.parent is not None else self.name
 
     def machine_for(self, event: str) -> MachineRunner | None:
         """The machine that has the transition ``event``."""
@@ -264,6 +292,7 @@ class ResourceDefinition:
                 doc="docs/resources.md#declaring-a-resource",
             )
         name = resource_cls.name or _default_name(resource_cls.__name__)
+        parent = _parent(owner, resource_cls, model)
 
         operations = tuple(resource_cls.operations)
         unknown = [op for op in operations if op not in CRUD_OPERATIONS]
@@ -288,6 +317,18 @@ class ResourceDefinition:
                 if not (inspect.isclass(schema) and issubclass(schema, BaseModel)):
                     raise ConfigurationError(f"{owner}: schema '{role}' must be a Pydantic model")
 
+        if parent is not None and (
+            resource_cls.state_machine
+            or resource_cls.machines
+            or resource_cls.timers
+            or resource_cls.transition_schemas
+        ):
+            raise ConfigurationError(
+                f"{owner}: state machines, timers and transitions of a subtype belong to "
+                f"its base {parent.name!r}",
+                hint="Declare them on the base resource; they run on every subtype's records.",
+                doc="docs/polymorphism.md",
+            )
         runners = _machines(owner, name, resource_cls, schemas)
         machine = next(iter(runners.values()), None)
         sm = machine.machine_cls if machine else None
@@ -370,7 +411,7 @@ class ResourceDefinition:
         for role in ("create", "update"):
             if role in schemas:
                 known_fields |= set(schemas[role].model_fields)
-        tenant_field = resource_cls.tenant_field
+        tenant_field = _inherited(owner, "tenant_field", resource_cls, parent)
         if tenant_field is not None:
             if tenant_field == resource_cls.id_field:
                 raise ConfigurationError(f"{owner}: the id field cannot be the tenant field")
@@ -385,7 +426,7 @@ class ResourceDefinition:
                     hint="Records never move between tenants.",
                     doc="docs/tenancy.md",
                 )
-        version_field = resource_cls.version_field
+        version_field = _inherited(owner, "version_field", resource_cls, parent)
         if version_field is not None:
             reserved = {
                 resource_cls.id_field: "id",
@@ -409,7 +450,7 @@ class ResourceDefinition:
                     hint="New records start at version 1.",
                     doc="docs/concurrency.md",
                 )
-        elif resource_cls.require_version:
+        elif resource_cls.require_version and parent is None:
             raise ConfigurationError(f"{owner}: require_version needs a version_field")
         for fld in resource_cls.audit_exclude:
             if fld not in known_fields:
@@ -463,12 +504,15 @@ class ResourceDefinition:
         )
         references = normalize_references(name, owner, resource_cls.references, known_fields)
         description = resource_cls.__doc__ and inspect.cleandoc(resource_cls.__doc__)
+        discriminator = _check_family(owner, resource_cls, parent, schemas, operations)
+        if parent is not None:
+            hooks = _merge_hooks(parent.hooks, hooks)
         return cls(
             name=name,
             resource_cls=resource_cls,
             model=model,
-            id_field=resource_cls.id_field,
-            id_type=resource_cls.id_type,
+            id_field=parent.id_field if parent else resource_cls.id_field,
+            id_type=parent.id_type if parent else resource_cls.id_type,
             schemas=schemas,
             operations=operations,
             operation_docs=dict(resource_cls.operation_docs),
@@ -477,7 +521,11 @@ class ResourceDefinition:
             state_field=state_field,
             transition_schemas=transition_schemas,
             actions=actions,
-            filterable=tuple(resource_cls.filterable),
+            filterable=tuple(
+                dict.fromkeys(
+                    [*resource_cls.filterable, *([discriminator] if discriminator else [])]
+                )
+            ),
             sortable=tuple(resource_cls.sortable),
             max_page_size=resource_cls.max_page_size,
             description=description or None,
@@ -486,7 +534,7 @@ class ResourceDefinition:
             restricted_fields=tuple(resource_cls.restricted_fields),
             tenant_field=tenant_field,
             version_field=version_field,
-            require_version=resource_cls.require_version,
+            require_version=parent.require_version if parent else resource_cls.require_version,
             events=events,
             references=references,
             link=normalize_link(owner, resource_cls.link, resource_cls.link_names, references),
@@ -497,6 +545,9 @@ class ResourceDefinition:
             dispatcher=HookDispatcher(hooks),
             machine=machine,
             machines=runners,
+            discriminator=discriminator,
+            identity=(resource_cls.identity or name) if parent else None,
+            parent=parent,
         )
 
 
@@ -591,3 +642,129 @@ def _check_since_field(
                 "schema; the engine sets it",
                 doc="docs/timers.md",
             )
+
+
+def _parent(owner: str, resource_cls: type[Resource], model: Any) -> ResourceDefinition | None:
+    """A subtype's base definition (``extends``), validated."""
+    base = resource_cls.extends
+    if base is None:
+        if resource_cls.identity is not None:
+            raise ConfigurationError(f"{owner}: identity is for subtypes (set extends)")
+        return None
+    if not (inspect.isclass(base) and issubclass(base, Resource)):
+        raise ConfigurationError(f"{owner}: extends must be a Resource class, not {base!r}")
+    parent = base.definition()
+    if parent.discriminator is None:
+        raise ConfigurationError(
+            f"{owner} extends {parent.name!r}, which has no discriminator",
+            hint='Set `discriminator = "type"` on the base resource.',
+            doc="docs/polymorphism.md",
+        )
+    if parent.parent is not None:
+        raise ConfigurationError(
+            f"{owner}: {parent.name!r} is itself a subtype; one level of subtypes only",
+            doc="docs/polymorphism.md",
+        )
+    if resource_cls.discriminator is not None:
+        raise ConfigurationError(f"{owner}: a subtype has no discriminator of its own")
+    if not (inspect.isclass(model) and issubclass(model, parent.model)):
+        raise ConfigurationError(
+            f"{owner}: the model {getattr(model, '__name__', model)!r} must subclass the "
+            f"base model {parent.model.__name__!r}",
+            hint="Subtype records are base records with more fields.",
+            doc="docs/polymorphism.md",
+        )
+    return parent
+
+
+def _inherited(
+    owner: str, attr: str, resource_cls: type[Resource], parent: ResourceDefinition | None
+) -> Any:
+    """Tenancy and versioning are the base's: a subtype may repeat them, not change them."""
+    own = getattr(resource_cls, attr)
+    if parent is None:
+        return own
+    theirs = getattr(parent, attr)
+    if own is not None and own != theirs:
+        raise ConfigurationError(
+            f"{owner}: {attr} {own!r} differs from the base's ({theirs!r})",
+            hint="Subtypes share the base's records: leave it unset.",
+            doc="docs/polymorphism.md",
+        )
+    return theirs
+
+
+def _check_family(
+    owner: str,
+    resource_cls: type[Resource],
+    parent: ResourceDefinition | None,
+    schemas: Mapping[str, type[BaseModel]],
+    operations: tuple[str, ...],
+) -> str | None:
+    """Rules of bases and subtypes; returns the discriminator of a base."""
+    discriminator = resource_cls.discriminator
+    read = schemas.get("read")
+    if discriminator is not None:
+        writes = [op for op in operations if op not in ("list", "get")]
+        if writes:
+            raise ConfigurationError(
+                f"{owner}: a base resource only lists and reads; {', '.join(writes)} run on "
+                "its subtypes",
+                hint="Declare those operations on each subtype (extends = this resource).",
+                doc="docs/polymorphism.md",
+            )
+        if read is None or discriminator not in read.model_fields:
+            raise ConfigurationError(
+                f"{owner}: the discriminator {discriminator!r} is not part of the read schema",
+                doc="docs/polymorphism.md",
+            )
+        return discriminator
+    if parent is None:
+        return None
+    base_read = parent.schemas.get("read")
+    if read is not None and base_read is not None:
+        missing = [f for f in base_read.model_fields if f not in read.model_fields]
+        if missing:
+            raise ConfigurationError(
+                f"{owner}: the read schema lacks the base's fields {missing}",
+                hint=f"Subclass {base_read.__name__} for the subtype's read schema.",
+                doc="docs/polymorphism.md",
+            )
+    engine_owned = {
+        parent.id_field: "id",
+        parent.discriminator: "discriminator",
+        parent.version_field: "version",
+        **{f: "state" for f in parent.state_fields},
+    }
+    for role in ("create", "update"):
+        schema = schemas.get(role)
+        for fld, kind in engine_owned.items():
+            if fld is not None and schema is not None and fld in schema.model_fields:
+                raise ConfigurationError(
+                    f"{owner}: the {kind} field {fld!r} is part of the {role!r} schema",
+                    hint="The engine sets it.",
+                    doc="docs/polymorphism.md",
+                )
+    return None
+
+
+def _merge_hooks(
+    base: Mapping[HookKey, tuple[Hook, ...]], own: Mapping[HookKey, tuple[Hook, ...]]
+) -> dict[HookKey, tuple[Hook, ...]]:
+    """A subtype runs the base's unqualified CRUD and commit hooks first, then its own."""
+    shared = {
+        key: hooks
+        for key, hooks in base.items()
+        if key.qualifier is None
+        and key.point
+        not in (
+            HookPoint.BEFORE_TRANSITION,
+            HookPoint.AFTER_TRANSITION,
+            HookPoint.BEFORE_ACTION,
+            HookPoint.AFTER_ACTION,
+        )
+    }
+    merged = dict(shared)
+    for key, hooks in own.items():
+        merged[key] = (*merged.get(key, ()), *hooks)
+    return merged

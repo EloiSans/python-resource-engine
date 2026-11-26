@@ -274,6 +274,9 @@ def _resource_doc(d: ResourceDefinition) -> ResourceDoc:
         hooks=hooks,
         actions=actions,
         state_machines=machine_docs,
+        discriminator=d.discriminator,
+        extends=d.parent.name if d.parent is not None else None,
+        identity=d.identity,
         filterable=list(d.filterable),
         sortable=list(d.sortable),
         restricted_fields=list(d.restricted_fields),
@@ -330,6 +333,10 @@ def introspect(registry: ResourceRegistry, authz: Any = None) -> DocumentationMo
         )
         roles.append(SystemRoleDoc(role.name, role.description, list(role.grants), covered))
     resources = [_resource_doc(d) for d in registry]
+    by_name = {r.name: r for r in resources}
+    for d in registry:
+        if d.parent is not None and d.parent.name in by_name and d.identity:
+            by_name[d.parent.name].subtypes[d.identity] = d.name
     by_name = {r.name: r for r in resources}
     for d in registry:
         for ref in d.references.values():

@@ -157,6 +157,12 @@
   permissions, GraphQL and MCP keep the bare event; guards can read another
   machine's state; `TransitionExecuted.machine`; `allowed_transitions` runs
   guards. The example invoice gains a delivery machine.
+- Polymorphic resources: a base (`discriminator = "type"`) lists and reads
+  every kind with each subtype's schema and runs the shared state machines,
+  actions and hooks; subtypes (`extends = RequestResource`) own their CRUD.
+  One id space, references to any kind, base grants cover reads and writes
+  need the subtype's. Joined tables in SQL (`extension_table`, `map_family`),
+  `anyOf` in OpenAPI, a GraphQL interface implemented by each subtype.
 - `resource-engine scaffold consumer`: payload models, a typed `EventRouter`
   and contract tests from a provider's AsyncAPI (3.0 or 2.x; envelope,
   CloudEvents or raw bodies). Contract testing on both sides:

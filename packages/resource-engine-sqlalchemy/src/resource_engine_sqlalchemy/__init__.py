@@ -13,6 +13,7 @@ from resource_engine_sqlalchemy.idempotency import SqlAlchemyIdempotency, idempo
 from resource_engine_sqlalchemy.inbox import SqlAlchemyInbox, inbox_table
 from resource_engine_sqlalchemy.locks import SqlAlchemyLocks, locks_table
 from resource_engine_sqlalchemy.outbox import SqlAlchemyOutbox, outbox_table
+from resource_engine_sqlalchemy.polymorphism import extension_table, map_family
 from resource_engine_sqlalchemy.repository import SqlAlchemyRepository
 from resource_engine_sqlalchemy.schema import (
     NAMING_CONVENTION,
@@ -37,7 +38,9 @@ __all__ = [
     "authz_tables",
     "documents_table",
     "engine_tables",
+    "extension_table",
     "idempotency_table",
+    "map_family",
     "inbox_table",
     "locks_table",
     "map_audit",

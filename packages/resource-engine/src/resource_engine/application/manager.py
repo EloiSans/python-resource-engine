@@ -624,7 +624,19 @@ class ResourceManager:
     def _to_read(self, ctx: OperationContext, entity: Any, rules: Any = None) -> Any:
         """Step 9 result: the read schema, without the fields the caller may not
         read (omitted)."""
-        result = ctx.resource.resource_cls.to_read(entity, ctx)
+        subtype = (
+            self.registry.subtype_of(ctx.resource, entity) if ctx.resource.discriminator else None
+        )
+        if subtype is not None:
+            # a base record reads as its subtype; the subtype's restricted fields
+            # need its own grants, so they stay hidden here
+            result = subtype.resource_cls.to_read(entity, ctx)
+            if subtype.restricted_fields:
+                from resource_engine.authz.fields import mask
+
+                result = mask(result, set(subtype.restricted_fields))
+        else:
+            result = ctx.resource.resource_cls.to_read(entity, ctx)
         if rules is None:
             return result
         hidden = rules.decide(resource=entity).blocked
@@ -1399,7 +1411,9 @@ class ResourceManager:
         async with self._transaction(ctx) as uow:
             entity = definition.resource_cls.build_entity(ctx.data, ctx)
             ctx.entity = entity
-            for runner in definition.machines.values():
+            if definition.parent is not None:  # a subtype: its base's discriminator
+                setattr(entity, definition.parent.discriminator or "", definition.identity)
+            for runner in definition.record_machines.values():
                 await runner.initialize(entity)
                 _stamp_state(runner, entity)
             if definition.version_field and getattr(entity, definition.version_field, None) is None:
@@ -1497,7 +1511,10 @@ class ResourceManager:
         )
         await self._gate(ctx, "delete")
         hooks = definition.dispatcher
-        dependents = self.dependents.get(definition.name, ())
+        dependents = (
+            *self.dependents.get(definition.name, ()),
+            *(self.dependents.get(definition.parent.name, ()) if definition.parent else ()),
+        )
         # set_null / cascade change other records: one transaction for all of them
         grouped = any(r.on_delete != "restrict" for r in dependents)
         async with (
@@ -1536,7 +1553,11 @@ class ResourceManager:
         if definition.machine is None:
             raise UnknownTransition(
                 f"Resource {definition.name!r} has no state machine",
-                hint="Declare `state_machine = <StateMachine subclass>` on the resource.",
+                hint=(
+                    f"Transitions of {definition.name} records run on {definition.parent.name}."
+                    if definition.parent is not None
+                    else "Declare `state_machine = <StateMachine subclass>` on the resource."
+                ),
             )
         machine = definition.machine_for(event)
         if machine is None:

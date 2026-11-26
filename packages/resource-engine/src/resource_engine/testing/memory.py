@@ -34,10 +34,15 @@ class InMemoryStore:
         self,
         id_fields: dict[str, str] | None = None,
         version_fields: dict[str, str] | None = None,
+        families: dict[str, tuple[str, str, str]] | None = None,
     ) -> None:
         self.id_fields: dict[str, str] = dict(id_fields or {})
         self.version_fields: dict[str, str] = dict(version_fields or {})
-        self.tables: dict[str, dict[Any, Any]] = {name: {} for name in self.id_fields}
+        #: subtype -> (base, discriminator, identity): subtypes live in the base's table
+        self.families: dict[str, tuple[str, str, str]] = dict(families or {})
+        self.tables: dict[str, dict[Any, Any]] = {
+            name: {} for name in self.id_fields if name not in self.families
+        }
         self._counters: dict[str, itertools.count[int]] = {}
 
     @classmethod
@@ -45,6 +50,11 @@ class InMemoryStore:
         return cls(
             {d.name: d.id_field for d in registry},
             {d.name: d.version_field for d in registry if d.version_field},
+            {
+                d.name: (d.parent.name, d.parent.discriminator or "", d.identity or d.name)
+                for d in registry
+                if d.parent is not None
+            },
         )
 
     def next_id(self, resource: str) -> int:
@@ -60,7 +70,13 @@ class InMemoryStore:
         return [copy.deepcopy(r) for r in rows if published is None or r["published"] == published]
 
     def all(self, resource: str) -> list[Any]:
-        return [copy.deepcopy(e) for e in self.tables.get(resource, {}).values()]
+        family = self.families.get(resource)
+        rows = self.tables.get(family[0] if family else resource, {}).values()
+        return [copy.deepcopy(e) for e in rows if _of_kind(e, family)]
+
+
+def _of_kind(entity: Any, family: tuple[str, str, str] | None) -> bool:
+    return family is None or getattr(entity, family[1], None) == family[2]
 
 
 def _now() -> datetime:
@@ -84,6 +100,9 @@ class InMemoryRepository[E]:
         self._id_field = store.id_fields.get(resource, "id")
         self._version_field = store.version_fields.get(resource, "version")
         self._checks = checks if checks is not None else []
+        self._family = store.families.get(resource)
+        if self._family is not None:  # a subtype: ids, versions and rows are the base's
+            self._resource = self._family[0]
 
     def _compare(self, entity_id: Any, expected: int) -> None:
         """Against the committed store; re-checked by the unit of work on commit."""
@@ -91,7 +110,8 @@ class InMemoryRepository[E]:
         self._checks.append((self._resource, entity_id, expected))
 
     async def get(self, entity_id: Any) -> E | None:
-        return self._table.get(entity_id)
+        entity = self._table.get(entity_id)
+        return entity if entity is not None and _of_kind(entity, self._family) else None
 
     async def list(self, query: ListQuery) -> Page[E]:
         from resource_engine.authz.conditions import matches
@@ -99,7 +119,8 @@ class InMemoryRepository[E]:
         items = [
             e
             for e in self._table.values()
-            if all(getattr(e, k, None) == v for k, v in query.filters.items())
+            if _of_kind(e, self._family)
+            and all(getattr(e, k, None) == v for k, v in query.filters.items())
             and matches(query.condition, e)
         ]
         for key in reversed(list(query.order_by)):
@@ -266,7 +287,8 @@ class InMemoryUnitOfWork:
     def repository(self, resource_name: str) -> InMemoryRepository[Any]:
         if self._working is None:
             raise RuntimeError("Unit of work is not active")
-        table = self._working.setdefault(resource_name, {})
+        family = self._store.families.get(resource_name)
+        table = self._working.setdefault(family[0] if family else resource_name, {})
         return InMemoryRepository(self._store, table, resource_name, self._checks)
 
     def outbox(self) -> InMemoryOutbox:

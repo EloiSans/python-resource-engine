@@ -37,6 +37,7 @@ from graphql import (
     GraphQLInputField,
     GraphQLInputObjectType,
     GraphQLInt,
+    GraphQLInterfaceType,
     GraphQLList,
     GraphQLNonNull,
     GraphQLObjectType,
@@ -274,8 +275,9 @@ class SchemaBuilder:
 
     def build(self) -> GraphQLSchema:
         for d in self.registry:
-            if not (d.exposed("get") or d.exposed("list")) or "read" not in d.schemas:
-                continue
+            readable = d.exposed("get") or d.exposed("list") or d.parent is not None
+            if not readable or "read" not in d.schemas:
+                continue  # subtypes always get a type: base results resolve to them
             name = self._name(pascal(singular(d.name)))
             read = d.schemas["read"]
             fields = {camel(f): f for f in read.model_fields}
@@ -283,7 +285,25 @@ class SchemaBuilder:
             single = camel(singular(d.name))
             if single == plural:
                 single = f"{single}ById"
-            gql = GraphQLObjectType(name, self._thunk(d), description=_doc(d.resource_cls))
+            base = self.resources.get(d.parent.name) if d.parent is not None else None
+            if d.discriminator and self.registry.subtypes(d.name):
+                # a base resource: an interface each subtype's type implements
+                gql: Any = GraphQLInterfaceType(
+                    name,
+                    self._thunk(d),
+                    resolve_type=self._resolve_type(d),
+                    description=_doc(d.resource_cls),
+                )
+            elif base is not None and isinstance(base.type, GraphQLInterfaceType):
+                own, shared = self._thunk(d), self._thunk(base.definition)
+                gql = GraphQLObjectType(
+                    name,
+                    lambda own=own, shared=shared: {**shared(), **own()},
+                    interfaces=[base.type],
+                    description=_doc(d.resource_cls),
+                )
+            else:
+                gql = GraphQLObjectType(name, self._thunk(d), description=_doc(d.resource_cls))
             self.types[name] = gql
             self.resources[d.name] = _Resource(d, gql, single, plural, fields)
         query = GraphQLObjectType("Query", self._queries)
@@ -295,7 +315,13 @@ class SchemaBuilder:
             subscription=GraphQLObjectType("Subscription", subscriptions)
             if subscriptions
             else None,
-            types=[DecimalScalar, DateScalar, DateTimeScalar, JSONScalar],
+            types=[
+                DecimalScalar,
+                DateScalar,
+                DateTimeScalar,
+                JSONScalar,
+                *(r.type for r in self.resources.values() if r.definition.parent is not None),
+            ],
         )
 
     # ---------------------------------------------------- subscriptions
@@ -422,6 +448,14 @@ class SchemaBuilder:
                 subscription.close()
 
         return subscribe
+
+    def _resolve_type(self, d: ResourceDefinition) -> Callable[..., str | None]:
+        def resolve(obj: Any, _info: Any, _type: Any) -> str | None:
+            sub = self.registry.subtype_of(d, obj)
+            found = self.resources.get(sub.name) if sub is not None else None
+            return found.type.name if found is not None else None
+
+        return resolve
 
     def _thunk(self, d: ResourceDefinition) -> Callable[[], dict[str, GraphQLField]]:
         def fields() -> dict[str, GraphQLField]:

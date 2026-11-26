@@ -45,6 +45,8 @@ class InvoiceResource(Resource):
 | `operation_docs` | `{}` | One sentence per enabled CRUD operation (`docs validate` needs it) |
 | `hooks` | `{}` | `{"<point>[:<qualifier>]": fn or [fn, ...]}`; see [lifecycle.md](lifecycle.md) |
 | `state_machine`, `state_field` | `None`, `"status"` | See [state-machines.md](state-machines.md) |
+| `discriminator` | `None` | On a base resource with subtypes: the field naming each record's kind (docs/polymorphism.md) |
+| `extends`, `identity` | `None` | On a subtype: the base resource class and its discriminator value |
 | `machines` | `{}` | Several named machines: `{"delivery": Machine(Cls, field="delivery_status")}` |
 | `transition_schemas` | `{}` | Input schema per transition event |
 | `actions` | `()` | `Action` subclasses |
@@ -224,3 +226,35 @@ through the manager as the caller; `mcp.mount(app, authenticator=...)` after
 `mount_resources`, or `run_stdio(actor=...)`. Tool descriptions come from
 `operation_docs`, action descriptions and the resource and state machine
 docstrings, so write them for a reader who only sees the tool. See docs/mcp.md.
+
+## Kinds of one record
+
+Records that come in kinds sharing most fields (vacation and expense
+requests) are a base resource with subtypes, not one resource with nullable
+columns per kind or unrelated copies:
+
+```python
+class RequestResource(Resource):
+    name = "requests"
+    model = Request
+    schemas = {"read": RequestRead}
+    operations = ["list", "get"]  # bases only read
+    discriminator = "type"
+    state_machine = RequestFlow  # shared by every kind
+
+
+class VacationResource(Resource):
+    name = "vacation_requests"
+    extends = RequestResource
+    identity = "vacation"
+    model = Vacation  # subclass of Request
+    schemas = {
+        "create": VacationIn,
+        "update": VacationIn,
+        "read": VacationRead,
+    }  # read ⊇ RequestRead
+    operations = ["list", "get", "create", "update", "delete"]
+```
+
+SQL: `extension_table(...)` per subtype and `map_family(mapper_registry,
+registry, "requests", tables)`. See docs/polymorphism.md.

@@ -48,6 +48,20 @@ def render_resource(r: ResourceDoc, audit_resource: str | None = None) -> str:
             f"| `{op.name}` | {op.kind} | `{op.method} {op.path}` | {op.input_schema or ''} "
             f"| {op.output_schema or ''} | {_cell(op.doc.summary) or '—'} |"
         )
+    if r.discriminator:
+        kinds = ", ".join(f"`{i}` ([{n}]({n}.md))" for i, n in r.subtypes.items()) or "—"
+        out += [
+            "",
+            f"Recurs base: el camp `{r.discriminator}` indica el subtipus de cada registre "
+            f"({kinds}). Llista i consulta tots els tipus; es creen, modifiquen i eliminen "
+            "a cada subtipus.",
+        ]
+    if r.extends:
+        out += [
+            "",
+            f"Subtipus de [{r.extends}]({r.extends}.md) (`{r.identity}`): comparteix-ne "
+            "els identificadors, els camps comuns, les màquines d'estats i els hooks.",
+        ]
     if r.filterable or r.sortable:
         out += [
             "",

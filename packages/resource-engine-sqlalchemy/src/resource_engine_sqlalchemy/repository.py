@@ -5,6 +5,7 @@ from typing import Any
 from resource_engine import ListQuery, Page
 from resource_engine.errors import ConditionNotSupported, VersionConflict
 from sqlalchemy import and_, delete, false, func, literal, not_, or_, select, true, update
+from sqlalchemy import inspect as sa_inspect
 from sqlalchemy.ext.asyncio import AsyncSession
 
 
@@ -63,8 +64,11 @@ class SqlAlchemyRepository[E]:
     async def delete(self, entity: E, *, expected_version: int | None = None) -> None:
         if expected_version is not None:
             await self._claim(entity, expected_version, remove=True)
-            self.session.expunge(entity)
-            return
+            if sa_inspect(self.entity_cls).inherits is None and (
+                sa_inspect(self.entity_cls).polymorphic_on is None
+            ):
+                self.session.expunge(entity)
+                return
         await self.session.delete(entity)
         await self.session.flush()
 
@@ -75,14 +79,30 @@ class SqlAlchemyRepository[E]:
         entity_id = getattr(entity, self.id_field)
         id_col = getattr(self.entity_cls, self.id_field)
         version_col = getattr(self.entity_cls, self.version_field)
-        match = (id_col == entity_id, version_col == expected)
-        stmt = (
-            delete(self.entity_cls).where(*match)
-            if remove
-            else update(self.entity_cls).where(*match).values({self.version_field: expected + 1})
-        )
+        mapper = sa_inspect(self.entity_cls)
+        joined = mapper.inherits is not None or mapper.polymorphic_on is not None
+        if joined:
+            # base and subtype tables: claim on the table holding the version,
+            # then let the ORM delete every row of the record
+            [column] = mapper.attrs[self.version_field].columns
+            table = column.table
+            key = next(c for c in mapper.attrs[self.id_field].columns if c.table is table)
+            stmt: Any = (
+                update(table)
+                .where(key == entity_id, column == expected)
+                .values({column.name: expected + 1})
+            )
+        else:
+            match = (id_col == entity_id, version_col == expected)
+            stmt = (
+                delete(self.entity_cls).where(*match)
+                if remove
+                else update(self.entity_cls)
+                .where(*match)
+                .values({self.version_field: expected + 1})
+            ).execution_options(synchronize_session=False)
         with self.session.no_autoflush:
-            result = await self.session.execute(stmt.execution_options(synchronize_session=False))
+            result = await self.session.execute(stmt)
         if result.rowcount != 1:
             with self.session.no_autoflush:
                 current = await self.session.scalar(select(version_col).where(id_col == entity_id))

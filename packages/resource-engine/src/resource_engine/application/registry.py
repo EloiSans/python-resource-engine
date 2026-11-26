@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Iterator
+from typing import Any
 
 from resource_engine.application.resource import Resource, ResourceDefinition
 from resource_engine.errors import ConfigurationError, ResourceNotRegistered
@@ -18,6 +19,18 @@ class ResourceRegistry:
 
     def register[R: type[Resource]](self, resource_cls: R) -> R:
         definition = resource_cls.definition()
+        if definition.parent is not None:
+            base = definition.parent
+            if self._definitions.get(base.name) is not base:
+                self.register(base.resource_cls)  # the base comes with its subtypes
+            taken = self.subtypes(base.name).get(definition.identity or "")
+            if taken is not None and taken.resource_cls is not resource_cls:
+                raise ConfigurationError(
+                    f"{definition.name} and {taken.name} both have identity "
+                    f"{definition.identity!r} in {base.name}",
+                    hint="Set a distinct `identity` on one of them.",
+                    doc="docs/polymorphism.md",
+                )
         existing = self._definitions.get(definition.name)
         if existing is not None and existing.resource_cls is not resource_cls:
             raise ConfigurationError(
@@ -67,6 +80,20 @@ class ResourceRegistry:
                 f"Resource {name!r} is not registered",
                 hint=f"Registered resources: {', '.join(self._definitions) or '(none)'}",
             ) from None
+
+    def subtypes(self, base: str) -> dict[str, ResourceDefinition]:
+        """A base resource's registered subtypes, by identity."""
+        return {
+            d.identity: d
+            for d in self._definitions.values()
+            if d.parent is not None and d.parent.name == base and d.identity is not None
+        }
+
+    def subtype_of(self, base: ResourceDefinition, entity: Any) -> ResourceDefinition | None:
+        """The subtype of a base record, from its discriminator."""
+        if base.discriminator is None:
+            return None
+        return self.subtypes(base.name).get(getattr(entity, base.discriminator, None))
 
     def __contains__(self, name: object) -> bool:
         return name in self._definitions
