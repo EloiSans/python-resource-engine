@@ -6,6 +6,7 @@ from resource_engine_sqlalchemy import NAMING_CONVENTION, engine_tables, map_eng
 from sqlalchemy import (
     Column,
     Date,
+    DateTime,
     ForeignKey,
     Integer,
     MetaData,
@@ -49,6 +50,7 @@ invoices_table = Table(
     Column("status", String(32), nullable=False),
     Column("rejection_reason", Text, nullable=True),
     Column("version", Integer, nullable=False, default=1),
+    Column("status_changed_at", DateTime(timezone=True), nullable=True, index=True),
     # tenant (organization) when the app runs tenant-scoped; every query filters by it
     Column("organization", String(100), nullable=True, index=True),
 )

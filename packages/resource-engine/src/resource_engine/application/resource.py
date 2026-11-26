@@ -28,6 +28,7 @@ from resource_engine.application.relations import (
 )
 from resource_engine.application.slots import DocumentSlot
 from resource_engine.application.state_machines import MachineRunner
+from resource_engine.application.timers import Timer, TimerDefinition, normalize_timers
 from resource_engine.domain.events import DomainEvent
 from resource_engine.errors import ConfigurationError, StateFieldExposed
 
@@ -101,6 +102,10 @@ class Resource:
             ``{"customer_id": Reference("customers")}``. Integrity on writes,
             ``on_delete`` behaviour, ``expand`` and related filters (see
             docs/relationships.md).
+        state_since_field: Datetime attribute the engine sets when the record
+            enters a state (create and every transition): when it got there.
+        timers: ``Timer`` deadlines: transitions run by the worker once a record
+            has waited long enough in a state (see docs/timers.md).
         link: On a join resource, the two reference fields it links
             (``("invoice_id", "tag_id")``): invoices get a ``tags`` relation and
             tags an ``invoices`` one (many-to-many).
@@ -136,6 +141,8 @@ class Resource:
     events: ClassVar[Sequence[type[DomainEvent]]] = ()
     references: ClassVar[Mapping[str, Reference]] = {}
     link: ClassVar[Sequence[str] | None] = None
+    state_since_field: ClassVar[str | None] = None
+    timers: ClassVar[Sequence[Timer]] = ()
     link_names: ClassVar[Mapping[str, str]] = {}
 
     # --- Mapping between schemas and entities. Override when needed. ---
@@ -214,6 +221,8 @@ class ResourceDefinition:
     references: Mapping[str, ReferenceDefinition]
     link: tuple[str, str] | None
     link_names: Mapping[str, str]
+    state_since_field: str | None
+    timers: tuple[TimerDefinition, ...]
     dispatcher: HookDispatcher = field(repr=False, compare=False)
     machine: MachineRunner | None = field(repr=False, compare=False)
 
@@ -427,6 +436,31 @@ class ResourceDefinition:
                 doc="docs/messaging.md#declaring-events",
             )
 
+        since_field = resource_cls.state_since_field
+        if since_field is not None:
+            if machine is None:
+                raise ConfigurationError(f"{owner}: state_since_field needs a state machine")
+            if since_field not in known_fields:
+                raise ConfigurationError(
+                    f"{owner}: state_since_field {since_field!r} is not part of the read schema",
+                    doc="docs/timers.md",
+                )
+            for role in ("create", "update"):
+                if role in schemas and since_field in schemas[role].model_fields:
+                    raise ConfigurationError(
+                        f"{owner}: state_since_field {since_field!r} is part of the {role!r} "
+                        "schema; the engine sets it",
+                        doc="docs/timers.md",
+                    )
+        timers = normalize_timers(
+            owner,
+            name,
+            resource_cls.timers,
+            machine=machine,
+            state_since_field=since_field,
+            transition_schemas=transition_schemas,
+            known_fields=known_fields,
+        )
         references = normalize_references(name, owner, resource_cls.references, known_fields)
         description = resource_cls.__doc__ and inspect.cleandoc(resource_cls.__doc__)
         return cls(
@@ -457,6 +491,8 @@ class ResourceDefinition:
             references=references,
             link=normalize_link(owner, resource_cls.link, resource_cls.link_names, references),
             link_names=dict(resource_cls.link_names),
+            state_since_field=since_field,
+            timers=timers,
             dispatcher=HookDispatcher(hooks),
             machine=machine,
         )

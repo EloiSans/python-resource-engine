@@ -1,6 +1,8 @@
 from __future__ import annotations
 
-from resource_engine import DocumentSlot, Reference, Resource
+from datetime import timedelta
+
+from resource_engine import DocumentSlot, Reference, Resource, Timer
 
 from invoices.application import hooks
 from invoices.application.actions import RecalculateTotals, RenderSummary
@@ -36,6 +38,16 @@ class InvoiceResource(Resource):
         "delete": "Elimina una factura en esborrany.",
     }
     state_machine = InvoiceStateMachine
+    # when each invoice entered its current state; the engine stamps it
+    state_since_field = "status_changed_at"
+    timers = [
+        Timer(
+            "reject",
+            after=timedelta(days=30),
+            data={"reason": "Sense resposta en 30 dies"},
+            description="Les factures pendents d'aprovar més de 30 dies es rebutgen soles.",
+        )
+    ]
     transition_schemas = {"reject": RejectInvoice}
     actions = [RecalculateTotals, RenderSummary]
     events = [InvoiceTotalsRecalculated]

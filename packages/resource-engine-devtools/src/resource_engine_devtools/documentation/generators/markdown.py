@@ -111,6 +111,27 @@ def render_resource(r: ResourceDoc, audit_resource: str | None = None) -> str:
                 f"| `{t.event}` | `{t.source}` | `{t.target}` | {_cell(t.description) or '—'} |"
             )
 
+    timers = r.state_machine.timers if r.state_machine else []
+    if timers:
+        out += [
+            "",
+            "### Transicions automàtiques",
+            "",
+            "| Transició | Després de | Des de | Comptat des de | Descripció |",
+            "|---|---|---|---|---|",
+        ]
+        for t in timers:
+            states = ", ".join(f"`{s}`" for s in t.states)
+            out.append(
+                f"| `{t.event}` | {t.after} | {states} | `{t.since}` "
+                f"| {_cell(t.description) or '—'} |"
+            )
+        out += [
+            "",
+            "Les executa el treballador (`TimerJob`) com a principal del sistema; queden a "
+            "l'historial i a l'auditoria com qualsevol transició.",
+        ]
+
     if r.actions:
         out += ["", "## Accions"]
         for a in r.actions:

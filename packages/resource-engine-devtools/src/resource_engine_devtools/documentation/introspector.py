@@ -27,6 +27,7 @@ from resource_engine_devtools.documentation.model import (
     StateDoc,
     StateMachineDoc,
     SystemRoleDoc,
+    TimerDoc,
     TransitionDoc,
 )
 
@@ -116,6 +117,17 @@ def _reference_doc(ref: Any) -> ReferenceDoc:
     )
 
 
+def _duration(value: Any) -> str:
+    """``timedelta(days=30)`` → ``30d``; ``timedelta(hours=36)`` → ``1d 12h``."""
+    seconds = int(value.total_seconds())
+    parts = []
+    for unit, size in (("d", 86400), ("h", 3600), ("min", 60), ("s", 1)):
+        amount, seconds = divmod(seconds, size)
+        if amount:
+            parts.append(f"{amount}{unit}")
+    return " ".join(parts) or "0s"
+
+
 def _qualname(obj: Any) -> str:
     return f"{getattr(obj, '__module__', '?')}.{getattr(obj, '__qualname__', repr(obj))}"
 
@@ -156,6 +168,17 @@ def _resource_doc(d: ResourceDefinition) -> ResourceDoc:
                 TransitionDoc(t.event, t.source, t.target, transition_text.get(t.event))
                 for t in d.machine.info.transitions
             ],
+            timers=[
+                TimerDoc(
+                    event=t.event,
+                    after=_duration(t.after),
+                    since=t.since,
+                    states=[str(s) for s in t.states],
+                    description=t.description,
+                )
+                for t in d.timers
+            ],
+            since_field=d.state_since_field,
         )
         for event in d.machine.info.events:
             schema = d.transition_schemas.get(event)

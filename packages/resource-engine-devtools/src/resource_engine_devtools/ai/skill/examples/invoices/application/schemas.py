@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, datetime
 from decimal import Decimal
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -107,6 +107,9 @@ class InvoiceRead(BaseModel):
     notes: str | None
     status: str
     rejection_reason: str | None
+    status_changed_at: datetime | None = Field(
+        default=None, description="Quan va entrar a l'estat actual (el posa el motor)"
+    )
     version: int = Field(description="Versió del registre (ETag); envia-la a If-Match")
     organization: str | None = Field(default=None, description=ORGANIZATION)
 

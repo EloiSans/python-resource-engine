@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import date
+from datetime import date, datetime
 from decimal import Decimal
 
 from resource_engine.domain import DomainError
@@ -68,6 +68,7 @@ class Invoice:
     notes: str | None = None
     status: str | None = None
     rejection_reason: str | None = None
+    status_changed_at: datetime | None = None
     version: int | None = None
     organization: str | None = None
     id: int | None = field(default=None)

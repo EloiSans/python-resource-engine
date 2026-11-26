@@ -82,3 +82,16 @@ event → RE-E202. The engine publishes `TransitionExecuted` (with `source` and
 `target`) after commit.
 
 `resource-engine docs generate` draws each machine as a Mermaid diagram.
+
+## Deadlines
+
+A transition that must happen after some time (expire, escalate, remind) is a
+timer on the resource, not a cron job or a hook:
+
+```python
+state_since_field = "status_changed_at"  # in the entity and read schema; the engine stamps it
+timers = [Timer("reject", after=timedelta(days=30), data={"reason": "No answer in 30 days"})]
+```
+
+The worker runs `TimerJob(manager)` (`single=True`); each due record goes
+through `manager.transition` as `system:timers`. See docs/timers.md.

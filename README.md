@@ -163,6 +163,7 @@ uv run uvicorn invoices.app:app --app-dir examples --reload   # then open /docs 
 - [Scaffolding](docs/scaffold.md) — generate a module, action or state machine.
 - [AI assistance](docs/ai.md) — the skill for coding agents, `ai install`, `ai sync`; [evaluation](evals/README.md).
 - [Observability](docs/observability.md) — traces from request to consumer, metrics hooks, JSON logs.
+- [Timed transitions](docs/timers.md) — deadlines on state machines, run by the worker.
 - [Background jobs](docs/jobs.md) — worker process, periodic jobs, services, one worker at a time.
 - [Audit trail](docs/audit.md) — committed changes and refused attempts, tamper-evident seals, retention.
 - [Example app](docs/example-app.md) — run `invoices` with Keycloak sign-in, organizations as tenants, demo users.

@@ -1375,6 +1375,7 @@ class ResourceManager:
             ctx.entity = entity
             if definition.machine:
                 await definition.machine.initialize(entity)
+                _stamp_state(definition, entity)
             if definition.version_field and getattr(entity, definition.version_field, None) is None:
                 setattr(entity, definition.version_field, 1)
             await self._stamp_tenant(ctx, entity)
@@ -1548,6 +1549,7 @@ class ResourceManager:
                 else {}
             )
             previous, new = await machine.fire(entity, event, payload)
+            _stamp_state(definition, entity)
             ctx.previous_state, ctx.new_state = previous, new
             ctx.entity = await self._write(ctx, entity)
             ctx.record_event(
@@ -1684,6 +1686,14 @@ class ResourceManager:
             await uow.commit()
         await self._after_commit(ctx, action)
         return ctx.result
+
+
+def _stamp_state(definition: ResourceDefinition, entity: Any) -> None:
+    """When the record entered its current state (``state_since_field``)."""
+    if definition.state_since_field:
+        from datetime import UTC, datetime
+
+        setattr(entity, definition.state_since_field, datetime.now(UTC))
 
 
 async def _run_callbacks(callbacks: Any, kind: str, ctx: OperationContext) -> None:

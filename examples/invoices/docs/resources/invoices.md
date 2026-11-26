@@ -82,6 +82,14 @@ stateDiagram-v2
 | `pay` | `approved` | `paid` | Registra el cobrament d'una factura aprovada. |
 | `reopen` | `rejected` | `draft` | Torna una factura rebutjada a esborrany. |
 
+### Transicions automàtiques
+
+| Transició | Després de | Des de | Comptat des de | Descripció |
+|---|---|---|---|---|
+| `reject` | 30d | `pending` | `status_changed_at` | Les factures pendents d'aprovar més de 30 dies es rebutgen soles. |
+
+Les executa el treballador (`TimerJob`) com a principal del sistema; queden a l'historial i a l'auditoria com qualsevol transició.
+
 ## Accions
 
 ### `recalculate_totals`
@@ -200,5 +208,6 @@ L'import d'una factura s'ha recalculat aplicant un descompte.
 | `notes` | `str \| None` | sí | — |
 | `status` | `str` | sí | — |
 | `rejection_reason` | `str \| None` | sí | — |
+| `status_changed_at` | `datetime \| None` | no | Quan va entrar a l'estat actual (el posa el motor) |
 | `version` | `int` | sí | Versió del registre (ETag); envia-la a If-Match |
 | `organization` | `str \| None` | no | Organització propietària (tenant); la posa el motor a partir del token |

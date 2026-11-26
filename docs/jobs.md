@@ -9,6 +9,7 @@ The engine's background work runs in a worker process. Some of it is periodic:
 | `AuditJanitor`, `AuditSealer` | Seals the audit trail and applies retention ([audit](audit.md)) |
 | `IdempotencyJanitor` | Deletes expired idempotency records ([idempotency](idempotency.md)) |
 | `DocumentJanitor` | Expires stale uploads, purges deleted content, removes orphan blobs |
+| `TimerJob` | Runs due timed transitions: deadlines declared on resources ([timers](timers.md)) |
 
 Some of it is long-running: a `MessageConsumer` per queue. `JobRunner` runs
 both kinds in one process.

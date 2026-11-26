@@ -62,6 +62,17 @@ class TransitionDoc:
 
 
 @dataclass
+class TimerDoc:
+    """A timed transition (``Resource.timers``)."""
+
+    event: str
+    after: str
+    since: str
+    states: list[str]
+    description: str | None = None
+
+
+@dataclass
 class StateMachineDoc:
     name: str
     qualname: str
@@ -69,6 +80,8 @@ class StateMachineDoc:
     doc: DocText
     states: list[StateDoc]
     transitions: list[TransitionDoc]
+    timers: list[TimerDoc] = field(default_factory=list)
+    since_field: str | None = None
 
 
 @dataclass

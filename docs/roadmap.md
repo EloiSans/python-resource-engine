@@ -126,6 +126,11 @@
   runs tenant-scoped by organization with policies seeded at start-up;
   `keycloak(tenant_claim="organization")`; tests with locally signed tokens and
   end to end against the compose Keycloak.
+- Timed transitions: `Resource.timers` (`Timer(event, after=, since=, states=,
+  data=)`) and `state_since_field` stamped by the engine on every state change;
+  `TimerJob` runs due transitions as `system:timers` in batches through the
+  manager (guards, hooks, audit, events, history); in the generated docs; the
+  example rejects invoices pending for 30 days.
 - `resource-engine scaffold consumer`: payload models, a typed `EventRouter`
   and contract tests from a provider's AsyncAPI (3.0 or 2.x; envelope,
   CloudEvents or raw bodies). Contract testing on both sides:
@@ -149,10 +154,6 @@ what follows builds on it.
 
 - GraphQL next steps: subscriptions from the outbox events, Relay connections,
   persisted queries and query cost limits.
-- Timed transitions: deadlines declared on the state machine (expire a quote
-  after 30 days, remind about an unpaid invoice, escalate a stuck approval),
-  run by the job worker as a system principal with the usual permissions,
-  hooks, audit and events; visible in the docs and the record's history.
 - Process managers (sagas) for long-running processes across resources: react
   to events, keep their own state, issue manager operations, time out and run
   compensations; built on consumers, the outbox, jobs and leases.

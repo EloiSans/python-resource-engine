@@ -33,6 +33,14 @@ def render_ai_context(model: DocumentationModel) -> str:
             sm = r.state_machine
             edges = "; ".join(f"{t.source}-{t.event}->{t.target}" for t in sm.transitions)
             out.append(f"  state_machine: {sm.qualname} field={sm.state_field}: {edges}")
+            if sm.timers:
+                out.append(
+                    "  timers: "
+                    + ", ".join(
+                        f"{t.event} after {t.after} in {'|'.join(t.states)} (since {t.since})"
+                        for t in sm.timers
+                    )
+                )
         if r.actions:
             out.append(
                 "  actions: " + ", ".join(f"{a.name}({a.input_schema or ''})" for a in r.actions)

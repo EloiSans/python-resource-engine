@@ -28,6 +28,7 @@ from resource_engine.application.resource import (
 )
 from resource_engine.application.slots import DocumentSlot
 from resource_engine.application.state_machines import describe_machine
+from resource_engine.application.timers import Timer, TimerJob
 from resource_engine.domain import DomainError, DomainEvent
 from resource_engine.errors import ResourceEngineError
 
@@ -56,6 +57,8 @@ __all__ = [
     "ResourceManager",
     "ResourceRegistry",
     "ResourceUpdated",
+    "Timer",
+    "TimerJob",
     "TransitionExecuted",
     "describe_machine",
     "external_effect",
