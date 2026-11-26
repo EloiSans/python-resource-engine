@@ -27,6 +27,9 @@ class StateChange(BaseModel):
 
     at: datetime = Field(description="When it happened (UTC)")
     operation: str = Field(description="create or transition")
+    machine: str | None = Field(
+        default=None, description="Which state machine (resources with several)"
+    )
     event: str | None = Field(default=None, description="Transition event; null for create")
     from_state: Any = Field(default=None, description="State before; null for create")
     to_state: Any = Field(default=None, description="State after")
@@ -75,7 +78,12 @@ def require_history_resource(manager: Any, definition: Any) -> str:
 
 
 async def read_history(
-    uow: Any, audit_resource: str, definition: Any, entity_id: Any, tenant: Any = None
+    uow: Any,
+    audit_resource: str,
+    definition: Any,
+    entity_id: Any,
+    tenant: Any = None,
+    machine: str | None = None,
 ) -> list[StateChange]:
     filters: dict[str, Any] = {
         "resource": definition.name,
@@ -95,7 +103,29 @@ async def read_history(
         offset += len(page.items)
         if not page.items or offset >= page.total:
             break
-    return changes_from(entries, definition.state_field)
+    machines = definition.machines
+    if machine is not None and machine not in machines:
+        from resource_engine.errors import UnknownTransition
+
+        raise UnknownTransition(
+            f"{definition.name} has no state machine {machine!r}",
+            hint=f"Machines: {', '.join(machines)}",
+        )
+    if len(machines) == 1:
+        return changes_from(entries, definition.state_field)
+    out: list[StateChange] = []
+    for name, runner in machines.items():
+        if machine is not None and name != machine:
+            continue
+        events = set(runner.info.events)
+        mine = [
+            e for e in entries if e.operation == "create" or _event(e.action, e.operation) in events
+        ]
+        for change in changes_from(mine, runner.state_field):
+            change.machine = name
+            out.append(change)
+    out.sort(key=lambda c: (c.at, c.operation != "create"))
+    return out
 
 
 def changes_from(entries: Sequence[Any], state_field: str) -> list[StateChange]:

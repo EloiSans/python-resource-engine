@@ -95,6 +95,10 @@ GET /invoices/7/history
 ]
 ```
 
+**Several machines:** each change has a `machine`, creation gives one entry per
+machine, and `machine=` (`?machine=` over HTTP) keeps one
+([state machines](state-machines.md#several-machines)).
+
 **Who can read it:** anyone who can `get` the record, so a front end can show a
 timeline without access to `audit_log`. A hidden record is a 404, as for `get`.
 Refused attempts and other changes stay in `audit_log` only.

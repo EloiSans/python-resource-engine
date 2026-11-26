@@ -27,7 +27,7 @@ from resource_engine.application.resource import (
     ResourceDefinition,
 )
 from resource_engine.application.slots import DocumentSlot
-from resource_engine.application.state_machines import describe_machine
+from resource_engine.application.state_machines import Machine, describe_machine
 from resource_engine.application.timers import Timer, TimerJob
 from resource_engine.domain import DomainError, DomainEvent
 from resource_engine.errors import ResourceEngineError
@@ -45,6 +45,7 @@ __all__ = [
     "HookPoint",
     "IdempotencyJanitor",
     "ListQuery",
+    "Machine",
     "OperationContext",
     "Page",
     "Reference",

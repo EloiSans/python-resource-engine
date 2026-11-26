@@ -18,6 +18,30 @@ from resource_engine.errors import TransitionNotAllowed, UnknownTransition
 
 
 @dataclass(frozen=True)
+class Machine:
+    """One of a resource's state machines (``Resource.machines``).
+
+    ```python
+    machines = {
+        "approval": Machine(InvoiceStateMachine, field="status", since_field="status_since"),
+        "payment": Machine(PaymentStateMachine, field="payment_status"),
+    }
+    ```
+
+    Args:
+        machine: A ``python-statemachine`` class.
+        field: Entity attribute that stores this machine's state.
+        since_field: Datetime attribute the engine sets whenever this machine
+            changes state (on create and on each of its transitions); timers of
+            its transitions count from it by default.
+    """
+
+    machine: type[StateMachine]
+    field: str = "status"
+    since_field: str | None = None
+
+
+@dataclass(frozen=True)
 class StateInfo:
     id: str
     name: str
@@ -75,10 +99,20 @@ async def _maybe_await(value: Any) -> Any:
 class MachineRunner:
     """Executes a resource's state machine against one entity."""
 
-    def __init__(self, machine_cls: type[StateMachine], state_field: str, resource: str) -> None:
+    def __init__(
+        self,
+        machine_cls: type[StateMachine],
+        state_field: str,
+        resource: str,
+        *,
+        name: str | None = None,
+        since_field: str | None = None,
+    ) -> None:
         self.machine_cls = machine_cls
         self.state_field = state_field
         self.resource = resource
+        self.name = name or state_field
+        self.since_field = since_field
         self.info = describe_machine(machine_cls)
 
     def _bind(self, entity: Any) -> StateMachine:
@@ -96,7 +130,19 @@ class MachineRunner:
             await _maybe_await(sm.activate_initial_state())
 
     def allowed_events(self, entity: Any) -> list[str]:
+        """Events the current state has transitions for (guards not run)."""
         return [e.id for e in self._bind(entity).allowed_events]
+
+    async def enabled_events(self, entity: Any) -> list[str]:
+        """Events whose guards also pass now. Guards that need the transition's
+        input cannot run without it: those events are kept."""
+        sm = self._bind(entity)
+        allowed = [e.id for e in sm.allowed_events]
+        try:
+            enabled = {e.id for e in await _maybe_await(sm.enabled_events())}
+        except Exception:  # a guard needs the transition's input
+            return allowed
+        return [e for e in allowed if e in enabled]
 
     async def fire(self, entity: Any, event: str, payload: dict[str, Any]) -> tuple[Any, Any]:
         """Fire ``event`` on ``entity``. Returns ``(previous_state, new_state)``."""

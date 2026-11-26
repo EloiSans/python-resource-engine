@@ -31,10 +31,13 @@ Facturació
 | `reject` | transition | `POST /invoices/{id}/transitions/reject` | RejectInvoice | InvoiceRead | Rebutja una factura pendent indicant-ne el motiu. |
 | `pay` | transition | `POST /invoices/{id}/transitions/pay` |  | InvoiceRead | Registra el cobrament d'una factura aprovada. |
 | `reopen` | transition | `POST /invoices/{id}/transitions/reopen` |  | InvoiceRead | Torna una factura rebutjada a esborrany. |
+| `send` | transition | `POST /invoices/{id}/transitions/send` |  | InvoiceRead | Envia al client una factura aprovada o cobrada. |
+| `bounce` | transition | `POST /invoices/{id}/transitions/bounce` |  | InvoiceRead | El correu d'enviament ha rebotat. |
+| `resend` | transition | `POST /invoices/{id}/transitions/resend` |  | InvoiceRead | Torna a enviar una factura retornada. |
 | `recalculate_totals` | action | `POST /invoices/{id}/actions/recalculate_totals` | ApplyDiscount |  | Aplica un descompte percentual a l'import d'una factura. |
 | `render_summary` | action | `POST /invoices/{id}/actions/render_summary` |  |  | Genera un resum en Markdown de la factura i l'adjunta a la ranura ``summary``. |
 
-Filtres: `status`, `customer`, `customer_id` · Ordenació: `id`, `amount`, `issue_date`
+Filtres: `status`, `delivery_status`, `customer`, `customer_id` · Ordenació: `id`, `amount`, `issue_date`
 
 Multi-inquilí: cada registre pertany a l'inquilí del camp `organization`; les operacions es limiten a l'inquilí de qui crida.
 
@@ -44,7 +47,7 @@ Camps restringits: `notes` — cal una concessió explícita (`invoices:read:<ca
 
 Auditoria: s'auditen els canvis i els intents denegats; sense valors per a `notes`.
 
-## Màquina d'estats
+## Màquina d'estats `approval`
 
 `invoices.domain.state_machine.InvoiceStateMachine` — camp `status`
 
@@ -81,6 +84,35 @@ stateDiagram-v2
 | `reject` | `pending` | `rejected` | Rebutja una factura pendent indicant-ne el motiu. |
 | `pay` | `approved` | `paid` | Registra el cobrament d'una factura aprovada. |
 | `reopen` | `rejected` | `draft` | Torna una factura rebutjada a esborrany. |
+
+## Màquina d'estats `delivery`
+
+`invoices.domain.state_machine.InvoiceDelivery` — camp `delivery_status`
+
+Enviament d'una factura al client, independent de la seva aprovació.
+
+```mermaid
+stateDiagram-v2
+    unsent: No enviada
+    sent: Enviada
+    returned: Retornada
+    [*] --> unsent
+    unsent --> sent: send
+    sent --> returned: bounce
+    returned --> sent: resend
+```
+
+| Estat | Nom | Descripció |
+|---|---|---|
+| `unsent` (inicial) | No enviada | Encara no s'ha enviat al client. |
+| `sent` | Enviada | Enviada al client. |
+| `returned` | Retornada | El correu ha rebotat; cal tornar-la a enviar. |
+
+| Transició | Origen | Destí | Descripció |
+|---|---|---|---|
+| `send` | `unsent` | `sent` | Envia al client una factura aprovada o cobrada. |
+| `bounce` | `sent` | `returned` | El correu d'enviament ha rebotat. |
+| `resend` | `returned` | `sent` | Torna a enviar una factura retornada. |
 
 ### Transicions automàtiques
 
@@ -213,5 +245,6 @@ L'import d'una factura s'ha recalculat aplicant un descompte.
 | `status` | `str` | sí | — |
 | `rejection_reason` | `str \| None` | sí | — |
 | `status_changed_at` | `datetime \| None` | no | Quan va entrar a l'estat actual (el posa el motor) |
+| `delivery_status` | `str` | no | Estat de l'enviament al client (màquina delivery) |
 | `version` | `int` | sí | Versió del registre (ETag); envia-la a If-Match |
 | `organization` | `str \| None` | no | Organització propietària (tenant); la posa el motor a partir del token |

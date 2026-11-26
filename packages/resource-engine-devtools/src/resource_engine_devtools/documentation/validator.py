@@ -37,8 +37,7 @@ def validate(model: DocumentationModel) -> list[Finding]:
                     f"{r.name}.{op.name}",
                     "CRUD operation is documented (operation_docs)",
                 )
-        if r.state_machine:
-            sm = r.state_machine
+        for sm in r.state_machines:
             check(
                 sm.doc.present, "error", "RE-D003", sm.qualname, "state machine has a description"
             )
@@ -106,8 +105,7 @@ def _texts(r: Any) -> list[tuple[str, str]]:
     found = _doc_texts(r.qualname, r.doc)
     for op in r.operations:
         found += _doc_texts(f"{r.name}.{op.name}", op.doc)
-    if r.state_machine:
-        sm = r.state_machine
+    for sm in r.state_machines:
         found += _doc_texts(sm.qualname, sm.doc)
         found += [(f"{sm.name}.{s.id}", s.description or "") for s in sm.states]
         found += [(f"{sm.name}.{t.event}", t.description or "") for t in sm.transitions]

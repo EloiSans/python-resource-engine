@@ -151,6 +151,12 @@
   as the subscriber; query cost limits (`QUERY_TOO_COSTLY`); automatic
   persisted queries with an optional allow-list. Relay connections dropped:
   offset pages stay.
+- Several state machines per resource (`machines = {"approval": Machine(...),
+  "delivery": Machine(...)}`), each with its own field, since field, timers
+  and history entries; transition names unique per resource, so routes,
+  permissions, GraphQL and MCP keep the bare event; guards can read another
+  machine's state; `TransitionExecuted.machine`; `allowed_transitions` runs
+  guards. The example invoice gains a delivery machine.
 - `resource-engine scaffold consumer`: payload models, a typed `EventRouter`
   and contract tests from a provider's AsyncAPI (3.0 or 2.x; envelope,
   CloudEvents or raw bodies). Contract testing on both sides:
@@ -172,9 +178,6 @@ what follows builds on it.
 
 ### Soon
 
-- Several state machines per resource (an invoice's approval and payment
-  states), each with its own field, transitions, permissions, routes and
-  history.
 - View resources: read-only resources backed by a query (aggregates,
   projections, joins such as invoices with their balance or totals per
   customer) with the same filters, sorting, permissions, `expand`, docs,

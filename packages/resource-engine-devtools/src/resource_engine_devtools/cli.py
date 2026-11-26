@@ -63,22 +63,27 @@ def _describe(registry: ResourceRegistry, name: str | None) -> list[dict[str, An
                 "schemas": {role: s.__name__ for role, s in d.schemas.items()},
                 "filterable": list(d.filterable),
                 "sortable": list(d.sortable),
-                "state_machine": None
-                if d.machine is None
-                else {
-                    "class": d.state_machine.__qualname__,  # type: ignore[union-attr]
-                    "field": d.state_field,
-                    "initial": d.machine.info.initial.id if d.machine.info.initial else None,
-                    "transitions": [
-                        {
-                            "event": t.event,
-                            "source": t.source,
-                            "target": t.target,
-                            "input": getattr(d.transition_schemas.get(t.event), "__name__", None),
-                        }
-                        for t in d.machine.info.transitions
-                    ],
-                },
+                "state_machines": [
+                    {
+                        "name": m.name,
+                        "class": m.machine_cls.__qualname__,
+                        "field": m.state_field,
+                        "since_field": m.since_field,
+                        "initial": m.info.initial.id if m.info.initial else None,
+                        "transitions": [
+                            {
+                                "event": t.event,
+                                "source": t.source,
+                                "target": t.target,
+                                "input": getattr(
+                                    d.transition_schemas.get(t.event), "__name__", None
+                                ),
+                            }
+                            for t in m.info.transitions
+                        ],
+                    }
+                    for m in d.machines.values()
+                ],
                 "actions": [
                     {
                         "name": a.name,
@@ -129,10 +134,10 @@ def cmd_inspect(args: argparse.Namespace) -> int:
         lines.append(f"{r['name']}  ({r['resource']})")
         lines.append(f"  operations: {', '.join(r['operations']) or '-'}")
         lines.append(f"  schemas:    {r['schemas']}")
-        if r["state_machine"]:
-            sm = r["state_machine"]
+        for sm in r["state_machines"]:
             lines.append(
-                f"  state:      {sm['class']} on '{sm['field']}' (initial {sm['initial']})"
+                f"  state:      {sm['name']}: {sm['class']} on '{sm['field']}' "
+                f"(initial {sm['initial']})"
             )
             for t in sm["transitions"]:
                 lines.append(f"    {t['source']} --{t['event']}--> {t['target']}")

@@ -85,6 +85,7 @@ class Invoice:
     status: str | None = None
     rejection_reason: str | None = None
     status_changed_at: datetime | None = None
+    delivery_status: str | None = None
     version: int | None = None
     organization: str | None = None
     id: int | None = field(default=None)

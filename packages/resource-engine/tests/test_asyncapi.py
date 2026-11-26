@@ -96,7 +96,17 @@ def test_messages_are_typed_for_the_resource():
     assert transition["properties"]["resource"] == {"const": "invoices"}
     payload = transition["properties"]["payload"]["properties"]
     assert payload["entity_id"] == {"type": "integer"}
-    assert payload["transition"]["enum"] == ["submit", "approve", "reject", "pay", "reopen"]
+    assert payload["transition"]["enum"] == [
+        "submit",
+        "approve",
+        "reject",
+        "pay",
+        "reopen",
+        "send",
+        "bounce",
+        "resend",
+    ]
+    assert payload["machine"]["enum"] == ["approval", "delivery"]
     assert "pending" in payload["source"]["enum"]
 
     action = schemas["invoices.ActionExecuted"]["properties"]["payload"]["properties"]

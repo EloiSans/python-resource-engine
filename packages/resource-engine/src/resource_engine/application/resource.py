@@ -27,7 +27,7 @@ from resource_engine.application.relations import (
     normalize_references,
 )
 from resource_engine.application.slots import DocumentSlot
-from resource_engine.application.state_machines import MachineRunner
+from resource_engine.application.state_machines import Machine, MachineRunner
 from resource_engine.application.timers import Timer, TimerDefinition, normalize_timers
 from resource_engine.domain.events import DomainEvent
 from resource_engine.errors import ConfigurationError, StateFieldExposed
@@ -72,6 +72,9 @@ class Resource:
         hooks: ``{"before_create": [fn, ...], "after_transition:approve": fn}``.
         state_machine: A ``python-statemachine`` class, or ``None``.
         state_field: Entity attribute that stores the state (default ``status``).
+        machines: Several state machines, by name, each a ``Machine`` with its
+            own field (an invoice's ``approval`` and ``payment``). Instead of
+            ``state_machine``; transition names are unique across them.
         transition_schemas: Optional input schema per transition event.
         actions: ``Action`` subclasses exposed by this resource.
         filterable / sortable: Fields accepted by ``list`` filters and ordering.
@@ -125,6 +128,7 @@ class Resource:
     operation_docs: ClassVar[Mapping[str, str]] = {}
     hooks: ClassVar[Mapping[str | HookPoint, Hook | Sequence[Hook]]] = {}
     state_machine: ClassVar[type[StateMachine] | None] = None
+    machines: ClassVar[Mapping[str, Machine]] = {}
     state_field: ClassVar[str] = "status"
     transition_schemas: ClassVar[Mapping[str, type[BaseModel]]] = {}
     actions: ClassVar[Sequence[type[Action]]] = ()
@@ -159,11 +163,7 @@ class Resource:
     @classmethod
     def apply_update(cls, entity: Any, data: BaseModel, ctx: OperationContext) -> None:
         """Apply validated ``update`` input to an entity (only fields actually sent)."""
-        protected = {
-            cls.id_field,
-            cls.state_field if cls.state_machine else None,
-            cls.version_field,
-        }
+        protected = {cls.id_field, cls.version_field, *cls.definition().state_fields}
         for key, value in data.model_dump(exclude_unset=True).items():
             if key not in protected:
                 setattr(entity, key, value)
@@ -229,7 +229,9 @@ class ResourceDefinition:
     timers: tuple[TimerDefinition, ...]
     internal_operations: tuple[str, ...]
     dispatcher: HookDispatcher = field(repr=False, compare=False)
+    #: The first (or only) machine; ``machines`` has them all, by name.
     machine: MachineRunner | None = field(repr=False, compare=False)
+    machines: Mapping[str, MachineRunner] = field(default_factory=dict, repr=False, compare=False)
 
     def enabled(self, operation: str) -> bool:
         return operation in self.operations
@@ -240,7 +242,16 @@ class ResourceDefinition:
 
     @property
     def transitions(self) -> tuple[str, ...]:
-        return self.machine.info.events if self.machine else ()
+        """Every machine's transition events, in declaration order."""
+        return tuple(e for m in self.machines.values() for e in m.info.events)
+
+    @property
+    def state_fields(self) -> tuple[str, ...]:
+        return tuple(m.state_field for m in self.machines.values())
+
+    def machine_for(self, event: str) -> MachineRunner | None:
+        """The machine that has the transition ``event``."""
+        return next((m for m in self.machines.values() if event in m.info.events), None)
 
     @classmethod
     def from_resource(cls, resource_cls: type[Resource]) -> ResourceDefinition:
@@ -277,33 +288,20 @@ class ResourceDefinition:
                 if not (inspect.isclass(schema) and issubclass(schema, BaseModel)):
                     raise ConfigurationError(f"{owner}: schema '{role}' must be a Pydantic model")
 
-        sm = resource_cls.state_machine
-        state_field = resource_cls.state_field if sm else None
-        if sm is not None:
-            if not (inspect.isclass(sm) and issubclass(sm, StateMachine)):
-                raise ConfigurationError(
-                    f"{owner}: state_machine must be a python-statemachine StateMachine subclass"
-                )
-            for role in ("create", "update"):
-                schema = schemas.get(role)
-                if schema is not None and state_field in schema.model_fields:
-                    raise StateFieldExposed(
-                        f"{owner}: the state field {state_field!r} is part of the "
-                        f"'{role}' schema {schema.__name__}",
-                        hint="Remove it from the schema. State changes only through "
-                        "transitions (POST /{id}/transitions/<event>).",
-                        doc="docs/state-machines.md#protected-state",
-                    )
-        machine = MachineRunner(sm, state_field, name) if sm and state_field else None
+        runners = _machines(owner, name, resource_cls, schemas)
+        machine = next(iter(runners.values()), None)
+        sm = machine.machine_cls if machine else None
+        state_field = machine.state_field if machine else None
+        events_of = {e: r for r in runners.values() for e in r.info.events}
 
         transition_schemas = dict(resource_cls.transition_schemas)
         if transition_schemas and machine is None:
             raise ConfigurationError(f"{owner} declares transition_schemas without a state_machine")
         for event in transition_schemas:
-            if machine and event not in machine.info.events:
+            if machine and event not in events_of:
                 raise ConfigurationError(
                     f"{owner}: transition_schemas references unknown transition {event!r}",
-                    hint=f"Known transitions: {', '.join(machine.info.events)}",
+                    hint=f"Known transitions: {', '.join(events_of)}",
                 )
 
         actions: dict[str, ActionDefinition] = {}
@@ -452,28 +450,14 @@ class ResourceDefinition:
                 "are not enabled operations",
                 hint="List them in operations too; internal ones are only hidden from adapters.",
             )
-        since_field = resource_cls.state_since_field
-        if since_field is not None:
-            if machine is None:
-                raise ConfigurationError(f"{owner}: state_since_field needs a state machine")
-            if since_field not in known_fields:
-                raise ConfigurationError(
-                    f"{owner}: state_since_field {since_field!r} is not part of the read schema",
-                    doc="docs/timers.md",
-                )
-            for role in ("create", "update"):
-                if role in schemas and since_field in schemas[role].model_fields:
-                    raise ConfigurationError(
-                        f"{owner}: state_since_field {since_field!r} is part of the {role!r} "
-                        "schema; the engine sets it",
-                        doc="docs/timers.md",
-                    )
+        for runner in runners.values():
+            _check_since_field(owner, runner.since_field, schemas, known_fields)
+        since_field = machine.since_field if machine else None
         timers = normalize_timers(
             owner,
             name,
             resource_cls.timers,
-            machine=machine,
-            state_since_field=since_field,
+            machines=runners,
             transition_schemas=transition_schemas,
             known_fields=known_fields,
         )
@@ -512,4 +496,98 @@ class ResourceDefinition:
             internal_operations=internal,
             dispatcher=HookDispatcher(hooks),
             machine=machine,
+            machines=runners,
         )
+
+
+def _machines(
+    owner: str, name: str, resource_cls: type[Resource], schemas: Mapping[str, type[BaseModel]]
+) -> dict[str, MachineRunner]:
+    """``machines`` (or the ``state_machine`` shorthand) as runners, validated."""
+    declared = dict(resource_cls.machines)
+    sm = resource_cls.state_machine
+    if declared and sm is not None:
+        raise ConfigurationError(
+            f"{owner} declares both state_machine and machines",
+            hint="Use machines for several; state_machine is the shorthand for one.",
+            doc="docs/state-machines.md#several-machines",
+        )
+    if declared and resource_cls.state_since_field is not None:
+        raise ConfigurationError(
+            f"{owner}: with machines, set since_field on each Machine, not state_since_field",
+            doc="docs/state-machines.md#several-machines",
+        )
+    if sm is None and not declared and resource_cls.state_since_field is not None:
+        raise ConfigurationError(f"{owner}: state_since_field needs a state machine")
+    if sm is not None:
+        declared = {
+            resource_cls.state_field: Machine(
+                sm, field=resource_cls.state_field, since_field=resource_cls.state_since_field
+            )
+        }
+    runners: dict[str, MachineRunner] = {}
+    seen_fields: dict[str, str] = {}
+    seen_events: dict[str, str] = {}
+    for machine_name, spec in declared.items():
+        where = f"{owner} machine {machine_name!r}"
+        if not isinstance(spec, Machine):
+            raise ConfigurationError(f"{where}: use Machine(<StateMachine class>, field=...)")
+        if not (inspect.isclass(spec.machine) and issubclass(spec.machine, StateMachine)):
+            raise ConfigurationError(
+                f"{where}: state_machine must be a python-statemachine StateMachine subclass"
+            )
+        for used, other in ((spec.field, seen_fields), (spec.since_field, seen_fields)):
+            if used is not None and used in other:
+                raise ConfigurationError(
+                    f"{where}: field {used!r} is already used by machine {other[used]!r}",
+                    doc="docs/state-machines.md#several-machines",
+                )
+            if used is not None:
+                other[used] = machine_name
+        for role in ("create", "update"):
+            schema = schemas.get(role)
+            if schema is not None and spec.field in schema.model_fields:
+                raise StateFieldExposed(
+                    f"{owner}: the state field {spec.field!r} is part of the "
+                    f"'{role}' schema {schema.__name__}",
+                    hint="Remove it from the schema. State changes only through "
+                    "transitions (POST /{id}/transitions/<event>).",
+                    doc="docs/state-machines.md#protected-state",
+                )
+        runner = MachineRunner(
+            spec.machine, spec.field, name, name=machine_name, since_field=spec.since_field
+        )
+        for event in runner.info.events:
+            if event in seen_events:
+                raise ConfigurationError(
+                    f"{owner}: transition {event!r} is in machines {seen_events[event]!r} "
+                    f"and {machine_name!r}",
+                    hint="Transition names are unique per resource (routes, permissions "
+                    "and GraphQL use them alone); rename one.",
+                    doc="docs/state-machines.md#several-machines",
+                )
+            seen_events[event] = machine_name
+        runners[machine_name] = runner
+    return runners
+
+
+def _check_since_field(
+    owner: str,
+    since_field: str | None,
+    schemas: Mapping[str, type[BaseModel]],
+    known_fields: set[str],
+) -> None:
+    if since_field is None:
+        return
+    if since_field not in known_fields:
+        raise ConfigurationError(
+            f"{owner}: state_since_field {since_field!r} is not part of the read schema",
+            doc="docs/timers.md",
+        )
+    for role in ("create", "update"):
+        if role in schemas and since_field in schemas[role].model_fields:
+            raise ConfigurationError(
+                f"{owner}: state_since_field {since_field!r} is part of the {role!r} "
+                "schema; the engine sets it",
+                doc="docs/timers.md",
+            )

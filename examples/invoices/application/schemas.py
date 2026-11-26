@@ -135,6 +135,9 @@ class InvoiceRead(BaseModel):
     status_changed_at: datetime | None = Field(
         default=None, description="Quan va entrar a l'estat actual (el posa el motor)"
     )
+    delivery_status: str = Field(
+        default="unsent", description="Estat de l'enviament al client (màquina delivery)"
+    )
     version: int = Field(description="Versió del registre (ETag); envia-la a If-Match")
     organization: str | None = Field(default=None, description=ORGANIZATION)
 

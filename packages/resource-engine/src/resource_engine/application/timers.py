@@ -68,6 +68,7 @@ class TimerDefinition:
     states: tuple[Any, ...]
     data: Mapping[str, Any] | None
     description: str | None
+    field: str = "status"  # the state field of the event's machine
 
 
 def normalize_timers(
@@ -75,40 +76,43 @@ def normalize_timers(
     name: str,
     timers: Sequence[Timer],
     *,
-    machine: Any,
-    state_since_field: str | None,
+    machines: Mapping[str, Any],
     transition_schemas: Mapping[str, Any],
     known_fields: set[str],
 ) -> tuple[TimerDefinition, ...]:
     out: list[TimerDefinition] = []
     if not timers:
         return ()
-    if machine is None:
+    if not machines:
         raise ConfigurationError(f"{owner}: timers need a state machine", doc=DOC)
-    info = machine.info
-    value_of = {s.id: s.value if s.value is not None else s.id for s in info.states}
-    values = set(value_of.values())
     for timer in timers:
         if not isinstance(timer, Timer):
             raise ConfigurationError(
                 f"{owner}: timers must be Timer objects, not {timer!r}", doc=DOC
             )
         where = f"{owner} timer {timer.event!r}"
-        sources = {value_of[t.source] for t in info.transitions if t.event == timer.event}
-        if not sources:
+        machine = next((m for m in machines.values() if timer.event in m.info.events), None)
+        if machine is None:
+            known = [e for m in machines.values() for e in m.info.events]
             raise ConfigurationError(
                 f"{where}: the state machine has no transition {timer.event!r}",
-                hint=f"Transitions: {', '.join(info.events)}",
+                hint=f"Transitions: {', '.join(known)}",
                 doc=DOC,
             )
+        info = machine.info
+        value_of = {s.id: s.value if s.value is not None else s.id for s in info.states}
+        values = set(value_of.values())
+        sources = {value_of[t.source] for t in info.transitions if t.event == timer.event}
+        state_since_field = machine.since_field
         if timer.after <= timedelta(0):
             raise ConfigurationError(f"{where}: after must be positive", doc=DOC)
         since = timer.since or state_since_field
         if since is None:
             raise ConfigurationError(
                 f"{where}: no since field",
-                hint="Set state_since_field on the resource (the engine stamps it on every "
-                "state change) or pass since= a datetime field.",
+                hint="Set state_since_field on the resource (or since_field on its "
+                "Machine: the engine stamps it on every state change) or pass since= a "
+                "datetime field.",
                 doc=DOC,
             )
         if since not in known_fields:
@@ -145,6 +149,7 @@ def normalize_timers(
                 after=timer.after,
                 since=since,
                 states=states,
+                field=machine.state_field,
                 data=dict(timer.data) if timer.data else None,
                 description=timer.description,
             )
@@ -211,7 +216,7 @@ class TimerJob:
         for definition, timer in self.timers():
             condition = {
                 "and": [
-                    {"in": [{"attr": f"resource.{definition.state_field}"}, list(timer.states)]},
+                    {"in": [{"attr": f"resource.{timer.field}"}, list(timer.states)]},
                     {"exists": {"attr": f"resource.{timer.since}"}},
                     {"le": [{"attr": f"resource.{timer.since}"}, now - timer.after]},
                 ]

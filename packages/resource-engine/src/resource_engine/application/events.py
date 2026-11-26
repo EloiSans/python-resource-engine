@@ -34,6 +34,7 @@ class TransitionExecuted(ResourceEvent):
     transition: str
     source: Any
     target: Any
+    machine: str | None = None  # which of the resource's machines (its name)
 
 
 @dataclass(frozen=True, kw_only=True)

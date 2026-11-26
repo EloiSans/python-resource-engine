@@ -256,13 +256,20 @@ class _Builder:
         if d.enabled("delete"):
             add(ResourceDeleted, base(), f"{d.name}: a record was deleted.")
         if d.machine is not None and not _internal_machine(d):
-            states = [s.value if s.value is not None else s.id for s in d.machine.info.states]
+            states = list(
+                dict.fromkeys(
+                    s.value if s.value is not None else s.id
+                    for m in d.machines.values()
+                    for s in m.info.states
+                )
+            )
             add(
                 TransitionExecuted,
                 base(
-                    transition={"enum": list(d.machine.info.events)},
+                    transition={"enum": list(d.transitions)},
                     source={"enum": states},
                     target={"enum": states},
+                    machine={"enum": list(d.machines)},
                 ),
                 f"{d.name}: a record changed state.",
             )

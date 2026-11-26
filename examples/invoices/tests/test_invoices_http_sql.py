@@ -44,6 +44,8 @@ def test_crud_and_transitions_over_http(client):
     assert r.status_code == 409
     assert r.json()["error"]["code"] == "RE-E201"
 
+    r = client.post("/invoices/1/transitions/send")  # delivery: only approved invoices
+    assert r.status_code == 409 and r.json()["error"]["code"] == "RE-E201"
     assert client.post("/invoices/1/transitions/submit").json()["status"] == "pending"
     r = client.patch("/invoices/1", json={"issue_date": "2026-12-01"})
     assert r.status_code == 422 and r.json()["error"]["code"] == "INVOICE"
@@ -52,12 +54,18 @@ def test_crud_and_transitions_over_http(client):
     assert r.json()["status"] == "rejected"
     assert r.json()["rejection_reason"] == "Wrong VAT"
 
-    history = client.get("/invoices/1/history").json()
+    history = client.get("/invoices/1/history", params={"machine": "approval"}).json()
     assert [(h["event"], h["from_state"], h["to_state"]) for h in history] == [
         (None, None, "draft"),
         ("submit", "draft", "pending"),
         ("reject", "pending", "rejected"),
     ]
+    both = client.get("/invoices/1/history").json()
+    assert [(h["machine"], h["to_state"]) for h in both[:2]] == [
+        ("approval", "draft"),
+        ("delivery", "unsent"),
+    ]
+    assert client.get("/invoices/1/history", params={"machine": "x"}).status_code == 422
     assert client.get("/invoices/99/history").status_code == 404
 
 

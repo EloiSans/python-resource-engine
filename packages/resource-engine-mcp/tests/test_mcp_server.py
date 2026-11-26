@@ -82,6 +82,9 @@ def test_tools_from_the_registry(manager):
         "invoices_transition_reject",
         "invoices_transition_pay",
         "invoices_transition_reopen",
+        "invoices_transition_send",
+        "invoices_transition_bounce",
+        "invoices_transition_resend",
         "invoices_action_recalculate_totals",
         "invoices_action_render_summary",
         "invoices_tags",
@@ -162,7 +165,9 @@ async def test_calls_go_through_the_manager(manager):
         )
         assert rejected.structured_content["status"] == "rejected"
 
-        history = await client.call_tool("invoices_history", {"id": invoice["id"]})
+        history = await client.call_tool(
+            "invoices_history", {"id": invoice["id"], "machine": "approval"}
+        )
         states = [c["to_state"] for c in history.structured_content["changes"]]
         assert states == ["draft", "pending", "rejected"]
 

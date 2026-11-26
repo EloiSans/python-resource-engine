@@ -29,7 +29,7 @@ class InvoiceResource(Resource):
 |---|---|
 | `event` | The transition to run |
 | `after` | How long the record waits first |
-| `since` | Datetime field the wait counts from; default `state_since_field` |
+| `since` | Datetime field the wait counts from; default `state_since_field` (or the event's `Machine.since_field`) |
 | `states` | States the record must be in; default: the states the event runs from |
 | `data` | The transition's input, validated against its schema when the resource is registered |
 | `description` | What the deadline means, for the generated docs |
@@ -38,6 +38,9 @@ class InvoiceResource(Resource):
   when a record is created and on every transition, so "30 days in pending"
   needs no code. The field belongs to the entity and the read schema, and
   cannot be in the create or update schemas.
+- **Several machines:** a timer belongs to the machine of its event: it checks
+  that machine's state field and counts from its `since_field`
+  ([state machines](state-machines.md#several-machines)).
 - **Deadlines from other fields:** use `since=` with any other datetime
   field, such as `since="due_date"` for "7 days after the due date". The same
   transition may have several timers, for example a reminder and an expiry

@@ -89,9 +89,10 @@ def render_resource(r: ResourceDoc, audit_resource: str | None = None) -> str:
             audit_note += "."
         out += ["", f"Auditoria: {audit_note}"]
 
-    if r.state_machine:
-        sm = r.state_machine
-        out += ["", "## Màquina d'estats", "", f"`{sm.qualname}` — camp `{sm.state_field}`", ""]
+    several = len(r.state_machines) > 1
+    for sm in r.state_machines:
+        title = f"## Màquina d'estats `{sm.machine}`" if several else "## Màquina d'estats"
+        out += ["", title, "", f"`{sm.qualname}` — camp `{sm.state_field}`", ""]
         out += _text(sm.doc)
         out += [
             "",
@@ -111,7 +112,7 @@ def render_resource(r: ResourceDoc, audit_resource: str | None = None) -> str:
                 f"| `{t.event}` | `{t.source}` | `{t.target}` | {_cell(t.description) or '—'} |"
             )
 
-    timers = r.state_machine.timers if r.state_machine else []
+    timers = [t for sm in r.state_machines for t in sm.timers]
     if timers:
         out += [
             "",

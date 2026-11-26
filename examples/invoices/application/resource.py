@@ -2,14 +2,14 @@ from __future__ import annotations
 
 from datetime import timedelta
 
-from resource_engine import DocumentSlot, Reference, Resource, Timer
+from resource_engine import DocumentSlot, Machine, Reference, Resource, Timer
 
 from invoices.application import hooks
 from invoices.application.actions import RecalculateTotals, RenderSummary
 from invoices.application.schemas import InvoiceCreate, InvoiceRead, InvoiceUpdate, RejectInvoice
 from invoices.domain.entities import Invoice
 from invoices.domain.events import InvoiceTotalsRecalculated
-from invoices.domain.state_machine import InvoiceStateMachine
+from invoices.domain.state_machine import InvoiceDelivery, InvoiceStateMachine
 
 
 class InvoiceResource(Resource):
@@ -37,9 +37,13 @@ class InvoiceResource(Resource):
         "update": "Modifica una factura mentre és un esborrany.",
         "delete": "Elimina una factura en esborrany.",
     }
-    state_machine = InvoiceStateMachine
-    # when each invoice entered its current state; the engine stamps it
-    state_since_field = "status_changed_at"
+    # two independent state machines: approval (status) and delivery to the
+    # customer (delivery_status); since_field: when it entered its current
+    # approval state, stamped by the engine
+    machines = {
+        "approval": Machine(InvoiceStateMachine, field="status", since_field="status_changed_at"),
+        "delivery": Machine(InvoiceDelivery, field="delivery_status"),
+    }
     timers = [
         Timer(
             "reject",
@@ -87,7 +91,7 @@ class InvoiceResource(Resource):
             description="Client registrat al qual s'emet la factura.",
         )
     }
-    filterable = ["status", "customer", "customer_id"]
+    filterable = ["status", "delivery_status", "customer", "customer_id"]
     sortable = ["id", "amount", "issue_date"]
     # internal notes: only roles granted invoices:read:notes / invoices:write:notes
     restricted_fields = ["notes"]

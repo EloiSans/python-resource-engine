@@ -61,9 +61,9 @@ def changes_of(ctx: OperationContext, masked: frozenset[str]) -> dict[str, Any]:
     op = ctx.operation
     if op == "create":
         created = {k: entry(k, to=v) for k, v in _plain(ctx.data).items()}
-        state_field = ctx.resource.state_field
-        if state_field and state_field not in created and ctx.entity is not None:
-            created[state_field] = entry(state_field, to=getattr(ctx.entity, state_field, None))
+        for state_field in ctx.resource.state_fields:
+            if state_field not in created and ctx.entity is not None:
+                created[state_field] = entry(state_field, to=getattr(ctx.entity, state_field, None))
         return created
     if op == "update":
         out: dict[str, Any] = {}
@@ -76,9 +76,10 @@ def changes_of(ctx: OperationContext, masked: frozenset[str]) -> dict[str, Any]:
         read = ctx.resource.schemas.get("read")
         names = [n for n in (read.model_fields if read else {}) if n != ctx.resource.id_field]
         return {n: entry(n, **{"from": getattr(ctx.entity, n, None)}) for n in names}
-    if op == "transition" and ctx.resource.state_field:
+    machine = ctx.resource.machine_for(ctx.transition) if ctx.transition else None
+    if op == "transition" and machine is not None:
         return {
-            ctx.resource.state_field: {
+            machine.state_field: {
                 "from": jsonable(ctx.previous_state),
                 "to": jsonable(ctx.new_state),
             }

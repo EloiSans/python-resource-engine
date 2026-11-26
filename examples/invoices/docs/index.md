@@ -3,7 +3,7 @@
 | Recurs | Descripció | Operacions |
 |---|---|---|
 | [customers](resources/customers.md) | Clients als quals l'organització emet factures. | `list`, `get`, `create`, `update`, `delete` |
-| [invoices](resources/invoices.md) | Gestió de factures de l'organització. | `list`, `get`, `create`, `update`, `delete`, `submit`, `approve`, `reject`, `pay`, `reopen`, `recalculate_totals`, `render_summary` |
+| [invoices](resources/invoices.md) | Gestió de factures de l'organització. | `list`, `get`, `create`, `update`, `delete`, `submit`, `approve`, `reject`, `pay`, `reopen`, `send`, `bounce`, `resend`, `recalculate_totals`, `render_summary` |
 | [tags](resources/tags.md) | Etiquetes per classificar factures. | `list`, `get`, `create`, `update`, `delete` |
 | [invoice_tags](resources/invoice_tags.md) | Etiquetes assignades a factures (molts a molts). | `list`, `get`, `create`, `delete` |
 | [invoice_payments](resources/invoice_payments.md) | Cobrament de les factures aprovades. | `list`, `get`, `create`, `receive`, `expire` |

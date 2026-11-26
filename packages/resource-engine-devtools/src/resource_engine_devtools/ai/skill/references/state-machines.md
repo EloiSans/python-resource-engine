@@ -83,6 +83,24 @@ event → RE-E202. The engine publishes `TransitionExecuted` (with `source` and
 
 `resource-engine docs generate` draws each machine as a Mermaid diagram.
 
+## Several machines
+
+A record that follows independent processes (approval and delivery) declares
+named machines instead of `state_machine`, each with its own field:
+
+```python
+machines = {
+    "approval": Machine(InvoiceStateMachine, field="status", since_field="status_changed_at"),
+    "delivery": Machine(InvoiceDelivery, field="delivery_status"),
+}
+```
+
+Transition names must be unique across them (routes and permissions use the
+bare event). A guard can read the other machine's field through `self.model`.
+History entries and `TransitionExecuted` name the `machine`; `history(...,
+machine="delivery")` filters. Don't model a second process as extra states of
+one machine, or as a plain field changed in hooks.
+
 ## Deadlines
 
 A transition that must happen after some time (expire, escalate, remind) is a

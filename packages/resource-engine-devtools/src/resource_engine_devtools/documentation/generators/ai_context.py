@@ -29,8 +29,7 @@ def render_ai_context(model: DocumentationModel) -> str:
             flags = ["reads"] if r.audit_reads else []
             flags += [f"exclude={'+'.join(r.audit_exclude)}"] if r.audit_exclude else []
             out.append(f"  audit: {', '.join(flags)}")
-        if r.state_machine:
-            sm = r.state_machine
+        for sm in r.state_machines:
             edges = "; ".join(f"{t.source}-{t.event}->{t.target}" for t in sm.transitions)
             out.append(f"  state_machine: {sm.qualname} field={sm.state_field}: {edges}")
             if sm.timers:

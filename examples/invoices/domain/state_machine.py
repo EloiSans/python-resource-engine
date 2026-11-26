@@ -40,6 +40,33 @@ class InvoiceStateMachine(StateMachine):
         self.model.rejection_reason = None
 
 
+class InvoiceDelivery(StateMachine):
+    """Enviament d'una factura al client, independent de la seva aprovació.
+
+    States:
+        unsent: Encara no s'ha enviat al client.
+        sent: Enviada al client.
+        returned: El correu ha rebotat; cal tornar-la a enviar.
+
+    Transitions:
+        send: Envia al client una factura aprovada o cobrada.
+        bounce: El correu d'enviament ha rebotat.
+        resend: Torna a enviar una factura retornada.
+    """
+
+    unsent = State("No enviada", initial=True)
+    sent = State("Enviada")
+    returned = State("Retornada")
+
+    send = unsent.to(sent, cond="invoice_approved")
+    bounce = sent.to(returned)
+    resend = returned.to(sent)
+
+    def invoice_approved(self) -> bool:
+        # a guard can read the other machine's state: only approved invoices go out
+        return self.model.status in ("approved", "paid")
+
+
 class PaymentFlow(StateMachine):
     """Cobrament d'una factura aprovada.
 

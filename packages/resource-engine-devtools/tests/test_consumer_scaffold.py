@@ -170,6 +170,7 @@ def test_consumer_of_a_resource_engine_app(project, capsys):
         "transition",
         "source",
         "target",
+        "machine",
     }
     n = len(router.event_types)
     _clean(project, base, f"{2 * n + 1} passed")

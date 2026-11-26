@@ -24,6 +24,9 @@ Els rols de sistema es defineixen al codi i no es poden modificar des del front-
 | `invoices:transition:reject` | ✓ |  |
 | `invoices:transition:pay` | ✓ |  |
 | `invoices:transition:reopen` | ✓ |  |
+| `invoices:transition:send` | ✓ |  |
+| `invoices:transition:bounce` | ✓ |  |
+| `invoices:transition:resend` | ✓ |  |
 | `invoices:action:recalculate_totals` | ✓ |  |
 | `invoices:action:render_summary` | ✓ |  |
 | `invoices:attach:signed_pdf` | ✓ |  |

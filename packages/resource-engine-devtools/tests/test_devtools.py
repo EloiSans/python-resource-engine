@@ -75,7 +75,7 @@ def test_check_detects_infrastructure_import_in_domain(tmp_path):
 def test_cli_json_outputs(capsys, tmp_path):
     assert main(["inspect", "invoices", "--json", "--app", "invoices.bootstrap:registry"]) == 0
     data = json.loads(capsys.readouterr().out)
-    assert data[0]["state_machine"]["initial"] == "draft"
+    assert data[0]["state_machines"][0]["initial"] == "draft"
     assert data[0]["hooks"]["after_commit"] == ["invoices.application.hooks.notify_approval"]
 
     assert main(["docs", "validate", "--json", "--app", "invoices.bootstrap:registry"]) == 0

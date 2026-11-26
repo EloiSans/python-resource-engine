@@ -466,6 +466,15 @@ class SchemaBuilder:
                 if self.manager.has_history and d.resource_cls.audit:
                     out[self._field_name(out, "history", d)] = GraphQLField(
                         GraphQLList(GraphQLNonNull(self.history_type())),
+                        args=(
+                            {
+                                "machine": GraphQLArgument(
+                                    GraphQLString, description="Only this state machine"
+                                )
+                            }
+                            if len(d.machines) > 1
+                            else {}
+                        ),
                         resolve=self._history(d),
                         description="Creation and committed transitions, oldest first",
                     )
@@ -658,7 +667,7 @@ class SchemaBuilder:
                     name,
                 )
             if d.machine is not None and d.expose_transitions:
-                for event in d.machine.info.events:
+                for event in d.transitions:
                     schema = d.transition_schemas.get(event)
                     data = (
                         {"data": GraphQLArgument(GraphQLNonNull(self.input_type(schema)))}
@@ -792,9 +801,11 @@ class SchemaBuilder:
         return resolve
 
     def _history(self, d: ResourceDefinition) -> Callable[..., Any]:
-        async def resolve(obj: Any, info: Any, **_kw: Any) -> Any:
+        async def resolve(obj: Any, info: Any, **kw: Any) -> Any:
             c = self._ctx(info)
-            return await c.manager.history(d.name, _value(obj, d.id_field), actor=c.actor)
+            return await c.manager.history(
+                d.name, _value(obj, d.id_field), actor=c.actor, machine=kw.get("machine")
+            )
 
         return resolve
 

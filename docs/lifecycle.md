@@ -119,6 +119,7 @@ registry (`--app`, or `registry` in `[tool.resource-engine]`). Without one,
 
 ## Protected state
 
-The state field (`state_field`, default `status`) cannot appear in `create` or
-`update` schemas (RE-E004) and `apply_update` ignores it: state changes only
-through transitions.
+The state field (`state_field`, default `status`, or each `Machine`'s field)
+cannot appear in `create` or `update` schemas (RE-E004) and `apply_update`
+ignores it: state changes only through transitions. See
+[state machines](state-machines.md).

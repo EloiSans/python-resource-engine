@@ -1399,9 +1399,9 @@ class ResourceManager:
         async with self._transaction(ctx) as uow:
             entity = definition.resource_cls.build_entity(ctx.data, ctx)
             ctx.entity = entity
-            if definition.machine:
-                await definition.machine.initialize(entity)
-                _stamp_state(definition, entity)
+            for runner in definition.machines.values():
+                await runner.initialize(entity)
+                _stamp_state(runner, entity)
             if definition.version_field and getattr(entity, definition.version_field, None) is None:
                 setattr(entity, definition.version_field, 1)
             await self._stamp_tenant(ctx, entity)
@@ -1533,16 +1533,16 @@ class ResourceManager:
         idempotency_key: str | None = None,
     ) -> Any:
         definition = self.registry.get(resource)
-        machine = definition.machine
-        if machine is None:
+        if definition.machine is None:
             raise UnknownTransition(
                 f"Resource {definition.name!r} has no state machine",
                 hint="Declare `state_machine = <StateMachine subclass>` on the resource.",
             )
-        if event not in machine.info.events:
+        machine = definition.machine_for(event)
+        if machine is None:
             raise UnknownTransition(
                 f"Resource {definition.name!r} has no transition {event!r}",
-                hint=f"Available transitions: {', '.join(machine.info.events)}",
+                hint=f"Available transitions: {', '.join(definition.transitions)}",
             )
         ctx = self._context(
             definition,
@@ -1575,7 +1575,7 @@ class ResourceManager:
                 else {}
             )
             previous, new = await machine.fire(entity, event, payload)
-            _stamp_state(definition, entity)
+            _stamp_state(machine, entity)
             ctx.previous_state, ctx.new_state = previous, new
             ctx.entity = await self._write(ctx, entity)
             ctx.record_event(
@@ -1585,6 +1585,7 @@ class ResourceManager:
                     transition=event,
                     source=previous,
                     target=new,
+                    machine=machine.name,
                 )
             )
             await hooks.run(HookPoint.AFTER_TRANSITION, ctx, event)
@@ -1604,7 +1605,9 @@ class ResourceManager:
         async with self._reading(ctx):
             entity = await self._load(ctx)
             await self._gate_record(ctx, "get", entity)
-            events = definition.machine.allowed_events(entity)
+            events = [
+                e for m in definition.machines.values() for e in await m.enabled_events(entity)
+            ]
             if self.authorizer is None:
                 return events
             allowed = []
@@ -1618,12 +1621,19 @@ class ResourceManager:
 
     @traced("history")
     async def history(
-        self, resource: ResourceRef, entity_id: Any, *, actor: Any = None, tenant: str | None = None
+        self,
+        resource: ResourceRef,
+        entity_id: Any,
+        *,
+        actor: Any = None,
+        tenant: str | None = None,
+        machine: str | None = None,
     ) -> list[StateChange]:
         """The record's state changes, oldest first: its creation and every
         committed transition, with the actor and time. Read from the audit trail;
         the caller needs to be able to ``get`` the record (RE-E009 without an
-        audit trail or a state machine)."""
+        audit trail or a state machine). With several machines each change names
+        its ``machine``; ``machine=`` keeps one."""
         from resource_engine.audit.history import read_history, require_history_resource
 
         definition = self.registry.get(resource)
@@ -1635,7 +1645,9 @@ class ResourceManager:
             tenant_value = (
                 getattr(entity, definition.tenant_field, None) if definition.tenant_field else None
             )
-            return await read_history(uow, audit_resource, definition, entity_id, tenant_value)
+            return await read_history(
+                uow, audit_resource, definition, entity_id, tenant_value, machine
+            )
 
     @property
     def has_history(self) -> bool:
@@ -1714,12 +1726,12 @@ class ResourceManager:
         return ctx.result
 
 
-def _stamp_state(definition: ResourceDefinition, entity: Any) -> None:
-    """When the record entered its current state (``state_since_field``)."""
-    if definition.state_since_field:
+def _stamp_state(machine: Any, entity: Any) -> None:
+    """When the record entered the machine's current state (its ``since_field``)."""
+    if machine.since_field:
         from datetime import UTC, datetime
 
-        setattr(entity, definition.state_since_field, datetime.now(UTC))
+        setattr(entity, machine.since_field, datetime.now(UTC))
 
 
 async def _run_callbacks(callbacks: Any, kind: str, ctx: OperationContext) -> None:

@@ -2511,6 +2511,11 @@
                   "overdue",
                   "settled"
                 ]
+              },
+              "machine": {
+                "enum": [
+                  "status"
+                ]
               }
             },
             "required": [
@@ -2518,7 +2523,8 @@
               "entity_id",
               "transition",
               "source",
-              "target"
+              "target",
+              "machine"
             ]
           },
           "trace": {
@@ -3285,7 +3291,10 @@
                   "approve",
                   "reject",
                   "pay",
-                  "reopen"
+                  "reopen",
+                  "send",
+                  "bounce",
+                  "resend"
                 ]
               },
               "source": {
@@ -3294,7 +3303,10 @@
                   "pending",
                   "approved",
                   "rejected",
-                  "paid"
+                  "paid",
+                  "unsent",
+                  "sent",
+                  "returned"
                 ]
               },
               "target": {
@@ -3303,7 +3315,16 @@
                   "pending",
                   "approved",
                   "rejected",
-                  "paid"
+                  "paid",
+                  "unsent",
+                  "sent",
+                  "returned"
+                ]
+              },
+              "machine": {
+                "enum": [
+                  "approval",
+                  "delivery"
                 ]
               }
             },
@@ -3312,7 +3333,8 @@
               "entity_id",
               "transition",
               "source",
-              "target"
+              "target",
+              "machine"
             ]
           },
           "trace": {

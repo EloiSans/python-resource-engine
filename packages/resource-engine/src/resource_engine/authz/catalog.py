@@ -124,10 +124,12 @@ class Catalog:
     @staticmethod
     def _resource_attributes(d: ResourceDefinition) -> list[AttributeInfo]:
         attrs = schema_attributes("resource", d.schemas.get("read"))
-        if d.machine is not None and d.state_field:
-            states = [s.id for s in d.machine.info.states]
-            attrs = [a for a in attrs if a.path != f"resource.{d.state_field}"]
-            attrs.append(AttributeInfo(f"resource.{d.state_field}", "string", states, "State"))
+        for machine in d.machines.values():
+            path = f"resource.{machine.state_field}"
+            states = [s.id for s in machine.info.states]
+            label = "State" if len(d.machines) == 1 else f"State ({machine.name})"
+            attrs = [a for a in attrs if a.path != path]
+            attrs.append(AttributeInfo(path, "string", states, label))
         return attrs
 
     @staticmethod
@@ -144,7 +146,7 @@ class Catalog:
                 input=schema_attributes("input", schema),
             )
         if d.machine is not None:
-            for event in d.machine.info.events:
+            for event in d.transitions:
                 yield ActionInfo(
                     f"{d.name}:transition:{event}",
                     d.name,

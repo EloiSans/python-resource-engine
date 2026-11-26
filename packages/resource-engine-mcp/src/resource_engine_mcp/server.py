@@ -302,13 +302,16 @@ class ResourceMcpServer:
                 "offset": page.offset,
                 "limit": page.limit,
             }
+        if op == "history":
+            machine = args.pop("machine", None)
+            _no_extra(tool, args)
+            changes = await m.history(tool.resource, entity_id, machine=machine, **kw)
+            return {"changes": _dump(changes)}
         _no_extra(tool, args)
         if op == "get":
             return _dump(await m.get(tool.resource, entity_id, expand=expand, **kw))
         if op == "allowed_transitions":
             return {"transitions": await m.allowed_transitions(tool.resource, entity_id, **kw)}
-        if op == "history":
-            return {"changes": _dump(await m.history(tool.resource, entity_id, **kw))}
         if op == "create":
             return _dump(await m.create(tool.resource, data, idempotency_key=key, **kw))
         if op == "update":

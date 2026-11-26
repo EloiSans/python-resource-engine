@@ -82,6 +82,7 @@ class StateMachineDoc:
     transitions: list[TransitionDoc]
     timers: list[TimerDoc] = field(default_factory=list)
     since_field: str | None = None
+    machine: str = ""  # its name on the resource (Resource.machines)
 
 
 @dataclass
@@ -151,7 +152,7 @@ class ResourceDoc:
     schemas: list[SchemaDoc]
     hooks: list[HookDoc]
     actions: list[ActionDoc]
-    state_machine: StateMachineDoc | None
+    state_machines: list[StateMachineDoc]
     filterable: list[str] = field(default_factory=list)
     sortable: list[str] = field(default_factory=list)
     documents: list[SlotDoc] = field(default_factory=list)
@@ -190,3 +191,11 @@ class DocumentationModel:
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
+
+
+def _first_machine(self: ResourceDoc) -> StateMachineDoc | None:
+    """The first (or only) state machine."""
+    return self.state_machines[0] if self.state_machines else None
+
+
+ResourceDoc.state_machine = property(_first_machine)  # type: ignore[attr-defined]

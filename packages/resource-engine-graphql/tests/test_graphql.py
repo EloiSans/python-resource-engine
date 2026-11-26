@@ -161,7 +161,7 @@ async def test_mutations(adapter):
     rejected = await run(
         adapter,
         f'mutation {{ rejectInvoice(id: {invoice}, data: {{reason: "Falta NIF"}}) '
-        "{ status rejectionReason history { toState } } }",
+        '{ status rejectionReason history(machine: "approval") { toState } } }',
     )
     data = rejected["data"]["rejectInvoice"]
     assert data["status"] == "rejected"

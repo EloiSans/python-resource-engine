@@ -45,6 +45,7 @@ class InvoiceResource(Resource):
 | `operation_docs` | `{}` | One sentence per enabled CRUD operation (`docs validate` needs it) |
 | `hooks` | `{}` | `{"<point>[:<qualifier>]": fn or [fn, ...]}`; see [lifecycle.md](lifecycle.md) |
 | `state_machine`, `state_field` | `None`, `"status"` | See [state-machines.md](state-machines.md) |
+| `machines` | `{}` | Several named machines: `{"delivery": Machine(Cls, field="delivery_status")}` |
 | `transition_schemas` | `{}` | Input schema per transition event |
 | `actions` | `()` | `Action` subclasses |
 | `filterable`, `sortable` | `()` | Fields accepted by `list` filters and `order_by` |

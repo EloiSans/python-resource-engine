@@ -172,37 +172,44 @@ def _resource_doc(d: ResourceDefinition) -> ResourceDoc:
             )
         )
 
-    sm_doc = None
-    if d.machine is not None and d.state_machine is not None:
-        machine_text = parse_doc(d.state_machine)
+    machine_docs: list[StateMachineDoc] = []
+    transition_text: dict[str, str] = {}
+    for m in d.machines.values():
+        machine_text = parse_doc(m.machine_cls)
         state_text = machine_text.items.get("states", {})
-        transition_text = machine_text.items.get("transitions", {})
-        sm_doc = StateMachineDoc(
-            name=d.state_machine.__name__,
-            qualname=_qualname(d.state_machine),
-            state_field=d.state_field or "",
-            doc=machine_text,
-            states=[
-                StateDoc(s.id, s.name, s.initial, s.final, state_text.get(s.id))
-                for s in d.machine.info.states
-            ],
-            transitions=[
-                TransitionDoc(t.event, t.source, t.target, transition_text.get(t.event))
-                for t in d.machine.info.transitions
-            ],
-            timers=[
-                TimerDoc(
-                    event=t.event,
-                    after=_duration(t.after),
-                    since=t.since,
-                    states=[str(s) for s in t.states],
-                    description=t.description,
-                )
-                for t in d.timers
-            ],
-            since_field=d.state_since_field,
+        own_text = machine_text.items.get("transitions", {})
+        transition_text.update({e: t for e, t in own_text.items() if e in m.info.events})
+        machine_docs.append(
+            StateMachineDoc(
+                name=m.machine_cls.__name__,
+                qualname=_qualname(m.machine_cls),
+                state_field=m.state_field,
+                doc=machine_text,
+                states=[
+                    StateDoc(s.id, s.name, s.initial, s.final, state_text.get(s.id))
+                    for s in m.info.states
+                ],
+                transitions=[
+                    TransitionDoc(t.event, t.source, t.target, own_text.get(t.event))
+                    for t in m.info.transitions
+                ],
+                timers=[
+                    TimerDoc(
+                        event=t.event,
+                        after=_duration(t.after),
+                        since=t.since,
+                        states=[str(s) for s in t.states],
+                        description=t.description,
+                    )
+                    for t in d.timers
+                    if t.event in m.info.events
+                ],
+                since_field=m.since_field,
+                machine=m.name,
+            )
         )
-        for event in d.machine.info.events:
+    if d.machine is not None:
+        for event in d.transitions:
             schema = d.transition_schemas.get(event)
             text = transition_text.get(event)
             operations.append(
@@ -266,7 +273,7 @@ def _resource_doc(d: ResourceDefinition) -> ResourceDoc:
         schemas=[_schema_doc(role, s) for role, s in d.schemas.items()],
         hooks=hooks,
         actions=actions,
-        state_machine=sm_doc,
+        state_machines=machine_docs,
         filterable=list(d.filterable),
         sortable=list(d.sortable),
         restricted_fields=list(d.restricted_fields),

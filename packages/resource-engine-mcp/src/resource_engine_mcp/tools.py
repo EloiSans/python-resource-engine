@@ -177,8 +177,7 @@ def _describe(definition: ResourceDefinition, text: str, extra: Iterable[str] = 
     return "\n\n".join(p for p in parts if p)
 
 
-def _state_names(definition: ResourceDefinition) -> dict[str, str]:
-    info = definition.machine.info  # type: ignore[union-attr]
+def _state_names(info: Any) -> dict[str, str]:
     return {s.id: str(s.value if s.value is not None else s.id) for s in info.states}
 
 
@@ -512,9 +511,11 @@ class _Builder:
 
     def _machine_tools(self, read_output: dict[str, Any] | None) -> list[ResourceTool]:
         d = self.d
-        info = d.machine.info  # type: ignore[union-attr]
-        states = _state_names(d)
-        machine_doc = _first_paragraph(inspect.getdoc(d.state_machine))
+        machine_doc = "\n\n".join(
+            filter(
+                None, (_first_paragraph(inspect.getdoc(m.machine_cls)) for m in d.machines.values())
+            )
+        )
         tools: list[ResourceTool] = []
 
         schema = _Schema()
@@ -547,6 +548,11 @@ class _Builder:
             schema = _Schema()
             self._id(schema)
             self._tail(schema, write=False)
+            if len(d.machines) > 1:
+                schema.add(
+                    "machine",
+                    {"enum": list(d.machines), "description": "Only this state machine"},
+                )
             change = StateChange.model_json_schema(mode="serialization")
             tools.append(
                 self.tool(
@@ -569,9 +575,14 @@ class _Builder:
             )
 
         events: dict[str, list[tuple[str, str]]] = {}
-        for t in info.transitions:
-            events.setdefault(t.event, []).append((states[t.source], states[t.target]))
-        for event in info.events:
+        docs: dict[str, str | None] = {}
+        for m in d.machines.values():
+            states = _state_names(m.info)
+            for t in m.info.transitions:
+                events.setdefault(t.event, []).append((states[t.source], states[t.target]))
+            for event in m.info.events:
+                docs[event] = _first_paragraph(inspect.getdoc(m.machine_cls))
+        for event in d.transitions:
             moves = events.get(event, [])
             schema = _Schema()
             self._id(schema)
@@ -589,7 +600,7 @@ class _Builder:
                         d,
                         f"Run the {event} transition on a {d.name} record"
                         + (f" ({where})." if where else "."),
-                        [machine_doc],
+                        [docs.get(event) or ""],
                     ),
                     input_schema=schema.build(),
                     output_schema=read_output,

@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import inspect
 from collections.abc import Callable
-from typing import Any
+from typing import Any, Literal
 
 from fastapi import APIRouter, Body, Depends, FastAPI, Header, Path, Query, Response, status
 from fastapi.responses import JSONResponse
@@ -414,7 +414,6 @@ def build_resource_router(
         )
 
     if definition.machine is not None and definition.expose_transitions:
-        sm_doc = inspect.getdoc(definition.state_machine) or ""
 
         async def allowed_endpoint(entity_id: Any, actor: Any, tenant: Any = None) -> list[str]:
             return await manager.allowed_transitions(name, entity_id, actor=actor, tenant=tenant)
@@ -433,14 +432,32 @@ def build_resource_router(
         if manager.has_history and definition.resource_cls.audit:
             from resource_engine.audit.history import StateChange
 
-            async def history_endpoint(entity_id: Any, actor: Any, tenant: Any = None) -> Any:
-                return await manager.history(name, entity_id, actor=actor, tenant=tenant)
+            several = len(definition.machines) > 1
+            machine_params = (
+                [
+                    inspect.Parameter(
+                        "machine",
+                        inspect.Parameter.KEYWORD_ONLY,
+                        default=Query(None, description="Only this state machine"),
+                        annotation=Literal[tuple(definition.machines)] | None,  # type: ignore[valid-type]
+                    )
+                ]
+                if several
+                else []
+            )
+
+            async def history_endpoint(
+                entity_id: Any, actor: Any, tenant: Any = None, machine: Any = None
+            ) -> Any:
+                return await manager.history(
+                    name, entity_id, actor=actor, tenant=tenant, machine=machine
+                )
 
             router.add_api_route(
                 "/{entity_id}/history",
                 _endpoint(
                     history_endpoint,
-                    [id_param, *tenant_params, actor_param],
+                    [id_param, *tenant_params, *machine_params, actor_param],
                     f"history_{name}",
                 ),
                 methods=["GET"],
@@ -449,7 +466,9 @@ def build_resource_router(
                 description="The record's creation and committed transitions, oldest "
                 "first, with who made them and when (from the audit trail).",
             )
-        for event in definition.machine.info.events:
+        for event in definition.transitions:
+            owner_machine = definition.machine_for(event)
+            sm_doc = inspect.getdoc(owner_machine.machine_cls) if owner_machine else ""
             router.add_api_route(
                 f"/{{entity_id}}/transitions/{event}",
                 _transition_endpoint(
