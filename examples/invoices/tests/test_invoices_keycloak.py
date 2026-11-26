@@ -32,12 +32,14 @@ if not _up():
 
 
 def bearer(username: str) -> dict[str, str]:
-    """A user's access token from the example realm (password grant: development only)."""
+    """A user's access token from the example realm, through the development-only
+    client (the front-end client only allows authorization code with PKCE)."""
     response = httpx.post(
         TOKEN_URL,
         data={
             "grant_type": "password",
-            "client_id": "invoices-web",
+            "client_id": "invoices-dev-tests",
+            "client_secret": "invoices-dev-secret",
             "username": username,
             "password": "dev",
             "scope": "openid organization",
@@ -80,6 +82,16 @@ def test_users_work_in_their_organization(client):
         headers=pau,  # approver at ACME
     )
     assert rejected.json()["status"] == "rejected"
+
+
+def test_the_front_end_client_has_no_password_grant():
+    response = httpx.post(
+        TOKEN_URL,
+        data={"grant_type": "password", "client_id": "invoices-web", "username": "eli",
+              "password": "dev"},
+    )  # fmt: skip
+    assert response.status_code in (400, 401)
+    assert response.json()["error"] == "unauthorized_client"
 
 
 def test_platform_admin_sees_every_organization(client):

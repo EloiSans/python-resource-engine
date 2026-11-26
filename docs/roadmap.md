@@ -165,8 +165,20 @@ what follows builds on it.
   customer) with the same filters, sorting, permissions, `expand`, docs,
   GraphQL and MCP tools as entity resources.
 
+- Opaque access tokens: an `Authenticator` using OAuth token introspection
+  (RFC 7662) with a short cache, for providers that do not issue JWTs and for
+  immediate revocation; presets for Keycloak, Okta and Auth0.
+- API keys for machine clients that cannot use OAuth: keys stored hashed in a
+  resource managed through the API (prefix shown, secret once), each mapped to
+  a principal with roles and a tenant, expiry and revocation, audited use.
+
 ### Later
 
+- Sender-constrained tokens: DPoP (RFC 9449) proof checks and mTLS-bound
+  tokens (RFC 8705), so stolen access tokens cannot be replayed.
+- SAML sign-in documented through an identity broker (Keycloak, Entra ID,
+  Cognito federate the SAML IdP and issue OIDC tokens; the example realm shows
+  it); a SAML service provider only for a server-rendered app without a broker.
 - Versioning: versions of resource schemas, actions and events published side
   by side (`/v2/...`, `schema_version` per event type), deprecation notices in
   OpenAPI, AsyncAPI and GraphQL, and the contract checks comparing versions.

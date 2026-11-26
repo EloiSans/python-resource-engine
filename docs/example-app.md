@@ -18,16 +18,22 @@ Get a token for a demo user, then call the API:
 
 ```bash
 TOKEN=$(curl -s http://127.0.0.1:8180/realms/invoices/protocol/openid-connect/token \
-  -d grant_type=password -d client_id=invoices-web -d username=eli -d password=dev \
-  -d scope="openid organization" | python -c "import json,sys; print(json.load(sys.stdin)['access_token'])")
+  -d grant_type=password -d client_id=invoices-dev-tests -d client_secret=invoices-dev-secret \
+  -d username=eli -d password=dev -d scope="openid organization" \
+  | python -c "import json,sys; print(json.load(sys.stdin)['access_token'])")
 curl -s -H "Authorization: Bearer $TOKEN" http://127.0.0.1:8000/invoices
 curl -s -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
   -d '{"customer": "ACME", "amount": "120.50"}' http://127.0.0.1:8000/invoices
 ```
 
-The password grant is for local development only. Front ends use the
-authorization code flow with PKCE on the public client `invoices-web`
-(redirects to `http://localhost:*` are allowed).
+The realm follows OAuth 2.1, and has two clients:
+
+- **`invoices-web`:** the front end's public client. It allows only the
+  authorization code flow with PKCE (S256), with redirects to
+  `http://localhost:*`. The password grant is refused there.
+- **`invoices-dev-tests`:** a confidential client used only so `curl` and the
+  tests can sign in as the demo users with the password grant. It exists in
+  this development realm alone; never create such a client in a real realm.
 
 - **Without Keycloak:** every request is a 401.
 - **Elsewhere:** `KEYCLOAK_URL` and `KEYCLOAK_REALM` point the app at another
