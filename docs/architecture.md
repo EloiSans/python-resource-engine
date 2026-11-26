@@ -28,6 +28,7 @@ so the same class is used by the domain, the in-memory adapter and SQLAlchemy.
 - `OutboxStore` / `SupportsOutbox`: transactional outbox reached through the unit of work; `purge_published` for retention.
 - `MessageSource` (+ `SupportsDeadLetter`): pull side of a broker (`receive`, `ack`, `retry`).
 - `InboxStore` / `SupportsInbox`: processed message ids for idempotent consumers; `purge` for retention (`MessagingJanitor`).
+- `ErrorReporter`: receives every unexpected failure once, with its context (`LoggingReporter` by default, `SentryReporter` in `resource-engine-sentry`; [observability](observability.md#error-reporting)).
 - `OperationObserver`: metrics hook called after every manager operation (`OperationMetrics` in `resource-engine-opentelemetry`; [observability](observability.md#metrics)).
 - `JobObserver`: called after every `JobRunner` run (`JobMetrics` in `resource-engine-opentelemetry`).
 - `MessageObserver`: metrics hook called after every processed message (`LoggingObserver` in the core, `ConsumerMetrics` in `resource-engine-opentelemetry`).

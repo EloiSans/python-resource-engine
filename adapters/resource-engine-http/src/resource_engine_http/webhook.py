@@ -5,6 +5,7 @@ from collections.abc import Sequence
 from typing import Literal
 
 import httpx
+from resource_engine.calls import outgoing_call
 from resource_engine.errors import PublishFailed
 from resource_engine.messaging import EventEnvelope
 from resource_engine.messaging.cloudevents import CONTENT_TYPE, to_cloudevent_json
@@ -73,9 +74,12 @@ class WebhookMessagePublisher:
 
     async def _send(self, env: EventEnvelope) -> str | None:
         body, headers = self._request(env)
+        url = self.url_for(env)
         async with self._semaphore:
             try:
-                response = await self.client.post(self.url_for(env), content=body, headers=headers)
+                async with outgoing_call(self.service, "publish", method="POST", url=url) as call:
+                    response = await self.client.post(url, content=body, headers=headers)
+                    call.status = response.status_code
             except httpx.HTTPError as exc:
                 return f"{type(exc).__name__}: {exc}"
         return None if response.is_success else f"HTTP {response.status_code}"

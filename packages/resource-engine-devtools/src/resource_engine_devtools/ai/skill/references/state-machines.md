@@ -95,3 +95,13 @@ timers = [Timer("reject", after=timedelta(days=30), data={"reason": "No answer i
 
 The worker runs `TimerJob(manager)` (`single=True`); each due record goes
 through `manager.transition` as `system:timers`. See docs/timers.md.
+
+## Processes across resources
+
+A process that reacts to events over time (wait for a payment, then pay the
+invoice, alarm after 15 days) is a `Process` from `resource_engine.processes`,
+not ad-hoc consumers: its records are the instances (`correlation` field),
+`reacts = [On("PaymentReceived", handler, key="invoice_id", payload=Model)]`,
+handlers call `step.start()`, `step.transition()` and the manager as
+`step.actor`, timeouts are `timers`, compensations are transitions with hooks.
+See `examples/invoices/application/processes.py` and docs/processes.md.

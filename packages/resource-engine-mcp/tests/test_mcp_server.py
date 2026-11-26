@@ -85,6 +85,7 @@ def test_tools_from_the_registry(manager):
         "invoices_action_recalculate_totals",
         "invoices_action_render_summary",
         "invoices_tags",
+        "invoices_payments",
     }
     create = tools["invoices_create"].to_mcp()
     assert create.input_schema["required"] == ["data"]
@@ -350,7 +351,7 @@ async def test_expand_and_related_filters(manager):
     server = ResourceMcpServer(registry, manager)
     get = server.tools["invoices_get"].to_mcp()
     assert get.input_schema["properties"]["expand"]["items"]["pattern"].startswith(
-        "^(customer_record|tags"
+        "^(customer_record|payments(:[0-9]+)?|tags"
     )
     filters = server.tools["invoices_list"].to_mcp().input_schema["properties"]["filters"]
     assert "customer_record.country" in filters["properties"]

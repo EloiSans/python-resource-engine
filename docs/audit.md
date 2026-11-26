@@ -30,10 +30,18 @@ A `RepositoryAuditSink` without the `audit_log` resource fails at bootstrap
 | `actor`, `actor_roles` | `Principal.id`, `system:<job>` for engine jobs, `null` for anonymous; application roles at the time |
 | `resource`, `entity_id` | Target record (the id as text) |
 | `operation`, `action` | `create`, `update`, `transition`… and the permission action (`transition:approve`, `attach:signed_pdf`) |
-| `outcome` | `ok` or `denied` |
+| `outcome` | `ok`, `denied`, or `failed` with `audit_failures=True` |
 | `changes` | `{field: {"from": …, "to": …}}`; masked fields are `{"changed": true}` |
 | `details` | Transition or action input, document events (slot, id, type, size; never content), list query and count, denial `code`, `reason` and `fields` |
 | `correlation_id` | Shared with the logs and events of the operation |
+
+With `ResourceManager(audit=True, audit_failures=True)`, operations that
+failed after they started writing also get an entry: `outcome="failed"`, no
+changes, and the error's `code` and `message` in `details`. Business rules
+(`DomainError`) and engine failures are covered. Validation errors happen
+before the transaction and aren't, and refusals keep their `denied` entry. It
+is written in its own transaction after the rollback (best effort, like
+denials), so the record's timeline shows what didn't work.
 
 What `changes` holds per operation: `create` the values sent and the initial
 state, `update` the fields that changed, `delete` the last values, `transition`

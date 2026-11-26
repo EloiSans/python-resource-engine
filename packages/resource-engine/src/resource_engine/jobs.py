@@ -183,8 +183,10 @@ class JobRunner:
                         result = await result
             run = JobRun(job.name, "ok", time.perf_counter() - started, result)
         except Exception as exc:
+            from resource_engine.reporting import report_error
+
             with bind_log_context(job=job.name):
-                logger.exception("Job %s failed", job.name)
+                await report_error(exc, where="job", force=True)
             run = JobRun(job.name, "failed", time.perf_counter() - started, error=exc)
         finally:
             if job.single:

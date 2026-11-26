@@ -54,7 +54,7 @@ async def test_due_records_are_transitioned(manager):
     draft = (await manager.create("invoices", {"customer": "x", "amount": "1"})).id
     later = datetime.now(UTC) + timedelta(days=30)
 
-    early = await TimerJob(manager).run_once()
+    early = await TimerJob(manager, resources=["invoices"]).run_once()
     assert early.fired == 0 and early.due == {"invoices.reject": 0}
 
     # only `old` waited 30 days: move its clock back
@@ -65,7 +65,7 @@ async def test_due_records_are_transitioned(manager):
         await uow.repository("invoices").update(entity)
         await uow.commit()
 
-    run = await TimerJob(manager).run_once()
+    run = await TimerJob(manager, resources=["invoices"]).run_once()
     assert (run.fired, run.skipped, run.failed) == (1, 0, 0)
     rejected = await manager.get("invoices", old)
     assert rejected.status == "rejected"
@@ -76,14 +76,20 @@ async def test_due_records_are_transitioned(manager):
     history = await manager.history("invoices", old)
     assert history[-1].event == "reject" and history[-1].actor == "system:timers"
 
-    everything = await TimerJob(manager, clock=lambda: later + timedelta(days=1)).run_once()
+    everything = await TimerJob(
+        manager, resources=["invoices"], clock=lambda: later + timedelta(days=1)
+    ).run_once()
     assert everything.fired == 1  # `fresh` too, a month later
-    assert (await TimerJob(manager, clock=lambda: later).run_once()).fired == 0  # nothing left
+    assert (
+        await TimerJob(manager, resources=["invoices"], clock=lambda: later).run_once()
+    ).fired == 0  # nothing left
 
 
 async def test_a_record_that_moved_on_is_skipped(manager, monkeypatch):
     invoice = await _pending(manager)
-    job = TimerJob(manager, clock=lambda: datetime.now(UTC) + timedelta(days=31))
+    job = TimerJob(
+        manager, resources=["invoices"], clock=lambda: datetime.now(UTC) + timedelta(days=31)
+    )
     original = manager.list
 
     async def approve_meanwhile(*args, **kw):
@@ -104,7 +110,9 @@ async def test_failures_are_counted_and_retried(manager, monkeypatch, caplog):
         raise RuntimeError("database gone")
 
     monkeypatch.setattr(manager, "transition", broken)
-    job = TimerJob(manager, clock=lambda: datetime.now(UTC) + timedelta(days=31))
+    job = TimerJob(
+        manager, resources=["invoices"], clock=lambda: datetime.now(UTC) + timedelta(days=31)
+    )
     run = await job.run_once()
     assert run.failed == 1 and "database gone" in caplog.text
 
@@ -114,7 +122,9 @@ async def test_runs_as_a_job(manager):
     runner = JobRunner(locks=InMemoryLocks())
     runner.add(
         "timers",
-        TimerJob(manager, clock=lambda: datetime.now(UTC) + timedelta(days=31)),
+        TimerJob(
+            manager, resources=["invoices"], clock=lambda: datetime.now(UTC) + timedelta(days=31)
+        ),
         every=timedelta(minutes=1),
         single=True,
     )
@@ -207,7 +217,7 @@ def test_resources_filter():
     registry = ResourceRegistry()
     registry.register(_resource(state_since_field="opened_at"))
     manager = ResourceManager(registry, InMemoryStore.from_registry(registry).unit_of_work)
-    assert TimerJob(manager).timers() == []
+    assert TimerJob(manager, resources=["invoices"]).timers() == []
     assert (
         len(
             TimerJob(

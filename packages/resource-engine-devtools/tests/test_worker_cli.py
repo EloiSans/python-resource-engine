@@ -78,5 +78,5 @@ def test_pyproject_setting(app, tmp_path):
 def test_json_logs(app, capsys):
     assert main(["worker", "--runner", "worker_app:build", "--once", "--log-format", "json"]) == 1
     line = json.loads(capsys.readouterr().err.strip().splitlines()[0])
-    assert line["message"] == "Job boom failed" and line["job"] == "boom"
+    assert line["message"].startswith("Job boom failed") and line["job"] == "boom"
     assert line["level"] == "ERROR" and line["error_type"] == "RuntimeError"

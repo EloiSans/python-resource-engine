@@ -271,7 +271,7 @@ class SchemaBuilder:
 
     def build(self) -> GraphQLSchema:
         for d in self.registry:
-            if not (d.enabled("get") or d.enabled("list")) or "read" not in d.schemas:
+            if not (d.exposed("get") or d.exposed("list")) or "read" not in d.schemas:
                 continue
             name = self._name(pascal(singular(d.name)))
             read = d.schemas["read"]
@@ -434,14 +434,14 @@ class SchemaBuilder:
             d = r.definition
             id_type = GraphQLNonNull(self.graphql_type(d.id_type, input=True, hint="id"))
             tenant = {"tenant": GraphQLArgument(GraphQLString)} if d.tenant_field else {}
-            if d.enabled("get"):
+            if d.exposed("get"):
                 out[r.single] = GraphQLField(
                     r.type,
                     args={"id": GraphQLArgument(id_type), **tenant},
                     resolve=self._get(name),
                     description=d.operation_docs.get("get") or f"One {name} record",
                 )
-            if d.enabled("list"):
+            if d.exposed("list"):
                 out[r.plural] = GraphQLField(
                     GraphQLNonNull(self.page_type(name)),
                     args=self.list_args(name),
@@ -480,7 +480,7 @@ class SchemaBuilder:
                 if d.version_field
                 else {}
             )
-            if d.enabled("create"):
+            if d.exposed("create"):
                 add(
                     f"create{type_name}",
                     GraphQLField(
@@ -496,7 +496,7 @@ class SchemaBuilder:
                     ),
                     name,
                 )
-            if d.enabled("update"):
+            if d.exposed("update"):
                 add(
                     f"update{type_name}",
                     GraphQLField(
@@ -514,7 +514,7 @@ class SchemaBuilder:
                     ),
                     name,
                 )
-            if d.enabled("delete"):
+            if d.exposed("delete"):
                 add(
                     f"delete{type_name}",
                     GraphQLField(

@@ -107,6 +107,18 @@ class ReferenceDoc:
 
 
 @dataclass
+class ReactionDoc:
+    """An event a process reacts to (``Process.reacts``)."""
+
+    event: str
+    when: str
+    key: str
+    start: bool
+    handler: str
+    description: str | None = None
+
+
+@dataclass
 class EventDoc:
     """A domain event the resource declares (``Resource.events``)."""
 
@@ -155,6 +167,9 @@ class ResourceDoc:
     referenced_by: list[ReferenceDoc] = field(default_factory=list)
     #: Many-to-many relations: ``name`` lists ``resource`` through the join ``field``.
     links: list[ReferenceDoc] = field(default_factory=list)
+    #: For process managers: the correlation field and the events they react to.
+    correlation: str | None = None
+    reacts: list[ReactionDoc] = field(default_factory=list)
 
 
 @dataclass

@@ -21,6 +21,7 @@ from typing import Any, Literal, Self
 
 import httpx
 from resource_engine.application.query import ListQuery, Page
+from resource_engine.calls import outgoing_call
 
 from resource_engine_http.errors import check_response, transport_failed
 
@@ -115,10 +116,15 @@ class RestRepository[E]:
         return self.endpoint.item_path.format(path=self.endpoint.path, id=entity_id)
 
     async def _send(self, operation: str, method: str, url: str, **kw: Any) -> httpx.Response:
-        try:
-            return await self.client.request(method, url, **kw)
-        except httpx.HTTPError as exc:
-            raise transport_failed(exc, service=self.endpoint.service, operation=operation) from exc
+        service = self.endpoint.service
+        full = str(self.client.base_url.join(url)) if self.client.base_url else url
+        async with outgoing_call(service, operation, method=method, url=full) as call:
+            try:
+                response = await self.client.request(method, url, **kw)
+            except httpx.HTTPError as exc:
+                raise transport_failed(exc, service=service, operation=operation) from exc
+            call.status = response.status_code
+            return response
 
     def _check(self, response: httpx.Response, operation: str) -> None:
         check_response(response, service=self.endpoint.service, operation=operation)

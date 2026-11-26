@@ -131,6 +131,20 @@
   `TimerJob` runs due transitions as `system:timers` in batches through the
   manager (guards, hooks, audit, events, history); in the generated docs; the
   example rejects invoices pending for 30 days.
+- Process managers: `Process` (a resource whose records are instances, one
+  per `correlation` key) with `reacts = [On(event, handler, ...)]`; handlers get
+  a `ProcessStep` (`start`, `transition`, `can`, the manager as
+  `system:processes`); `ProcessRunner(manager).router()` run through
+  `MessageProcessor(manager=)` (exactly once) from a broker or from the outbox
+  with `ProcessFeed`; timeouts are timers, compensations explicit transitions;
+  `internal_operations` keeps instance creation away from the APIs; in the
+  generated docs. The example gains the invoice payment process and a worker.
+- Error reporting: the `ErrorReporter` port gets every unexpected failure once
+  (operations, HTTP/GraphQL/MCP 5xx, consumers, outbox, jobs, timers, after
+  commit) with its context; `resource-engine-sentry` for Sentry, GlitchTip and
+  Bugsink; access log with request ids (`mount_resources(access_log=True)`);
+  outgoing-call logs and spans in the REST, SOAP and webhook adapters; failed
+  operations in the audit trail (`audit_failures=True`).
 - `resource-engine scaffold consumer`: payload models, a typed `EventRouter`
   and contract tests from a provider's AsyncAPI (3.0 or 2.x; envelope,
   CloudEvents or raw bodies). Contract testing on both sides:
@@ -154,9 +168,6 @@ what follows builds on it.
 
 - GraphQL next steps: subscriptions from the outbox events, Relay connections,
   persisted queries and query cost limits.
-- Process managers (sagas) for long-running processes across resources: react
-  to events, keep their own state, issue manager operations, time out and run
-  compensations; built on consumers, the outbox, jobs and leases.
 - Several state machines per resource (an invoice's approval and payment
   states), each with its own field, transitions, permissions, routes and
   history.

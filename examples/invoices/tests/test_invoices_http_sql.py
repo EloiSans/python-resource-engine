@@ -254,3 +254,10 @@ def test_roles_from_the_token(app, tokens):
         assert denied.status_code == 403 and denied.json()["error"]["code"] == "RE-E702"
         me = c.get("/authz/me", headers=accountant).json()
         assert me["roles"] == ["viewer"] and me["actions"]["invoices:list"] == "allowed"
+
+
+def test_processes_are_read_only_over_http(client):
+    spec = client.get("/openapi.json").json()["paths"]
+    assert set(spec["/invoice_payments"]) == {"get"}  # no POST: the process creates them
+    assert not [p for p in spec if p.startswith("/invoice_payments/{entity_id}/transitions")]
+    assert client.get("/invoice_payments").json()["total"] == 0

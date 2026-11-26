@@ -44,6 +44,8 @@ def bearer_actor(
                     hint="Send 'Authorization: Bearer <access token>'.",
                 )
             return None
-        return await authenticator.authenticate(token)
+        principal = await authenticator.authenticate(token)
+        request.state.principal = principal  # for the access log and error reports
+        return principal
 
     return actor

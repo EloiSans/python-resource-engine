@@ -29,6 +29,7 @@ resource-engine-cedar = { workspace = true }
 resource-engine-opa = { workspace = true }
 resource-engine-openfga = { workspace = true }
 resource-engine-opentelemetry = { workspace = true }
+resource-engine-sentry = { workspace = true }
 
 [dependency-groups]
 dev = [
@@ -50,6 +51,7 @@ dev = [
     "resource-engine-opa",
     "resource-engine-openfga",
     "resource-engine-opentelemetry",
+    "resource-engine-sentry",
     "opentelemetry-sdk>=1.27",
     "pytest>=8",
     "pytest-asyncio>=0.24",
@@ -79,6 +81,7 @@ select = ["E", "F", "I", "UP", "B", "SIM"]
 
 [tool.resource-engine]
 registry = "invoices.bootstrap:tenant_registry"
+worker = "invoices.worker:build"
 authz = "invoices.bootstrap:authz"
 policies = "invoices.authz:SEED_POLICIES"
 metadata = "invoices.infrastructure.persistence:metadata"

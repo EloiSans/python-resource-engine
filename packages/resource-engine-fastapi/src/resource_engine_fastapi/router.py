@@ -209,7 +209,7 @@ def build_resource_router(
             value, status_code, version_field=version_field, response=kw.get("response")
         )
 
-    if definition.enabled("list"):
+    if definition.exposed("list"):
         filter_params = []
         for fld in definition.filterable:
             annotation = read.model_fields[fld].annotation if read else str
@@ -294,7 +294,7 @@ def build_resource_router(
             description=docs.get("list"),
         )
 
-    if definition.enabled("get"):
+    if definition.exposed("get"):
 
         async def get_endpoint(**kw: Any) -> Any:
             result = await manager.get(
@@ -319,7 +319,7 @@ def build_resource_router(
             description=docs.get("get"),
         )
 
-    if definition.enabled("create"):
+    if definition.exposed("create"):
 
         async def create_endpoint(**kw: Any) -> Any:
             result = await manager.create(
@@ -351,7 +351,7 @@ def build_resource_router(
             description=docs.get("create"),
         )
 
-    if definition.enabled("update"):
+    if definition.exposed("update"):
 
         async def update_endpoint(**kw: Any) -> Any:
             result = await manager.update(
@@ -386,7 +386,7 @@ def build_resource_router(
             description=docs.get("update"),
         )
 
-    if definition.enabled("delete"):
+    if definition.exposed("delete"):
 
         async def delete_endpoint(**kw: Any) -> Response:
             await manager.delete(
@@ -667,8 +667,10 @@ def mount_resources(
     prefix: str = "",
     actor_dependency: ActorDependency = _no_actor,
     redirect_downloads: bool = False,
+    access_log: bool = False,
 ) -> None:
-    """Include every registered resource in ``app`` and install error handlers."""
+    """Include every registered resource in ``app`` and install error handlers.
+    ``access_log`` adds the access log and request ids (``install_access_log``)."""
     app.include_router(
         build_router(
             registry,
@@ -679,3 +681,7 @@ def mount_resources(
         )
     )
     install_exception_handlers(app)
+    if access_log:
+        from resource_engine_fastapi.access import install_access_log
+
+        install_access_log(app)

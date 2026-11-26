@@ -82,6 +82,22 @@
         }
       }
     },
+    "invoice_payments": {
+      "address": "invoice_payments",
+      "description": "Cobrament de les factures aprovades.",
+      "title": "invoice_payments events",
+      "messages": {
+        "ResourceCreated": {
+          "$ref": "#/components/messages/invoice_payments.ResourceCreated"
+        },
+        "TransitionExecuted": {
+          "$ref": "#/components/messages/invoice_payments.TransitionExecuted"
+        },
+        "PaymentOverdue": {
+          "$ref": "#/components/messages/invoice_payments.PaymentOverdue"
+        }
+      }
+    },
     "authz_policies": {
       "address": "authz_policies",
       "description": "Access policies (ABAC), managed from the front end.",
@@ -220,6 +236,25 @@
         },
         {
           "$ref": "#/channels/invoice_tags/messages/ResourceDeleted"
+        }
+      ]
+    },
+    "publish.invoice_payments": {
+      "action": "send",
+      "channel": {
+        "$ref": "#/channels/invoice_payments"
+      },
+      "title": "Publish invoice_payments events",
+      "summary": "Sent after each committed change, directly or through the outbox.",
+      "messages": [
+        {
+          "$ref": "#/channels/invoice_payments/messages/ResourceCreated"
+        },
+        {
+          "$ref": "#/channels/invoice_payments/messages/TransitionExecuted"
+        },
+        {
+          "$ref": "#/channels/invoice_payments/messages/PaymentOverdue"
         }
       ]
     },
@@ -861,6 +896,114 @@
           }
         },
         "summary": "invoice_tags: a record was deleted."
+      },
+      "invoice_payments.ResourceCreated": {
+        "name": "ResourceCreated",
+        "title": "ResourceCreated",
+        "contentType": "application/json",
+        "payload": {
+          "$ref": "#/components/schemas/invoice_payments.ResourceCreated"
+        },
+        "correlationId": {
+          "location": "$message.payload#/correlation_id"
+        },
+        "headers": {
+          "type": "object",
+          "description": "Broker message attributes (SNS/SQS attributes, Service Bus application properties, Pub/Sub attributes, AMQP headers)",
+          "properties": {
+            "event_type": {
+              "const": "ResourceCreated"
+            },
+            "event_id": {
+              "type": "string"
+            },
+            "schema_version": {
+              "const": "1"
+            },
+            "resource": {
+              "type": "string"
+            },
+            "correlation_id": {
+              "type": "string"
+            },
+            "traceparent": {
+              "type": "string"
+            }
+          }
+        },
+        "summary": "invoice_payments: a record was created."
+      },
+      "invoice_payments.TransitionExecuted": {
+        "name": "TransitionExecuted",
+        "title": "TransitionExecuted",
+        "contentType": "application/json",
+        "payload": {
+          "$ref": "#/components/schemas/invoice_payments.TransitionExecuted"
+        },
+        "correlationId": {
+          "location": "$message.payload#/correlation_id"
+        },
+        "headers": {
+          "type": "object",
+          "description": "Broker message attributes (SNS/SQS attributes, Service Bus application properties, Pub/Sub attributes, AMQP headers)",
+          "properties": {
+            "event_type": {
+              "const": "TransitionExecuted"
+            },
+            "event_id": {
+              "type": "string"
+            },
+            "schema_version": {
+              "const": "1"
+            },
+            "resource": {
+              "type": "string"
+            },
+            "correlation_id": {
+              "type": "string"
+            },
+            "traceparent": {
+              "type": "string"
+            }
+          }
+        },
+        "summary": "invoice_payments: a record changed state."
+      },
+      "invoice_payments.PaymentOverdue": {
+        "name": "PaymentOverdue",
+        "title": "PaymentOverdue",
+        "contentType": "application/json",
+        "payload": {
+          "$ref": "#/components/schemas/invoice_payments.PaymentOverdue"
+        },
+        "correlationId": {
+          "location": "$message.payload#/correlation_id"
+        },
+        "headers": {
+          "type": "object",
+          "description": "Broker message attributes (SNS/SQS attributes, Service Bus application properties, Pub/Sub attributes, AMQP headers)",
+          "properties": {
+            "event_type": {
+              "const": "PaymentOverdue"
+            },
+            "event_id": {
+              "type": "string"
+            },
+            "schema_version": {
+              "const": "1"
+            },
+            "resource": {
+              "type": "string"
+            },
+            "correlation_id": {
+              "type": "string"
+            },
+            "traceparent": {
+              "type": "string"
+            }
+          }
+        },
+        "summary": "Una factura aprovada fa 15 dies que espera el cobrament."
       },
       "authz_policies.ResourceCreated": {
         "name": "ResourceCreated",
@@ -2145,6 +2288,237 @@
               "resource",
               "entity_id",
               "changes"
+            ]
+          },
+          "trace": {
+            "type": "object",
+            "description": "W3C trace context of the producing operation",
+            "properties": {
+              "traceparent": {
+                "type": "string"
+              },
+              "tracestate": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "required": [
+          "id",
+          "type",
+          "occurred_at",
+          "schema_version",
+          "payload"
+        ]
+      },
+      "invoice_payments.PaymentOverdue": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Unique message id"
+          },
+          "type": {
+            "const": "PaymentOverdue"
+          },
+          "occurred_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "correlation_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Id of the operation that produced the event"
+          },
+          "resource": {
+            "const": "invoice_payments"
+          },
+          "key": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Ordering key: <resource>:<entity_id>"
+          },
+          "schema_version": {
+            "const": "1"
+          },
+          "payload": {
+            "description": "Una factura aprovada fa 15 dies que espera el cobrament.",
+            "properties": {
+              "invoice_id": {
+                "title": "Invoice Id",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "invoice_id"
+            ],
+            "type": "object"
+          },
+          "trace": {
+            "type": "object",
+            "description": "W3C trace context of the producing operation",
+            "properties": {
+              "traceparent": {
+                "type": "string"
+              },
+              "tracestate": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "required": [
+          "id",
+          "type",
+          "occurred_at",
+          "schema_version",
+          "payload"
+        ]
+      },
+      "invoice_payments.ResourceCreated": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Unique message id"
+          },
+          "type": {
+            "const": "ResourceCreated"
+          },
+          "occurred_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "correlation_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Id of the operation that produced the event"
+          },
+          "resource": {
+            "const": "invoice_payments"
+          },
+          "key": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Ordering key: <resource>:<entity_id>"
+          },
+          "schema_version": {
+            "const": "1"
+          },
+          "payload": {
+            "type": "object",
+            "properties": {
+              "resource": {
+                "const": "invoice_payments"
+              },
+              "entity_id": {
+                "type": "integer"
+              }
+            },
+            "required": [
+              "resource",
+              "entity_id"
+            ]
+          },
+          "trace": {
+            "type": "object",
+            "description": "W3C trace context of the producing operation",
+            "properties": {
+              "traceparent": {
+                "type": "string"
+              },
+              "tracestate": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "required": [
+          "id",
+          "type",
+          "occurred_at",
+          "schema_version",
+          "payload"
+        ]
+      },
+      "invoice_payments.TransitionExecuted": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Unique message id"
+          },
+          "type": {
+            "const": "TransitionExecuted"
+          },
+          "occurred_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "correlation_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Id of the operation that produced the event"
+          },
+          "resource": {
+            "const": "invoice_payments"
+          },
+          "key": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Ordering key: <resource>:<entity_id>"
+          },
+          "schema_version": {
+            "const": "1"
+          },
+          "payload": {
+            "type": "object",
+            "properties": {
+              "resource": {
+                "const": "invoice_payments"
+              },
+              "entity_id": {
+                "type": "integer"
+              },
+              "transition": {
+                "enum": [
+                  "receive",
+                  "expire"
+                ]
+              },
+              "source": {
+                "enum": [
+                  "awaiting",
+                  "overdue",
+                  "settled"
+                ]
+              },
+              "target": {
+                "enum": [
+                  "awaiting",
+                  "overdue",
+                  "settled"
+                ]
+              }
+            },
+            "required": [
+              "resource",
+              "entity_id",
+              "transition",
+              "source",
+              "target"
             ]
           },
           "trace": {

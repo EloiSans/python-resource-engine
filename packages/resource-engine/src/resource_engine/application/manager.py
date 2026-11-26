@@ -86,6 +86,7 @@ from resource_engine.ports.event_publisher import EventPublisher, NullEventPubli
 from resource_engine.ports.observability import OperationObserver
 from resource_engine.ports.storage import BlobStore
 from resource_engine.ports.unit_of_work import UnitOfWork, UnitOfWorkFactory
+from resource_engine.reporting import report_error
 from resource_engine.tracing import get_tracer, traced
 
 if TYPE_CHECKING:
@@ -122,6 +123,7 @@ class ResourceManager:
         documents_resource: str = "documents",
         authorizer: Authorizer | None = None,
         audit: AuditSink | bool | None = None,
+        audit_failures: bool = False,
         idempotency_ttl: timedelta = DEFAULT_TTL,
         observers: Sequence[OperationObserver] = (),
     ) -> None:
@@ -146,6 +148,9 @@ class ResourceManager:
 
             audit = RepositoryAuditSink(uow_factory)
         self.audit: AuditSink | None = audit or None
+        #: Also audit operations that failed inside their transaction
+        #: (``outcome="failed"``, with the error code), not only refusals.
+        self.audit_failures = audit_failures
         target = getattr(self.audit, "resource", None)
         if target is not None and target not in {d.name for d in registry}:
             raise ConfigurationError(
@@ -564,7 +569,22 @@ class ResourceManager:
                 ctx.correlation_id,
             )
 
+    async def _audit_failed(self, ctx: OperationContext, error: BaseException) -> None:
+        """An operation failed after it started writing (``audit_failures``)."""
+        if not self.audit_failures or ctx.extras.get("audited_denial"):
+            return
+        if not isinstance(error, Exception):
+            return  # cancellation, interpreter exit
+        from resource_engine.logs import error_type
+
+        await self._audit_alone(
+            ctx,
+            outcome="failed",
+            details={"code": error_type(error), "message": str(error)[:500]},
+        )
+
     async def _audit_denied(self, ctx: OperationContext, action: str, error: Exception) -> None:
+        ctx.extras["audited_denial"] = True
         await self._audit_alone(
             ctx,
             outcome="denied",
@@ -718,14 +738,16 @@ class ResourceManager:
             except BaseException as exc:
                 if tx.doomed is None:
                     tx.doomed = exc
+                await self._audit_failed(ctx, exc)
                 raise
             return
         try:
             async with self.uow_factory() as uow:
                 ctx.uow = uow
                 yield uow
-        except BaseException:
+        except BaseException as exc:
             await _run_callbacks(reversed(ctx._on_rollback), "rollback", ctx)
+            await self._audit_failed(ctx, exc)
             raise
 
     async def _after_commit(self, ctx: OperationContext, qualifier: str | None = None) -> None:
@@ -740,22 +762,26 @@ class ResourceManager:
                 result = hook(ctx)
                 if inspect.isawaitable(result):
                     await result
-            except Exception:
-                logger.exception(
-                    "after_commit hook %r failed for %s (correlation_id=%s)",
-                    getattr(hook, "__qualname__", hook),
-                    ctx.resource.name,
-                    ctx.correlation_id,
+            except Exception as exc:
+                await report_error(
+                    exc,
+                    where="after_commit",
+                    force=True,
+                    hook=getattr(hook, "__qualname__", repr(hook)),
+                    resource=ctx.resource.name,
+                    correlation_id=ctx.correlation_id,
                 )
                 ctx.extras.setdefault("after_commit_errors", []).append(hook)
         try:
             await self.delivery.after_commit(ctx)
-        except Exception:
-            logger.exception(
-                "Delivering %d events failed for %s (correlation_id=%s)",
-                len(ctx.events),
-                ctx.resource.name,
-                ctx.correlation_id,
+        except Exception as exc:
+            await report_error(
+                exc,
+                where="after_commit",
+                force=True,
+                events=len(ctx.events),
+                resource=ctx.resource.name,
+                correlation_id=ctx.correlation_id,
             )
 
     # --------------------------------------------------------------------- read
@@ -1702,13 +1728,14 @@ async def _run_callbacks(callbacks: Any, kind: str, ctx: OperationContext) -> No
             result = callback()
             if inspect.isawaitable(result):
                 await result
-        except Exception:
-            logger.exception(
-                "%s callback %r failed for %s (correlation_id=%s)",
-                kind,
-                getattr(callback, "__qualname__", callback),
-                ctx.resource.name,
-                ctx.correlation_id,
+        except Exception as exc:
+            await report_error(
+                exc,
+                where=f"{kind}_callback",
+                force=True,
+                callback=getattr(callback, "__qualname__", repr(callback)),
+                resource=ctx.resource.name,
+                correlation_id=ctx.correlation_id,
             )
 
 

@@ -237,10 +237,17 @@ class TimerJob:
                     )
                 except (TransitionNotAllowed, EntityNotFound):
                     skipped += 1  # the record moved on since it was listed
-                except Exception:
+                except Exception as exc:
+                    from resource_engine.reporting import report_error
+
                     failed += 1
-                    logger.exception(
-                        "Timed transition %s failed for %s %r", key, definition.name, entity_id
+                    await report_error(
+                        exc,
+                        where="timer",
+                        force=True,
+                        timer=key,
+                        resource=definition.name,
+                        entity_id=entity_id,
                     )
                 else:
                     fired += 1

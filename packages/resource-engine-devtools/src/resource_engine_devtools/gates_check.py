@@ -57,6 +57,11 @@ def check_gates(
         definition = registry.get(info.resource)
         if definition.resource_cls.__module__.startswith("resource_engine."):
             continue  # built-in resources (authz_*, audit_log, documents)
+        operation = info.name.split(":", 1)[1]
+        if info.kind == "crud" and operation in definition.internal_operations:
+            continue  # run by code (processes, jobs), not by callers
+        if info.kind == "transition" and not definition.expose_transitions:
+            continue
         granted = any(
             action_matches(g, info.name, wildcards=info.wildcards or role.include_sensitive)
             for role in gates

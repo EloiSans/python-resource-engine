@@ -60,6 +60,15 @@ def render_ai_context(model: DocumentationModel) -> str:
             out.append(
                 "  links: " + ", ".join(f"{x.name}->{x.resource}(via {x.field})" for x in r.links)
             )
+        if r.reacts:
+            out.append(
+                f"  process (correlation={r.correlation}): "
+                + ", ".join(
+                    f"{x.event}{'[' + x.when + ']' if x.when else ''}->{x.handler}"
+                    + ("(start)" if x.start else "")
+                    for x in r.reacts
+                )
+            )
         if r.events:
             out.append(
                 "  events: "

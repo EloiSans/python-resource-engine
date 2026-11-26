@@ -30,6 +30,7 @@ from typing import Any, Literal, TextIO
 
 #: Fields the engine puts in the log context, in output order.
 CONTEXT_FIELDS = (
+    "request_id",
     "correlation_id",
     "resource",
     "operation",

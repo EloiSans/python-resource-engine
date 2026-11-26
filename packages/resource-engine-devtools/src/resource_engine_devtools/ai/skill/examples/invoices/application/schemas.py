@@ -71,6 +71,31 @@ class InvoiceTagRead(InvoiceTagCreate):
     organization: str | None = Field(default=None, description=ORGANIZATION)
 
 
+class PaymentStart(BaseModel):
+    """Dades amb què comença el procés de cobrament."""
+
+    invoice_id: int = Field(description="Factura aprovada")
+    amount: Decimal = Field(description="Import a cobrar")
+
+
+class PaymentRead(PaymentStart):
+    """Estat del cobrament d'una factura."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    status: str = Field(description="awaiting, overdue o settled")
+    status_changed_at: datetime | None = Field(default=None, description="Últim canvi d'estat")
+    organization: str | None = Field(default=None, description=ORGANIZATION)
+
+
+class PaymentReceived(BaseModel):
+    """Esdeveniment del servei de pagaments: s'ha cobrat una factura."""
+
+    invoice_id: int
+    amount: Decimal
+
+
 CUSTOMER_ID = "Client registrat (customers); el nom de `customer` es manté per compatibilitat"
 
 

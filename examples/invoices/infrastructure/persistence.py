@@ -18,7 +18,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import registry as orm_registry
 
-from invoices.domain.entities import Customer, Invoice, InvoiceTag, Tag
+from invoices.domain.entities import Customer, Invoice, InvoicePayment, InvoiceTag, Tag
 
 # One MetaData for the module's tables and the engine's: Alembic autogenerate
 # sees both (examples/invoices/migrations). The convention names constraints.
@@ -75,7 +75,28 @@ invoice_tags_table = Table(
     UniqueConstraint("invoice_id", "tag_id"),
 )
 
-engine = engine_tables(metadata, documents=True, authz=True, audit=True, idempotency=True)
+invoice_payments_table = Table(
+    "invoice_payments",
+    metadata,
+    Column("id", Integer, primary_key=True, autoincrement=True),
+    # one process instance per invoice (the correlation key)
+    Column("invoice_id", Integer, ForeignKey("invoices.id"), nullable=False, unique=True),
+    Column("amount", Numeric(12, 2, asdecimal=True), nullable=False),
+    Column("status", String(32), nullable=False),
+    Column("status_changed_at", DateTime(timezone=True), nullable=True, index=True),
+    Column("organization", String(100), nullable=True, index=True),
+)
+
+engine = engine_tables(
+    metadata,
+    documents=True,
+    authz=True,
+    audit=True,
+    idempotency=True,
+    outbox=True,  # events stored with each change, then fed to processes and brokers
+    inbox=True,  # messages already handled (exactly-once processes)
+    locks=True,  # one worker at a time for single jobs
+)
 
 _mapped = False
 
@@ -88,5 +109,6 @@ def map_entities() -> None:
         mapper_registry.map_imperatively(Invoice, invoices_table)
         mapper_registry.map_imperatively(Tag, tags_table)
         mapper_registry.map_imperatively(InvoiceTag, invoice_tags_table)
+        mapper_registry.map_imperatively(InvoicePayment, invoice_payments_table)
         map_engine(mapper_registry, engine)
         _mapped = True

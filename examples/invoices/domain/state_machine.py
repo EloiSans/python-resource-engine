@@ -38,3 +38,24 @@ class InvoiceStateMachine(StateMachine):
 
     def on_reopen(self) -> None:
         self.model.rejection_reason = None
+
+
+class PaymentFlow(StateMachine):
+    """Cobrament d'una factura aprovada.
+
+    States:
+        awaiting: S'espera el cobrament del servei de pagaments.
+        overdue: Han passat 15 dies sense cobrament; encara es pot cobrar.
+        settled: Cobrada. Estat final.
+
+    Transitions:
+        receive: El servei de pagaments ha cobrat la factura.
+        expire: Han passat 15 dies sense cobrament.
+    """
+
+    awaiting = State("Pendent de cobrament", initial=True)
+    overdue = State("Endarrerida")
+    settled = State("Cobrada", final=True)
+
+    receive = awaiting.to(settled) | overdue.to(settled)
+    expire = awaiting.to(overdue)

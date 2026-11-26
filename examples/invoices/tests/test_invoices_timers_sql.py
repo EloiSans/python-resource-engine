@@ -42,9 +42,9 @@ async def test_pending_invoices_expire():
             .values(status_changed_at=datetime.now(UTC) - timedelta(days=40))
         )
 
-    run = await TimerJob(manager, batch=1).run_once()
+    run = await TimerJob(manager, batch=1, resources=["invoices"]).run_once()
     assert (run.fired, run.due) == (1, {"invoices.reject": 2})  # batch: the rest next run
-    assert (await TimerJob(manager).run_once()).fired == 1
+    assert (await TimerJob(manager, resources=["invoices"]).run_once()).fired == 1
     statuses = [(await manager.get("invoices", i)).status for i in ids]
     assert statuses == ["rejected", "rejected", "pending"]
     await engine.dispose()

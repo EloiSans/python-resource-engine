@@ -154,7 +154,7 @@ Every error has the same body:
 | 413 / 415 | `RE-E603` too large; `RE-E602` content type not allowed | Validate before uploading |
 | 422 | `RE-E101` validation; `RE-E107` idempotency key reused; `RE-E108` reference not found; domain codes | Show the errors on the form |
 | 428 | `RE-E106` version required | Send `If-Match` |
-| 5xx | `RE-E501` upstream service, `RE-E607` storage, others | Generic error; safe to retry with the same `Idempotency-Key` |
+| 5xx | `RE-E501` upstream service, `RE-E607` storage, `RE-E000` internal error | Generic error; safe to retry with the same `Idempotency-Key`. Show the `X-Request-Id` response header so support can find the failure |
 
 The full list is in the [error catalogue](errors.md).
 

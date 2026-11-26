@@ -11,7 +11,7 @@ import inspect
 import logging
 import time
 from collections.abc import Callable, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import StrEnum
 from typing import TYPE_CHECKING, Any
 
@@ -95,6 +95,7 @@ class ProcessResult:
     error: str | None = None
     delay_seconds: float = 0.0
     blocked: bool = False
+    exception: BaseException | None = field(default=None, compare=False, repr=False)
 
 
 class MessageProcessor:
@@ -182,6 +183,16 @@ class MessageProcessor:
             ) as span:
                 result = await self._process(message)
                 span.set_attribute("resource_engine.outcome", result.outcome.value)
+                if result.exception is not None:
+                    from resource_engine.reporting import report_error
+
+                    await report_error(
+                        result.exception,
+                        where="consumer",
+                        force=result.outcome is Outcome.DEAD_LETTER,
+                        outcome=result.outcome.value,
+                        delivery_count=message.delivery_count,
+                    )
                 if result.outcome in (Outcome.RETRY, Outcome.DEAD_LETTER) and result.error:
                     span.record_error(result.error)
         await self.observe(message, result, time.perf_counter() - started)
@@ -204,14 +215,16 @@ class MessageProcessor:
         cause = exc.__cause__ if isinstance(exc, TransactionDoomed) and exc.__cause__ else exc
         if isinstance(cause, self.permanent_errors):
             log.error("Message %s (%s) rejected: %s", envelope.id, envelope.type, cause)
-            return ProcessResult(Outcome.DEAD_LETTER, f"{type(cause).__name__}: {cause}")
+            return ProcessResult(
+                Outcome.DEAD_LETTER, f"{type(cause).__name__}: {cause}", exception=cause
+            )
         error = f"{type(cause).__name__}: {cause}"
         if self.retry.exhausted(message.delivery_count):
             log.error("Message %s failed %s times: %s", envelope.id, message.delivery_count, error)
-            return ProcessResult(Outcome.DEAD_LETTER, error)
+            return ProcessResult(Outcome.DEAD_LETTER, error, exception=cause)
         delay = self.retry.delay(message.delivery_count)
         log.warning("Message %s failed, retrying in %.1fs: %s", envelope.id, delay, error)
-        return ProcessResult(Outcome.RETRY, error, delay)
+        return ProcessResult(Outcome.RETRY, error, delay, exception=cause)
 
     async def _transactional(self, message: ReceivedMessage) -> ProcessResult:
         """Inbox check, handler and inbox mark in one ``manager.transaction()``."""

@@ -20,6 +20,7 @@ from resource_engine_devtools.documentation.model import (
     FieldDoc,
     HookDoc,
     OperationDoc,
+    ReactionDoc,
     ReferenceDoc,
     ResourceDoc,
     SchemaDoc,
@@ -104,6 +105,27 @@ def _event_doc(event: type) -> EventDoc:
         qualname=_qualname(event),
         doc=parse_doc(inspect.cleandoc(text)) if text else DocText(),
         fields=fields,
+    )
+
+
+def _reaction_doc(on: Any) -> ReactionDoc:
+    when = [
+        f"{label} {value}"
+        for label, value in (
+            ("resource", on.resource),
+            ("transition", on.transition),
+            ("action", on.action),
+        )
+        if value
+    ]
+    text = on.description or inspect.getdoc(on.handler)
+    return ReactionDoc(
+        event=on.event_type,
+        when=", ".join(when),
+        key=on.key if isinstance(on.key, str) else getattr(on.key, "__name__", "custom"),
+        start=on.start,
+        handler=getattr(on.handler, "__qualname__", repr(on.handler)),
+        description=text.strip().split("\n\n")[0].replace("\n", " ") if text else None,
     )
 
 
@@ -256,6 +278,10 @@ def _resource_doc(d: ResourceDefinition) -> ResourceDoc:
         audit_exclude=list(getattr(d.resource_cls, "audit_exclude", ())),
         events=[_event_doc(e) for e in d.events],
         references=[_reference_doc(r) for r in d.references.values()],
+        correlation=getattr(d.resource_cls, "correlation", None)
+        if getattr(d.resource_cls, "reacts", None)
+        else None,
+        reacts=[_reaction_doc(on) for on in getattr(d.resource_cls, "reacts", ())],
         documents=[
             SlotDoc(
                 name=slot.name,

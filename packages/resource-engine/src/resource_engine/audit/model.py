@@ -17,7 +17,7 @@ class AuditEntry:
     resource: str
     operation: str
     action: str
-    outcome: str  # ok | denied
+    outcome: str  # ok | denied | failed
     actor: str | None = None
     actor_roles: list[str] = field(default_factory=list)
     entity_id: str | None = None
@@ -69,7 +69,7 @@ class AuditEntryRead(BaseModel):
     tenant: str | None = Field(default=None, description="Tenant of the record or operation")
     operation: str = Field(description="create, update, delete, transition, action, attach...")
     action: str = Field(description="Permission action, e.g. transition:approve")
-    outcome: str = Field(description="ok or denied")
+    outcome: str = Field(description="ok, denied or failed")
     changes: dict[str, Any] = Field(
         description="field → {from, to}; masked fields → {changed: true}"
     )

@@ -46,6 +46,11 @@ Els rols de sistema es defineixen al codi i no es poden modificar des del front-
 | `invoice_tags:get` | ✓ | ✓ |
 | `invoice_tags:create` | ✓ |  |
 | `invoice_tags:delete` | ✓ |  |
+| `invoice_payments:list` | ✓ | ✓ |
+| `invoice_payments:get` | ✓ | ✓ |
+| `invoice_payments:create` | ✓ |  |
+| `invoice_payments:transition:receive` | ✓ |  |
+| `invoice_payments:transition:expire` | ✓ |  |
 | `documents:list` | ✓ |  |
 | `documents:get` | ✓ |  |
 | `documents:transition:confirm` | ✓ |  |

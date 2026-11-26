@@ -10,6 +10,7 @@ The engine's background work runs in a worker process. Some of it is periodic:
 | `IdempotencyJanitor` | Deletes expired idempotency records ([idempotency](idempotency.md)) |
 | `DocumentJanitor` | Expires stale uploads, purges deleted content, removes orphan blobs |
 | `TimerJob` | Runs due timed transitions: deadlines declared on resources ([timers](timers.md)) |
+| `ProcessFeed` | Feeds the outbox to the process managers, exactly once, optionally also to a broker ([processes](processes.md)) |
 
 Some of it is long-running: a `MessageConsumer` per queue. `JobRunner` runs
 both kinds in one process.

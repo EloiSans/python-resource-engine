@@ -17,6 +17,7 @@ from typing import Any
 
 import httpx
 from resource_engine.application.query import ListQuery, Page
+from resource_engine.calls import outgoing_call
 from resource_engine.errors import OperationNotEnabled, RemoteCallFailed
 
 try:
@@ -92,7 +93,8 @@ class SoapService:
                 hint="Check the operation name against the WSDL (python -m zeep <wsdl>).",
             ) from None
         try:
-            result = await method(**arguments)
+            async with outgoing_call(self.name, operation, method="SOAP"):
+                result = await method(**arguments)
         except Fault as fault:
             raise RemoteCallFailed(
                 f"{self.name} {operation} returned a SOAP fault: {fault.message}",

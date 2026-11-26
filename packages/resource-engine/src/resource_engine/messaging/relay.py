@@ -8,6 +8,7 @@ from typing import Any
 
 from resource_engine.errors import PublishFailed
 from resource_engine.ports.messaging import MessagePublisher, SupportsOutbox
+from resource_engine.reporting import report_error
 from resource_engine.tracing import get_tracer
 
 logger = logging.getLogger("resource_engine.outbox")
@@ -57,10 +58,11 @@ class OutboxRelay:
                 failed = list(exc.failed_ids)
                 await outbox.mark_failed(failed, exc.message)
                 logger.warning("Outbox: %d of %d messages failed", len(failed), len(ids))
+                await report_error(exc, where="outbox", failed=len(failed), batch=len(ids))
             except Exception as exc:
                 await outbox.mark_failed(ids, f"{type(exc).__name__}: {exc}")
                 await uow.commit()
-                logger.exception("Outbox: publishing a batch of %d failed", len(ids))
+                await report_error(exc, where="outbox", force=True, batch=len(ids))
                 return 0
             published = [i for i in ids if i not in set(failed)]
             await outbox.mark_published(published)

@@ -105,6 +105,10 @@ def traced(operation: str, *, resource: str | None = None) -> Callable[[Any], An
                         return await fn(self, *args, **kwargs)
                 except BaseException as exc:
                     error = exc
+                    if isinstance(exc, Exception):
+                        from resource_engine.reporting import report_error
+
+                        await report_error(exc, where="operation", actor=kwargs.get("actor"))
                     raise
                 finally:
                     if observers:

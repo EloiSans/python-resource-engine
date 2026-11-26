@@ -102,6 +102,9 @@ class Resource:
             ``{"customer_id": Reference("customers")}``. Integrity on writes,
             ``on_delete`` behaviour, ``expand`` and related filters (see
             docs/relationships.md).
+        internal_operations: Enabled CRUD operations that only code runs
+            (the manager, processes, jobs): entry adapters (HTTP, GraphQL, MCP)
+            do not expose them.
         state_since_field: Datetime attribute the engine sets when the record
             enters a state (create and every transition): when it got there.
         timers: ``Timer`` deadlines: transitions run by the worker once a record
@@ -143,6 +146,7 @@ class Resource:
     link: ClassVar[Sequence[str] | None] = None
     state_since_field: ClassVar[str | None] = None
     timers: ClassVar[Sequence[Timer]] = ()
+    internal_operations: ClassVar[Sequence[str]] = ()
     link_names: ClassVar[Mapping[str, str]] = {}
 
     # --- Mapping between schemas and entities. Override when needed. ---
@@ -223,11 +227,16 @@ class ResourceDefinition:
     link_names: Mapping[str, str]
     state_since_field: str | None
     timers: tuple[TimerDefinition, ...]
+    internal_operations: tuple[str, ...]
     dispatcher: HookDispatcher = field(repr=False, compare=False)
     machine: MachineRunner | None = field(repr=False, compare=False)
 
     def enabled(self, operation: str) -> bool:
         return operation in self.operations
+
+    def exposed(self, operation: str) -> bool:
+        """Enabled and offered by entry adapters (not an internal operation)."""
+        return operation in self.operations and operation not in self.internal_operations
 
     @property
     def transitions(self) -> tuple[str, ...]:
@@ -436,6 +445,13 @@ class ResourceDefinition:
                 doc="docs/messaging.md#declaring-events",
             )
 
+        internal = tuple(resource_cls.internal_operations)
+        if set(internal) - set(operations):
+            raise ConfigurationError(
+                f"{owner}: internal_operations {sorted(set(internal) - set(operations))} "
+                "are not enabled operations",
+                hint="List them in operations too; internal ones are only hidden from adapters.",
+            )
         since_field = resource_cls.state_since_field
         if since_field is not None:
             if machine is None:
@@ -493,6 +509,7 @@ class ResourceDefinition:
             link_names=dict(resource_cls.link_names),
             state_since_field=since_field,
             timers=timers,
+            internal_operations=internal,
             dispatcher=HookDispatcher(hooks),
             machine=machine,
         )

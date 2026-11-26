@@ -18,10 +18,12 @@ from __future__ import annotations
 
 import os
 from contextlib import asynccontextmanager
+from typing import Any
 
 from fastapi import FastAPI
 from resource_engine import ResourceManager
 from resource_engine.authz import PolicyAuthorizer, system_principal
+from resource_engine.messaging import OutboxDelivery
 from resource_engine.ports.identity import Authenticator
 from resource_engine_fastapi import bearer_actor, mount_asyncapi, mount_resources
 from resource_engine_sqlalchemy import unit_of_work_factory
@@ -43,6 +45,27 @@ def keycloak_authenticator() -> Authenticator:
         os.getenv("KEYCLOAK_REALM", "invoices"),
         audience="invoices-api",
         tenant_claim="organization",
+    )
+
+
+def build_manager(session_factory: async_sessionmaker, *, blob_store: Any) -> ResourceManager:
+    """The manager the app and the worker share: SQL, permissions, audit, and
+    events through the outbox (the worker feeds them to the processes)."""
+    registry = tenant_registry
+    uow = unit_of_work_factory(
+        session_factory,
+        registry,
+        outbox_table=engine_tables.outbox,
+        inbox_table=engine_tables.inbox,
+        idempotency_table=engine_tables.idempotency,
+    )
+    return ResourceManager(
+        registry,
+        uow,
+        blob_store=blob_store,
+        authorizer=PolicyAuthorizer(authz, uow),  # system roles + policies as data
+        event_delivery=OutboxDelivery(),  # events stored in the change's transaction
+        audit=True,  # audit_log table, same transaction as each change
     )
 
 
@@ -72,18 +95,10 @@ def create_app(
             yield
 
     app = FastAPI(title="Invoices (Resource Engine example)", lifespan=lifespan_with_store)
-    uow = unit_of_work_factory(
-        session_factory, registry, idempotency_table=engine_tables.idempotency
-    )
-    manager = ResourceManager(
-        registry,
-        uow,
-        blob_store=blob_store,
-        authorizer=PolicyAuthorizer(authz, uow),  # system roles + policies as data
-        audit=True,  # audit_log table, same transaction as each change
-    )
+    manager = build_manager(session_factory, blob_store=blob_store)
+    app.state.manager = manager
     actor = bearer_actor(authenticator or keycloak_authenticator())
-    mount_resources(app, registry, manager, actor_dependency=actor)
+    mount_resources(app, registry, manager, actor_dependency=actor, access_log=True)
     mount_asyncapi(app, registry)  # GET /asyncapi.json: the events it publishes
     return app
 

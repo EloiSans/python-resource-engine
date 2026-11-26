@@ -250,9 +250,10 @@ class ResourceMcpServer:
         try:
             value = await self._dispatch(tool, dict(arguments), actor)
         except (ResourceEngineError, DomainError) as exc:
+            await _report(exc, tool, actor)  # only engine failures (RE-E501...)
             return _error(exc.to_dict())
-        except Exception:
-            logger.exception("MCP tool %s failed", tool.name)
+        except Exception as exc:
+            await _report(exc, tool, actor)
             return _error({"code": "RE-E000", "message": "Internal error"})
         return _result(value)
 
@@ -416,6 +417,12 @@ class ResourceMcpServer:
 
         app.router.lifespan_context = lifespan
         return mcp_app
+
+
+async def _report(exc: BaseException, tool: ResourceTool, actor: Any) -> None:
+    from resource_engine.reporting import report_error
+
+    await report_error(exc, where="mcp", actor=actor, route=tool.name)
 
 
 # ---------------------------------------------------------------- arguments

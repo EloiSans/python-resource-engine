@@ -132,7 +132,11 @@ Desa el document al magatzem de fitxers i emet ``DocumentAttached``.
 
 Amb `expand` (`?expand=` per HTTP) la resposta inclou el registre relacionat; els filtres `<relació>.<camp>` filtren pels camps filtrables del recurs relacionat.
 
-Hi fan referència: [invoice_tags.invoice_id](invoice_tags.md) (s'eliminen en cascada).
+Hi fan referència: [invoice_tags.invoice_id](invoice_tags.md) (s'eliminen en cascada), [invoice_payments.invoice_id](invoice_payments.md) (es denega mentre hi hagi referències).
+
+| Relació inversa | Registres | Ruta | `expand` |
+|---|---|---|---|
+| `payments` | [invoice_payments](invoice_payments.md) | `GET /invoices/{id}/payments` | `payments` o `payments:25` (una pàgina) |
 
 ## Relacions molts a molts
 

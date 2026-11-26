@@ -13,3 +13,10 @@ class InvoiceTotalsRecalculated(DomainEvent):
     invoice_id: int
     previous_amount: Decimal
     new_amount: Decimal
+
+
+@dataclass(frozen=True, kw_only=True)
+class PaymentOverdue(DomainEvent):
+    """Una factura aprovada fa 15 dies que espera el cobrament."""
+
+    invoice_id: int

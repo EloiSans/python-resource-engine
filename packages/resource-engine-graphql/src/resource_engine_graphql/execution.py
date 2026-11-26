@@ -145,12 +145,26 @@ def format_error(error: GraphQLError) -> dict[str, Any]:
         data["message"] = payload.pop("message", str(original))
         extensions.update(payload)
     elif original is not None and not isinstance(original, GraphQLError | ValueError | TypeError):
-        logger.error("GraphQL resolver failed", exc_info=original)
-        data["message"] = "Internal error"
+        data["message"] = "Internal error"  # reported by execute()
         extensions = {"code": "INTERNAL"}
     if extensions:
         data["extensions"] = extensions
     return data
+
+
+async def _report(errors: Any, actor: Any) -> None:
+    from resource_engine.reporting import report_error
+
+    for error in errors:
+        original = error.original_error
+        if original is None or isinstance(original, GraphQLError | ValueError | TypeError):
+            continue
+        await report_error(
+            original,
+            where="graphql",
+            actor=actor,
+            route=".".join(str(p) for p in error.path or ()) or None,
+        )
 
 
 class GraphQLAdapter:
@@ -200,6 +214,7 @@ class GraphQLAdapter:
         )
         out: dict[str, Any] = {"data": result.data}
         if result.errors:
+            await _report(result.errors, actor)
             out["errors"] = [format_error(e) for e in result.errors]
         return out
 

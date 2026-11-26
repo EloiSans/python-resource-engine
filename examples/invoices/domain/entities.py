@@ -53,6 +53,22 @@ class InvoiceTag:
 
 
 @dataclass
+class InvoicePayment:
+    """Procés de cobrament d'una factura aprovada (una instància per factura).
+
+    Business Rules:
+        - Comença quan s'aprova la factura i acaba quan se'n rep el cobrament.
+    """
+
+    invoice_id: int
+    amount: Decimal
+    status: str | None = None
+    status_changed_at: datetime | None = None
+    organization: str | None = None
+    id: int | None = field(default=None)
+
+
+@dataclass
 class Invoice:
     """Factura emesa a un client.
 

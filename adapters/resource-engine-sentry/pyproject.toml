@@ -1,0 +1,33 @@
+[project]
+name = "resource-engine-sentry"
+version = "0.1.0.dev0"
+description = "Sentry, GlitchTip and other Sentry-compatible error reporting for Resource Engine."
+readme = "README.md"
+requires-python = ">=3.12"
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Framework :: AsyncIO",
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Software Development :: Libraries :: Application Frameworks",
+]
+dependencies = ["resource-engine>=0.1.0.dev0,<0.2", "sentry-sdk>=2.20,<4"]
+
+[project.urls]
+Homepage = "https://github.com/EloiSans/python-resource-engine"
+Documentation = "https://github.com/EloiSans/python-resource-engine/tree/main/docs"
+Source = "https://github.com/EloiSans/python-resource-engine/tree/main/adapters/resource-engine-sentry"
+Issues = "https://github.com/EloiSans/python-resource-engine/issues"
+
+[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/resource_engine_sentry"]

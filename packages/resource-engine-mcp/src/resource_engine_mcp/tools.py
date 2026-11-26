@@ -294,7 +294,7 @@ class _Builder:
         read_output, _ = _output(self.read)
         expanded_output = self._with_relations(read_output)
 
-        if d.enabled("list"):
+        if d.exposed("list"):
             schema = _Schema()
             schema.add("offset", {"type": "integer", "minimum": 0, "default": 0})
             schema.add(
@@ -354,7 +354,7 @@ class _Builder:
                 )
             )
 
-        if d.enabled("get"):
+        if d.exposed("get"):
             schema = _Schema()
             self._id(schema)
             self._expand(schema)
@@ -371,7 +371,7 @@ class _Builder:
                 )
             )
 
-        if d.enabled("create"):
+        if d.exposed("create"):
             schema = _Schema()
             self._data(schema, d.schemas["create"], f"The new {d.name} record")
             self._tail(schema, write=True)
@@ -390,7 +390,7 @@ class _Builder:
                 )
             )
 
-        if d.enabled("update"):
+        if d.exposed("update"):
             schema = _Schema()
             self._id(schema)
             self._data(schema, d.schemas["update"], "Fields to change; others are kept")
@@ -409,7 +409,7 @@ class _Builder:
                 )
             )
 
-        if d.enabled("delete"):
+        if d.exposed("delete"):
             schema = _Schema()
             self._id(schema)
             self._tail(schema, write=True, versioned=True)

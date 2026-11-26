@@ -35,7 +35,7 @@ Filtres: `resource`, `entity_id`, `tenant`, `actor`, `outcome`, `operation`, `co
 | `tenant` | `str \| None` | no | Tenant of the record or operation |
 | `operation` | `str` | sí | create, update, delete, transition, action, attach... |
 | `action` | `str` | sí | Permission action, e.g. transition:approve |
-| `outcome` | `str` | sí | ok or denied |
+| `outcome` | `str` | sí | ok, denied or failed |
 | `changes` | `dict[str, Any]` | sí | field → {from, to}; masked fields → {changed: true} |
 | `details` | `dict[str, Any]` | sí | Transition, input, documents, denial reason |
 | `correlation_id` | `str \| None` | no | Shared with logs and events |

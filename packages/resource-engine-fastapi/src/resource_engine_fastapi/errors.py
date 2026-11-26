@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Any
+
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from resource_engine import DomainError, ResourceEngineError
@@ -48,10 +50,16 @@ def status_for(exc: ResourceEngineError) -> int:
 
 
 def install_exception_handlers(app: FastAPI) -> None:
-    """Map engine and domain errors to JSON responses ``{"error": {...}}``."""
+    """Map engine and domain errors to JSON responses ``{"error": {...}}``.
+
+    5xx answers (engine failures, and any other exception as a 500 ``RE-E000``
+    "Internal error") are reported (``resource_engine.reporting``)."""
 
     @app.exception_handler(ResourceEngineError)
     async def _engine_error(request: Request, exc: ResourceEngineError) -> JSONResponse:
+        status = status_for(exc)
+        if status >= 500:
+            await _report(request, exc, status)
         headers = None
         if isinstance(exc, e.AuthenticationFailed):
             reason = exc.reason if exc.reason != "missing" else None
@@ -59,10 +67,61 @@ def install_exception_handlers(app: FastAPI) -> None:
                 "WWW-Authenticate": "Bearer"
                 + (f' error="invalid_token", error_description="{reason}"' if reason else "")
             }
-        return JSONResponse(
-            status_code=status_for(exc), content={"error": exc.to_dict()}, headers=headers
-        )
+        return JSONResponse(status_code=status, content={"error": exc.to_dict()}, headers=headers)
 
     @app.exception_handler(DomainError)
     async def _domain_error(request: Request, exc: DomainError) -> JSONResponse:
         return JSONResponse(status_code=422, content={"error": exc.to_dict()})
+
+    app.add_middleware(UnexpectedErrorMiddleware)
+
+
+class UnexpectedErrorMiddleware:
+    """Any other exception: reported, answered with 500 ``RE-E000``.
+
+    A middleware rather than an ``Exception`` handler (which Starlette runs
+    outside every middleware), so the report and the response stay inside the
+    request: its request id and access log line."""
+
+    def __init__(self, app: Any) -> None:
+        self.app = app
+
+    async def __call__(self, scope: Any, receive: Any, send: Any) -> None:
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+        started = False
+
+        async def tracking(message: dict[str, Any]) -> None:
+            nonlocal started
+            if message["type"] == "http.response.start":
+                started = True
+            await send(message)
+
+        try:
+            await self.app(scope, receive, tracking)
+        except Exception as exc:
+            if started:
+                raise
+            await _report(Request(scope), exc, 500)
+            response = JSONResponse(
+                status_code=500,
+                content={"error": {"code": "RE-E000", "message": "Internal error"}},
+            )
+            await response(scope, receive, send)
+
+
+async def _report(request: Request, exc: BaseException, status: int) -> None:
+    """Report a 5xx with the route (not the raw path: ids stay out of grouping)."""
+    from resource_engine.reporting import report_error
+
+    route = getattr(request.scope.get("route"), "path", None) or request.url.path
+    await report_error(
+        exc,
+        where="http",
+        force=True,
+        actor=getattr(request.state, "principal", None),
+        method=request.method,
+        route=route,
+        status=status,
+    )

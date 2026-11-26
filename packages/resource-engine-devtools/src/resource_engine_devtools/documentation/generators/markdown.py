@@ -138,6 +138,23 @@ def render_resource(r: ResourceDoc, audit_resource: str | None = None) -> str:
             out += ["", f"### `{a.name}`", "", f"`{a.qualname}`", ""]
             out += _text(a.doc, heading="####")
 
+    if r.reacts:
+        out += [
+            "",
+            "## Procés",
+            "",
+            f"Cada registre és una instància del procés, una per valor de `{r.correlation}`. "
+            "Reacciona a aquests esdeveniments:",
+            "",
+            "| Esdeveniment | Quan | Clau | Inicia | Què fa |",
+            "|---|---|---|---|---|",
+        ]
+        for x in r.reacts:
+            out.append(
+                f"| `{x.event}` | {x.when or '—'} | `{x.key}` | {'sí' if x.start else 'no'} "
+                f"| {_cell(x.description) or x.handler} |"
+            )
+
     if r.references:
         out += [
             "",
