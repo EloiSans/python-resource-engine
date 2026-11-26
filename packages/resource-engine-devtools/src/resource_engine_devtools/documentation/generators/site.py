@@ -27,6 +27,7 @@ LABELS = {
     "home": "Inici",
     "permissions": "Permisos",
     "events": "Esdeveniments",
+    "machines": "Màquines d'estats",
     "resources": "Recursos",
     "search": "Cerca…",
     "no_results": "Cap resultat",
@@ -47,7 +48,9 @@ def render_site(
         pages["events.md"] = render_events(asyncapi)
     title = title or (asyncapi or {}).get("info", {}).get("title") or "Documentació funcional"
     md = _markdown()
-    nav = _navigation(model, "permissions.md" in pages, "events.md" in pages)
+    nav = _navigation(
+        model, "permissions.md" in pages, "events.md" in pages, "state-machines.md" in pages
+    )
     files: dict[str, str] = {}
     search: list[dict[str, str]] = []
     for path, text in sorted(pages.items()):
@@ -125,7 +128,7 @@ def _markdown() -> MarkdownIt:
 
 
 def _slug(text: str) -> str:
-    text = re.sub(r"[`*_\[\]()]", "", text.lower())
+    text = re.sub(r"[`*\[\]()]", "", text.lower())
     return re.sub(r"[^\w]+", "-", text).strip("-") or "section"
 
 
@@ -163,8 +166,12 @@ def _describe(schema: Mapping[str, Any]) -> str:
     return ""
 
 
-def _navigation(model: DocumentationModel, permissions: bool, events: bool) -> list[tuple]:
+def _navigation(
+    model: DocumentationModel, permissions: bool, events: bool, machines: bool
+) -> list[tuple]:
     items: list[tuple] = [("index.html", LABELS["home"], None)]
+    if machines:
+        items.append(("state-machines.html", LABELS["machines"], None))
     if permissions:
         items.append(("permissions.html", LABELS["permissions"], None))
     if events:

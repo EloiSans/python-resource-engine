@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 from resource_engine_devtools.documentation.docstrings import FUNCTIONAL_SECTIONS, DocText
 from resource_engine_devtools.documentation.generators.mermaid import render_state_machine
 from resource_engine_devtools.documentation.model import DocumentationModel, ResourceDoc
@@ -306,12 +308,25 @@ def render_markdown(model: DocumentationModel) -> dict[str, str]:
     pages = {
         f"resources/{r.name}.md": render_resource(r, model.audit_resource) for r in model.resources
     }
-    index = ["# Catàleg de recursos", "", "| Recurs | Descripció | Operacions |", "|---|---|---|"]
+    index = [
+        "# Catàleg de recursos",
+        "",
+        "| Recurs | Descripció | Operacions | Màquines d'estats |",
+        "|---|---|---|---|",
+    ]
     for r in model.resources:
         ops = ", ".join(f"`{o.name}`" for o in r.operations)
-        index.append(
-            f"| [{r.name}](resources/{r.name}.md) | {_cell(r.doc.summary) or '—'} | {ops} |"
+        machines = ", ".join(
+            f"[{sm.machine or sm.state_field}](state-machines.md#{_anchor(r.name, sm)})"
+            for sm in r.state_machines
         )
+        index.append(
+            f"| [{r.name}](resources/{r.name}.md) | {_cell(r.doc.summary) or '—'} | {ops} "
+            f"| {machines or '—'} |"
+        )
+    if any(r.state_machines for r in model.resources):
+        index += ["", "Tots els diagrames d'estats: [màquines d'estats](state-machines.md)."]
+        pages["state-machines.md"] = render_state_machines(model)
     if model.system_roles:
         index += ["", "Vegeu també la [matriu de permisos](permissions.md)."]
         pages["permissions.md"] = render_permissions(model)
@@ -341,4 +356,41 @@ def render_permissions(model: DocumentationModel) -> str:
     for action in model.actions:
         marks = " | ".join("✓" if action in r.actions else "" for r in roles)
         out.append(f"| `{action}` | {marks} |")
+    return "\n".join(out) + "\n"
+
+
+def _anchor(resource: str, sm: Any) -> str:
+    """The heading id of a machine on the state-machines page (``<h2>`` slug)."""
+    import re
+
+    # the same slug on GitHub and on the site: "invoices: approval" → invoices-approval
+    text = f"{resource}: {sm.machine or sm.state_field}".lower()
+    return re.sub(r"[^\w]+", "-", text).strip("-")
+
+
+def render_state_machines(model: DocumentationModel) -> str:
+    """Every state machine of the application, with its diagram."""
+    out = [
+        "# Màquines d'estats",
+        "",
+        "Els processos amb estats de cada recurs, dibuixats a partir de la definició "
+        "executable de la màquina. Els detalls de cada estat i transició són a la "
+        "pàgina del recurs.",
+    ]
+    for r in model.resources:
+        for sm in r.state_machines:
+            out += [
+                "",
+                f"## {r.name}: {sm.machine or sm.state_field}",
+                "",
+                f"Recurs [{r.name}](resources/{r.name}.md) — camp `{sm.state_field}` — "
+                f"`{sm.qualname}`",
+                "",
+            ]
+            if sm.doc.summary:
+                out += [sm.doc.summary, ""]
+            out += ["```mermaid", render_state_machine(sm), "```"]
+            if sm.timers:
+                timers = ", ".join(f"`{t.event}` després de {t.after}" for t in sm.timers)
+                out += ["", f"Transicions automàtiques: {timers}."]
     return "\n".join(out) + "\n"

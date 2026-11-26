@@ -94,3 +94,14 @@ def test_cli_writes_the_site(tmp_path, capsys):
     assert (out / "index.html").is_file() and (out / "resources" / "invoices.html").is_file()
     assert json.loads((out / "asyncapi.json").read_text())["asyncapi"].startswith("3.")
     assert json.loads(capsys.readouterr().out)["index"].endswith("index.html")
+
+
+def test_every_state_machine_on_one_page_linked_from_the_catalogue():
+    files = _site()
+    machines = files["state-machines.html"]
+    assert machines.count('<pre class="mermaid">') == 5  # invoices ×2, payments, documents, keys
+    for anchor in ("invoices-approval", "invoices-delivery", "invoice_payments-status"):
+        assert f'id="{anchor}"' in machines
+        assert f'href="state-machines.html#{anchor}"' in files["index.html"]
+    assert 'href="state-machines.html"' in files["index.html"]  # the menu
+    assert "import mermaid" in machines
