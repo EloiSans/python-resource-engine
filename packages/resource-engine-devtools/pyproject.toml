@@ -18,7 +18,11 @@ classifiers = [
     "Topic :: Software Development :: Libraries :: Application Frameworks",
     "Typing :: Typed",
 ]
-dependencies = ["resource-engine>=0.1.0.dev0,<0.2", "docstring-parser>=0.16"]
+dependencies = [
+    "resource-engine>=0.1.0.dev0,<0.2",
+    "docstring-parser>=0.16",
+    "markdown-it-py>=3.0",
+]
 
 [project.urls]
 Homepage = "https://github.com/EloiSans/python-resource-engine"

@@ -88,3 +88,10 @@ class Invoice:
 
 Docstrings describe behaviour; they never replace it. Permissions are enforced
 by policies, transitions by the state machine, rules by the domain code.
+
+## Where the docs go
+
+`resource-engine docs generate` writes them as Markdown and `resource-engine
+docs site --out site` as a static website for non-developers (diagrams,
+permission matrix, events, search). Both come from these docstrings: fix the
+text here, never in the generated files.

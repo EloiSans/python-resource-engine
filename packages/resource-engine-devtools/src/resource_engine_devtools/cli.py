@@ -252,6 +252,28 @@ def cmd_docs_generate(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_docs_site(args: argparse.Namespace) -> int:
+    from resource_engine_devtools.documentation.generators.site import render_site
+
+    registry = _registry(args)
+    model = introspect(registry, load_authz(Path.cwd()))
+    asyncapi = _asyncapi(args, registry)
+    files = render_site(model, asyncapi=asyncapi, title=args.title, mermaid_url=args.mermaid_url)
+    if asyncapi["channels"]:
+        files["asyncapi.json"] = json.dumps(asyncapi, indent=2, ensure_ascii=False) + "\n"
+    out = Path(args.out)
+    for rel, content in files.items():
+        target = out / rel
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(content, encoding="utf-8")
+    _emit(
+        args,
+        {"written": sorted(str(out / f) for f in files), "index": str(out / "index.html")},
+        f"wrote {len(files)} files to {out}; open {out / 'index.html'}",
+    )
+    return 0
+
+
 def cmd_docs_validate(args: argparse.Namespace) -> int:
     findings = validate(introspect(_registry(args), load_authz(Path.cwd())))
     errors = [f for f in findings if f.level == "error"]
@@ -544,6 +566,24 @@ def build_parser() -> argparse.ArgumentParser:
         help="EventRouter as module:attribute (repeatable; default: pyproject consumers)",
     )
     p.set_defaults(func=cmd_docs_asyncapi)
+    from resource_engine_devtools.documentation.generators.site import MERMAID_URL
+
+    p = docs.add_parser(
+        "site", parents=[common], help="the functional documentation as a static HTML site"
+    )
+    p.add_argument("--out", default="site")
+    p.add_argument("--title", help="site title (default: the AsyncAPI title)")
+    p.add_argument(
+        "--mermaid-url",
+        default=MERMAID_URL,
+        help="Mermaid ES module for the diagrams (self-hosted copy; empty: no diagrams)",
+    )
+    p.add_argument(
+        "--consumer",
+        action="append",
+        help="EventRouter as module:attribute (repeatable; default: pyproject consumers)",
+    )
+    p.set_defaults(func=cmd_docs_site)
     p = docs.add_parser("validate", parents=[common])
     p.add_argument("--strict", action="store_true", help="fail on warnings too")
     p.add_argument("-v", "--verbose", action="store_true", help="also list passing checks")

@@ -140,6 +140,7 @@ uv run ruff check . && uv run ruff format --check .
 uv run resource-engine inspect
 uv run resource-engine docs validate
 uv run resource-engine docs generate --out examples/invoices/docs
+uv run resource-engine docs site --out site                  # the same docs as a static website
 docker compose -f compose.emulators.yaml up -d keycloak          # the example app's sign-in
 uv run uvicorn invoices.app:app --app-dir examples --reload   # then open /docs (docs/example-app.md)
 ```
@@ -162,6 +163,7 @@ uv run uvicorn invoices.app:app --app-dir examples --reload   # then open /docs 
 - [Contracts](docs/contracts.md) — consumers scaffolded from a provider's AsyncAPI, contract tests on both sides.
 - [AsyncAPI](docs/asyncapi.md) — the events the app publishes and consumes, generated and served next to OpenAPI.
 - [MCP server](docs/mcp.md) — operations as tools for AI agents, permissions per caller.
+- [Documentation site](docs/docs-site.md) — the functional docs as a static website: diagrams, permission matrix, events, search. The example's is published at <https://eloisans.github.io/python-resource-engine/>.
 - [Scaffolding](docs/scaffold.md) — generate a module, action or state machine.
 - [AI assistance](docs/ai.md) — the skill for coding agents, `ai install`, `ai sync`; [evaluation](evals/README.md).
 - [Observability](docs/observability.md) — traces from request to consumer, metrics hooks, JSON logs, error reporting (Sentry, GlitchTip), access and outgoing-call logs.

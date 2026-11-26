@@ -190,6 +190,10 @@
   `okta_introspection` presets (Auth0 has no introspection: its API tokens are
   JWTs), `TokenRouter` for JWTs and opaque tokens side by side; revocation
   seen within `cache_ttl`.
+- Documentation site (`resource-engine docs site`): the functional docs as
+  static HTML with navigation, search, Mermaid state diagrams, the permission
+  matrix and the published events; escaped docstrings, dark mode, phones and
+  print; Mermaid from a CDN or self-hosted.
 - `resource-engine scaffold consumer`: payload models, a typed `EventRouter`
   and contract tests from a provider's AsyncAPI (3.0 or 2.x; envelope,
   CloudEvents or raw bodies). Contract testing on both sides:
@@ -223,9 +227,6 @@ Nothing scheduled: the next items come from Later.
 - Versioning: versions of resource schemas, actions and events published side
   by side (`/v2/...`, `schema_version` per event type), deprecation notices in
   OpenAPI, AsyncAPI and GraphQL, and the contract checks comparing versions.
-- Documentation site: the generated functional docs as a browsable static site
-  (MkDocs or plain HTML) with the state diagrams and the permission matrix, for
-  people who do not read the repository.
 - Complete scaffolding: hooks, domain events (declared on the resource),
   document slots, references and seed policies, so every functional element
   can start from `resource-engine scaffold` and the development MCP server.
