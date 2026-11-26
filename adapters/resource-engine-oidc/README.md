@@ -12,6 +12,11 @@ authenticator = keycloak("https://sso.example.com", "acme", audience="invoices-a
 mount_resources(app, registry, manager, actor_dependency=bearer_actor(authenticator))
 ```
 
+Opaque access tokens are checked at the provider with OAuth token introspection
+(RFC 7662): `keycloak_introspection`, `okta_introspection` or
+`IntrospectionAuthenticator`, with a short cache. `TokenRouter` checks JWTs
+locally and introspects the rest.
+
 This is authentication; permissions are in `resource_engine.authz` (docs/permissions.md).
 Tested against Keycloak (see `compose.emulators.yaml`); the cloud presets are tested
 with locally signed tokens. See [docs/identity.md](../../docs/identity.md).

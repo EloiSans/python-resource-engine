@@ -173,6 +173,9 @@ without leftovers, deletes, listing and presigned upload/download. Use
 | Provider | Package | Preset | Tested against | Status |
 |---|---|---|---|---|
 | Keycloak | `resource-engine-oidc` | `keycloak` | Keycloak 26 (compose) | experimental |
+| Keycloak (opaque tokens, revocation) | `resource-engine-oidc` | `keycloak_introspection` | Keycloak 26 (compose) | experimental |
+| Okta (opaque tokens) | `resource-engine-oidc` | `okta_introspection` | fake endpoint | experimental |
+| Any RFC 7662 provider | `resource-engine-oidc` | `IntrospectionAuthenticator` | fake endpoint | experimental |
 | Amazon Cognito | `resource-engine-oidc` | `cognito` | signed test tokens | experimental |
 | Microsoft Entra ID | `resource-engine-oidc` | `entra_id` | signed test tokens | experimental |
 | Google Identity Platform / Firebase Auth | `resource-engine-oidc` | `google_identity_platform` | signed test tokens | experimental |

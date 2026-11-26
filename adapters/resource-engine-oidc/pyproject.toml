@@ -1,7 +1,7 @@
 [project]
 name = "resource-engine-oidc"
 version = "0.1.0.dev0"
-description = "OIDC/JWT authentication for Resource Engine: Keycloak, Amazon Cognito, Microsoft Entra ID, Google Identity Platform."
+description = "OIDC/JWT authentication for Resource Engine: Keycloak, Amazon Cognito, Microsoft Entra ID, Google Identity Platform; opaque tokens by introspection."
 readme = "README.md"
 requires-python = ">=3.12"
 license = "Apache-2.0"

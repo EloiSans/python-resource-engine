@@ -59,6 +59,20 @@ def keycloak(
       attribute mapped to the token.
     """
     issuer = f"{base_url.rstrip('/')}/realms/{realm}"
+    return OidcAuthenticator(
+        issuer=issuer,
+        audience=audience,
+        jwks_uri=f"{issuer}/protocol/openid-connect/certs",
+        provider="keycloak",
+        to_principal=keycloak_principal(realm, client_id=client_id, tenant_claim=tenant_claim),
+        http=http,
+    )
+
+
+def keycloak_principal(
+    realm: str, *, client_id: str | None = None, tenant_claim: str | None = None
+) -> Any:
+    """Keycloak claims (from a token or an introspection answer) → ``Principal``."""
     builtin = {*KEYCLOAK_BUILTIN_ROLES, f"default-roles-{realm}"}
 
     def to_principal(claims: Claims) -> Principal:
@@ -83,14 +97,7 @@ def keycloak(
             claims=claims,
         )
 
-    return OidcAuthenticator(
-        issuer=issuer,
-        audience=audience,
-        jwks_uri=f"{issuer}/protocol/openid-connect/certs",
-        provider="keycloak",
-        to_principal=to_principal,
-        http=http,
-    )
+    return to_principal
 
 
 # ------------------------------------------------------------ Amazon Cognito

@@ -185,6 +185,11 @@
   commit. HTTP: ETag on every JSON `GET` (version or body hash), 304 on
   `If-None-Match`, `Cache-Control` (default `private, no-cache`, per resource
   `cache_control`) and `Vary` on the credentials.
+- Opaque access tokens: `IntrospectionAuthenticator` (RFC 7662) with a short
+  cache of active answers (the `Cache` port), `keycloak_introspection` and
+  `okta_introspection` presets (Auth0 has no introspection: its API tokens are
+  JWTs), `TokenRouter` for JWTs and opaque tokens side by side; revocation
+  seen within `cache_ttl`.
 - `resource-engine scaffold consumer`: payload models, a typed `EventRouter`
   and contract tests from a provider's AsyncAPI (3.0 or 2.x; envelope,
   CloudEvents or raw bodies). Contract testing on both sides:
@@ -206,9 +211,7 @@ what follows builds on it.
 
 ### Soon
 
-- Opaque access tokens: an `Authenticator` using OAuth token introspection
-  (RFC 7662) with a short cache, for providers that do not issue JWTs and for
-  immediate revocation; presets for Keycloak, Okta and Auth0.
+Nothing scheduled: the next items come from Later.
 
 ### Later
 
