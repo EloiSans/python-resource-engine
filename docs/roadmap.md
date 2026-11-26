@@ -116,6 +116,11 @@
   reverse expansion on lists batched in one query, many-to-many links through
   a join resource (`link = ("invoice_id", "tag_id")`: `GET /invoices/{id}/tags`,
   `expand=tags`); the example gains `tags` and `invoice_tags`.
+- GraphQL adapter (`resource-engine-graphql`): a schema generated from the
+  registry (camelCase, offset pages, typed filters with related fields,
+  mutations for writes, transitions and actions), references batched per
+  request (`manager.get_many`), reverse and many-to-many fields with their own
+  paging, engine error codes in `extensions`, a depth limit, `mount_graphql`.
 - `resource-engine scaffold consumer`: payload models, a typed `EventRouter`
   and contract tests from a provider's AsyncAPI (3.0 or 2.x; envelope,
   CloudEvents or raw bodies). Contract testing on both sides:
@@ -137,9 +142,9 @@ what follows builds on it.
 
 ### Soon
 
-- GraphQL adapter (queries for `list`/`get` with relations, mutations for
-  writes, transitions and actions).
 - Example app with authentication (Keycloak) so `invoices` can be tenant-scoped.
+- GraphQL next steps: subscriptions from the outbox events, Relay connections,
+  persisted queries and query cost limits.
 
 ### Later
 

@@ -10,6 +10,9 @@ GET  /asyncapi.json     the events the backend publishes (with mount_asyncapi)
 GET  /authz/me          what the signed-in user may do (with an authorizer)
 ```
 
+Prefer GraphQL? `mount_graphql` serves the same resources at `/graphql`, with
+the same permissions and error codes (see [GraphQL](graphql.md)).
+
 Generate types and a client from `/openapi.json` (for example
 `openapi-typescript` or `orval`) and regenerate them in CI. The schemas come
 straight from the backend's Pydantic models, so a breaking change shows up as a

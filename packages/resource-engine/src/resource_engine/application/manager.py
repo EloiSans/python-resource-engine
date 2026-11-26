@@ -992,7 +992,19 @@ class ResourceManager:
     ) -> dict[Any, Any]:
         """The records of ``ref.target`` with these ids that the caller may read
         (read models, or entities with ``read=False``), by id."""
-        target = self.registry.get(ref.target)
+        return await self._records(
+            ctx, self.registry.get(ref.target), ids, read=read, nested=nested
+        )
+
+    async def _records(
+        self,
+        ctx: OperationContext,
+        target: ResourceDefinition,
+        ids: list[Any],
+        *,
+        read: bool = True,
+        nested: Sequence[str] = (),
+    ) -> dict[Any, Any]:
         tctx = await self._related_context(ctx, target)
         if tctx is None or not ids:
             return {}
@@ -1196,6 +1208,28 @@ class ResourceManager:
             expand=expand,
             _condition={"in": [{"attr": f"resource.{target.id_field}"}, ids]},
         )
+
+    async def get_many(
+        self,
+        resource: ResourceRef,
+        ids: Collection[Any],
+        *,
+        actor: Any = None,
+        tenant: str | None = None,
+        expand: Sequence[str] = (),
+    ) -> dict[Any, Any]:
+        """The records with these ids that ``actor`` may read, by id, in one
+        query where the repository supports it (batch loaders, GraphQL).
+        Missing and unreadable ids are left out; nothing is audited."""
+        definition = self.registry.get(resource)
+        self._require(definition, "get")
+        self._check_expand(definition, expand)
+        ids = [i for i in dict.fromkeys(ids) if i is not None]
+        if not ids or not await self.can(actor, definition.name, "get", tenant=tenant):
+            return {}
+        ctx = self._context(definition, "get", actor=actor, tenant=tenant)
+        async with self._reading(ctx):
+            return await self._records(ctx, definition, ids, nested=expand)
 
     async def list_related(
         self,

@@ -18,6 +18,7 @@ moved to its own repository without code changes.
 |---|---|---|---|
 | `resource-engine` | `resource_engine` | pydantic, python-statemachine | Core: `Resource`, registry, hooks, `ResourceManager`, documents, messaging, ports, in-memory adapters |
 | `resource-engine-fastapi` | `resource_engine_fastapi` | core, FastAPI | HTTP adapter: generated routes, document routes, bearer auth, error mapping, event push endpoint |
+| `resource-engine-graphql` | `resource_engine_graphql` | core, graphql-core | GraphQL adapter: schema generated from the resources, batched relations, `mount_graphql` |
 | `resource-engine-mcp` | `resource_engine_mcp` | core, mcp | MCP server: every operation as a tool for AI agents, over stdio or Streamable HTTP with bearer tokens |
 | `resource-engine-sqlalchemy` | `resource_engine_sqlalchemy` | core, SQLAlchemy 2 (async) | Persistence adapter: repository, unit of work, outbox, inbox, documents, permission and audit tables, job leases, Alembic setup (`[alembic]`) |
 | `resource-engine-devtools` | `resource_engine_devtools` | core, docstring-parser | `resource-engine` CLI: inspect, check (architecture and hook/effect lints), docs and AsyncAPI, AI skill and context (`ai install`, `ai sync`), scaffold (modules, consumers), worker, development MCP server (`[mcp]`) |
@@ -146,6 +147,7 @@ uv run uvicorn invoices.app:app --app-dir examples --reload   # then open /docs
 - [Identity](docs/identity.md) — bearer tokens, providers, `Principal`.
 - [Permissions](docs/permissions.md) — system roles, ABAC policies managed from a front end.
 - [External policy engines](docs/authorizers.md) — OPA, Cedar and OpenFGA behind the same port.
+- [GraphQL](docs/graphql.md) — a generated schema with relations, mutations and the same permissions.
 - [Front-end guide](docs/frontend.md) — the HTTP conventions a front end builds on: lists, `expand`, writes, errors, permissions.
 - [Relationships](docs/relationships.md) — references between resources: integrity, deletes, `expand`, related filters.
 - [Contracts](docs/contracts.md) — consumers scaffolded from a provider's AsyncAPI, contract tests on both sides.

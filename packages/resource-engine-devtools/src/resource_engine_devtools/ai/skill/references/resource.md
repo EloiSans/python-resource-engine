@@ -211,6 +211,11 @@ reverse relation (`GET /customers/{id}/invoices`, `manager.list_related`,
 `tags` an `invoices` one); link by creating join records. `expand` paths nest
 with dots (`invoices.customer_record`). See docs/relationships.md.
 
+GraphQL (`resource-engine-graphql`): `mount_graphql(app, registry, manager,
+actor_dependency=...)` serves a schema generated from the same definitions
+(camelCase types, offset pages, mutations per write, transition and action);
+nothing to write by hand. See docs/graphql.md.
+
 MCP tools for AI agents (`resource-engine-mcp`): `ResourceMcpServer(registry,
 manager)` turns the same operations into tools (`invoices_list`,
 `invoices_transition_approve`, `invoices_action_recalculate_totals`...) called

@@ -22,7 +22,7 @@ def project(path: Path) -> dict:
 
 
 def test_every_package_is_found():
-    assert len(PACKAGES) == 17 and "resource-engine" in PACKAGES
+    assert len(PACKAGES) == 18 and "resource-engine" in PACKAGES
 
 
 @pytest.mark.parametrize("name", sorted(PACKAGES))

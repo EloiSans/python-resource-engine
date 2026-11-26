@@ -6,7 +6,7 @@
 |---|---|---|
 | Domain | `resource_engine.domain`, each module's `domain/` | stdlib, `resource_engine.domain`, `python-statemachine` |
 | Application | `resource_engine.application`, `resource_engine.ports`, each module's `application/` | domain, pydantic |
-| Infrastructure / adapters | `resource_engine_sqlalchemy`, `resource_engine_fastapi`, `resource_engine_mcp`, each module's `infrastructure/` | anything |
+| Infrastructure / adapters | `resource_engine_sqlalchemy`, `resource_engine_fastapi`, `resource_engine_graphql`, `resource_engine_mcp`, each module's `infrastructure/` | anything |
 
 `resource-engine check` enforces the domain rule (RE-C001), checks that hooks
 match their lifecycle point (RE-C002, RE-C003; see [lifecycle](lifecycle.md#external-effects)),

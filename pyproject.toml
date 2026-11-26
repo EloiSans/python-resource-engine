@@ -13,6 +13,7 @@ members = ["packages/*", "adapters/*"]
 [tool.uv.sources]
 resource-engine = { workspace = true }
 resource-engine-fastapi = { workspace = true }
+resource-engine-graphql = { workspace = true }
 resource-engine-mcp = { workspace = true }
 resource-engine-sqlalchemy = { workspace = true }
 resource-engine-devtools = { workspace = true }
@@ -33,6 +34,7 @@ resource-engine-opentelemetry = { workspace = true }
 dev = [
     "resource-engine",
     "resource-engine-fastapi",
+    "resource-engine-graphql",
     "resource-engine-mcp",
     "resource-engine-sqlalchemy[alembic]",
     "resource-engine-devtools",
