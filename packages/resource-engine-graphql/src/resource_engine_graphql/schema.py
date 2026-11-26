@@ -25,7 +25,7 @@ import re
 import types
 import typing
 import uuid
-from collections.abc import Callable, Mapping
+from collections.abc import AsyncIterator, Callable, Mapping
 from decimal import Decimal, InvalidOperation
 from typing import Any
 
@@ -165,9 +165,12 @@ class _Resource:
 class SchemaBuilder:
     """Builds the schema once; keeps the name maps resolvers need."""
 
-    def __init__(self, registry: ResourceRegistry, manager: ResourceManager) -> None:
+    def __init__(
+        self, registry: ResourceRegistry, manager: ResourceManager, *, hub: Any = None
+    ) -> None:
         self.registry = registry
         self.manager = manager
+        self.hub = hub
         self.types: dict[str, Any] = {}
         self.models: dict[tuple[type, bool], Any] = {}
         self.resources: dict[str, _Resource] = {}
@@ -285,11 +288,140 @@ class SchemaBuilder:
             self.resources[d.name] = _Resource(d, gql, single, plural, fields)
         query = GraphQLObjectType("Query", self._queries)
         mutations = self._mutations()
+        subscriptions = self._subscriptions() if self.hub is not None else {}
         return GraphQLSchema(
             query=query,
             mutation=GraphQLObjectType("Mutation", mutations) if mutations else None,
+            subscription=GraphQLObjectType("Subscription", subscriptions)
+            if subscriptions
+            else None,
             types=[DecimalScalar, DateScalar, DateTimeScalar, JSONScalar],
         )
+
+    # ---------------------------------------------------- subscriptions
+
+    def _subscriptions(self) -> dict[str, GraphQLField]:
+        out: dict[str, GraphQLField] = {}
+        for name, r in self.resources.items():
+            d = r.definition
+            if not d.exposed("get"):
+                continue
+            id_type = self.graphql_type(d.id_type, input=True, hint="id")
+            change = self._name(f"{r.type.name}Change")
+            change_type = GraphQLObjectType(
+                change,
+                lambda r=r, id_type=id_type: {
+                    "event": GraphQLField(
+                        GraphQLNonNull(GraphQLString),
+                        resolve=_attribute("event"),
+                        description="ResourceCreated, ResourceUpdated, TransitionExecuted, "
+                        "ResourceDeleted, a document or domain event...",
+                    ),
+                    "id": GraphQLField(GraphQLNonNull(id_type), resolve=_attribute("id")),
+                    "occurredAt": GraphQLField(
+                        GraphQLNonNull(DateTimeScalar), resolve=_attribute("occurred_at")
+                    ),
+                    "record": GraphQLField(
+                        r.type,
+                        resolve=_attribute("record"),
+                        description="The record as the subscriber reads it now; null once deleted",
+                    ),
+                },
+                description=f"A committed change to a {name} record",
+            )
+            self.types[change] = change_type
+            key = f"{camel(singular(name))}Changed"
+            out[key] = GraphQLField(
+                GraphQLNonNull(change_type),
+                args={
+                    "id": GraphQLArgument(id_type, description="Only this record"),
+                    "events": GraphQLArgument(
+                        GraphQLList(GraphQLNonNull(GraphQLString)),
+                        description="Only these event types",
+                    ),
+                    **({"tenant": GraphQLArgument(GraphQLString)} if d.tenant_field else {}),
+                },
+                subscribe=self._subscribe(name),
+                resolve=lambda change, _info, **_kw: change,
+                description=f"Committed changes to {name} records the subscriber can read",
+            )
+        return out
+
+    def _subscribe(self, resource: str) -> Callable[..., Any]:
+        from resource_engine.errors import (
+            EntityNotFound,
+            PermissionDenied,
+            TenantMismatch,
+            TenantRequired,
+        )
+
+        d = self.resources[resource].definition
+        adapter = TypeAdapter(d.id_type)
+        hidden = (EntityNotFound, PermissionDenied, TenantRequired, TenantMismatch)
+
+        def entity_of(envelope: Any) -> Any:
+            payload = envelope.payload
+            if (payload.get("resource") or envelope.resource) != resource:
+                return None
+            value = payload.get("entity_id")
+            if value is None:
+                return None
+            try:
+                return adapter.validate_python(value)
+            except Exception:
+                return None
+
+        async def subscribe(_root: Any, info: Any, **kw: Any) -> Any:
+            c = self._ctx(info)
+            manager, actor, tenant = c.manager, c.actor, kw.get("tenant")
+            only = self._id(resource, kw["id"]) if kw.get("id") is not None else None
+            events = set(kw.get("events") or ())
+            if only is not None:
+                await manager.get(resource, only, actor=actor, tenant=tenant)  # visible now?
+            elif not await manager.can(actor, resource, "get", tenant=tenant):
+                raise PermissionDenied(
+                    f"Not allowed to read {resource}", details={"action": f"{resource}:get"}
+                )
+            # checks above raise before the stream starts: an ``error`` message
+            return stream(manager, actor, tenant, only, events)
+
+        async def stream(
+            manager: Any, actor: Any, tenant: Any, only: Any, events: set[str]
+        ) -> AsyncIterator[dict[str, Any]]:
+            subscription = self.hub.subscribe(
+                lambda env: (
+                    (entity := entity_of(env)) is not None
+                    and (only is None or entity == only)
+                    and (not events or env.type in events)
+                )
+            )
+            delivered: set[Any] = {only} if only is not None else set()
+            try:
+                async for envelope in subscription:
+                    entity_id = entity_of(envelope)
+                    change = {
+                        "event": envelope.type,
+                        "id": entity_id,
+                        "occurred_at": envelope.occurred_at,
+                        "record": None,
+                    }
+                    if envelope.type == "ResourceDeleted":
+                        if entity_id in delivered:  # never reveal unseen records' ids
+                            delivered.discard(entity_id)
+                            yield change
+                        continue
+                    try:
+                        change["record"] = await manager.get(
+                            resource, entity_id, actor=actor, tenant=tenant
+                        )
+                    except hidden:
+                        continue  # not (or no longer) visible to this subscriber
+                    delivered.add(entity_id)
+                    yield change
+            finally:
+                subscription.close()
+
+        return subscribe
 
     def _thunk(self, d: ResourceDefinition) -> Callable[[], dict[str, GraphQLField]]:
         def fields() -> dict[str, GraphQLField]:

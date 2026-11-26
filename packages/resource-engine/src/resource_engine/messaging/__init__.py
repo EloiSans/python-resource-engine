@@ -10,6 +10,7 @@ from resource_engine.messaging.delivery import (
     TransportEventPublisher,
 )
 from resource_engine.messaging.envelope import EventEnvelope, EventSerializer, to_jsonable
+from resource_engine.messaging.hub import EventHub, FanoutPublisher, Subscription
 from resource_engine.messaging.inbound import decode_body, decode_http, try_decode
 from resource_engine.messaging.janitor import MessagingJanitor, MessagingJanitorStats
 from resource_engine.messaging.processing import (
@@ -38,6 +39,9 @@ __all__ = [
     "AfterCommitDelivery",
     "EventDelivery",
     "EventEnvelope",
+    "EventHub",
+    "FanoutPublisher",
+    "Subscription",
     "EventRouter",
     "EventSerializer",
     "OutboxDelivery",

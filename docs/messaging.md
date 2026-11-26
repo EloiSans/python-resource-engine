@@ -261,6 +261,25 @@ the envelope JSON and CloudEvents (structured and binary). `OPTIONS` answers the
 CloudEvents webhook handshake for `allowed_origins`. Use `decode=` for wrapped
 formats, e.g. `resource_engine_gcp.decode_pubsub_push`.
 
+## Live subscribers
+
+`EventHub` fans committed events out to subscribers in the same process
+(GraphQL subscriptions, server-sent events, WebSockets). It is a
+`MessagePublisher`, so it is fed like a broker:
+
+- straight after each commit: `ResourceManager(event_publisher=TransportEventPublisher(hub))`;
+- from the outbox, next to the broker: `OutboxRelay(uow_factory, FanoutPublisher(broker, hub))`.
+  `FanoutPublisher` sends to every publisher and reports the ids any of them
+  rejected, so the relay retries them;
+- with several instances, from a broadcast topic each instance consumes:
+  `MessageConsumer(source, MessageProcessor(hub.router(), name="live"))`.
+
+`hub.subscribe(filter)` returns a `Subscription` to iterate with `async for`.
+Each holds `queue_size` envelopes (default 100); when it is full the oldest is
+dropped and `overflowed` counts it. Subscribers must check permissions
+themselves: the GraphQL adapter re-reads each record as the subscriber
+([GraphQL subscriptions](graphql.md#subscriptions)).
+
 ## CloudEvents
 
 `resource_engine.messaging.to_cloudevent(envelope, source=..., type_prefix=...)`

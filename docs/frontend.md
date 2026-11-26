@@ -221,11 +221,20 @@ It is readable by whoever can read the record. The full audit trail
 
 ## Live updates
 
-The backend publishes events to its broker after each committed change. It
-does not push them to browsers. To refresh screens, a backend-for-frontend or
-a small service consumes them (see [contracts](contracts.md#consumer-scaffold-from-the-providers-document))
+When the backend mounts GraphQL with a hub, subscribe to the records on
+screen (`invoiceChanged(id: 7) { event record { … } }`) over WebSocket with
+the `graphql-ws` client, sending the token in `connectionParams`. Each message
+carries the record as you may read it now, or `null` once deleted. Messages
+can be dropped when the client falls behind or reconnects, so refetch the
+screen's data after a reconnect. See [GraphQL subscriptions](graphql.md#subscriptions).
+
+Otherwise the backend publishes events only to its broker, and a
+backend-for-frontend or a small service consumes them (see [contracts](contracts.md#consumer-scaffold-from-the-providers-document))
 and forwards them over WebSocket or SSE. `/asyncapi.json` describes every
 event and its payload.
+
+With persisted queries in allow-list mode, register every operation the app
+sends at build time (GraphQL Code Generator's persisted documents).
 
 ## Checklist
 

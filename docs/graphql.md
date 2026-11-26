@@ -20,6 +20,8 @@ The server answers on these routes:
 - `GET /graphql?query=...` runs queries only.
 - `GET /graphql/schema.graphql` returns the schema in SDL. Point your client
   code generator (GraphQL Code Generator, Apollo, urql, gql) at it.
+- WebSocket `/graphql` serves subscriptions when a hub is given (see
+  [Subscriptions](#subscriptions)).
 
 `GraphQLAdapter(registry, manager).execute(query, variables, actor=...)` runs a
 request without HTTP (tests, other transports), and `.sdl()` prints the schema.
@@ -131,10 +133,131 @@ Engine and domain errors keep their code, so clients branch on
 - **Credentials:** use the same `actor_dependency` as REST, so a GraphQL
   request carries the same bearer token and gets the same permissions.
 
+- **Cost limit:** each field costs 1 plus its selections, and a field with a
+  `limit` argument (a page) multiplies its selections by that limit, or by its
+  default when the query leaves it out. So
+  `customers(limit: 10) { items { invoices(limit: 10) { items { id } } } }`
+  costs 1 + 10 × (1 + 1 + 10 × 2) = 221. Operations above `max_cost`
+  (default 10,000) are refused before they run, with code
+  `QUERY_TOO_COSTLY`. Fragments count, introspection doesn't.
+  `query_cost(schema, document, operation_name, variables)` gives the number,
+  for logs or tests.
+
+## Persisted queries
+
+`persisted=PersistedQueries(...)` turns on
+[automatic persisted queries](https://www.apollographql.com/docs/apollo-server/performance/apq)
+(Apollo's protocol, supported by Apollo Client, urql and graphql-request
+links). The client sends the query's SHA-256 instead of its text:
+
+1. `{"extensions": {"persistedQuery": {"version": 1, "sha256Hash": "…"}}}`.
+2. The first time the server answers `PersistedQueryNotFound`
+   (code `PERSISTED_QUERY_NOT_FOUND`), and the client sends the text and the
+   hash together. The server checks the hash
+   (`PERSISTED_QUERY_HASH_MISMATCH` otherwise) and remembers the query.
+3. From then on the hash is enough, with `POST`, or with `GET` and
+   `extensions` as a JSON parameter, which CDNs can cache.
+
+The learned queries are kept in memory, the `cache_size` most recently used
+(default 1000), per process.
+
+**Allow-list.** For first-party clients, extract the operations at build time
+(GraphQL Code Generator's persisted documents, or `persistgraphql`) and run
+only those:
+
+```python
+from resource_engine_graphql import PersistedQueries
+
+known = json.loads(Path("persisted-queries.json").read_text())  # {sha256: query}
+mount_graphql(app, registry, manager, persisted=PersistedQueries(known, allow_only=True))
+```
+
+Arbitrary query text is then refused with `PERSISTED_QUERY_REQUIRED`, and
+unknown hashes with `PERSISTED_QUERY_NOT_FOUND`. The schema itself is
+unchanged, and so are the permissions: the allow-list limits what can be
+asked, not who may ask it.
+
+## Subscriptions
+
+With an `EventHub`, the schema gains a `Subscription` type: one field per
+resource that has `get`, named `<singular>Changed`.
+
+```graphql
+subscription {
+  invoiceChanged(id: 7, events: ["TransitionExecuted"]) {
+    event      # ResourceCreated, ResourceUpdated, TransitionExecuted, ResourceDeleted...
+    id
+    occurredAt
+    record { id status amount }   # as the subscriber reads it now; null once deleted
+  }
+}
+```
+
+`id` follows one record and `events` keeps only some event types. Resources
+with tenancy also take `tenant`.
+
+**Permissions.** Subscribing needs `get` on the resource, or on the record
+with `id`. Each event is then re-read with `manager.get` as the subscriber, so
+row rules, field rules and tenancy apply to every message. Records the
+subscriber can't see are skipped, and a `ResourceDeleted` is sent only for
+records this subscription has already delivered, so ids of hidden records
+never leak. Because the record is read when the event arrives, it shows the
+state at that moment: two quick changes can both show the second state.
+
+**Feeding the hub.** The hub is an in-process `MessagePublisher`
+(`resource_engine.messaging.EventHub`); give it the committed events:
+
+```python
+from resource_engine.messaging import EventHub, FanoutPublisher, OutboxRelay
+from resource_engine.messaging.delivery import TransportEventPublisher
+
+hub = EventHub()
+
+# without an outbox: straight after each commit
+manager = ResourceManager(..., event_publisher=TransportEventPublisher(hub))
+
+# with the outbox: the relay publishes to the broker and the hub
+relay = OutboxRelay(uow_factory, FanoutPublisher(broker, hub))
+
+mount_graphql(app, registry, manager, hub=hub, authenticator=oidc)
+```
+
+With several API instances, each one only sees the events its own relay
+publishes. Instead, let every instance consume a broadcast topic (a
+subscription per instance) into its hub:
+`MessageConsumer(source, MessageProcessor(hub.router(), name="graphql-live"))`.
+
+Each subscriber has a queue of `queue_size` events (default 100). A
+subscriber that falls behind loses its oldest events, so one stuck client
+never holds back the others; refetch after reconnecting.
+
+**The WebSocket.** Subscriptions are served on the same path over WebSocket,
+with the [`graphql-transport-ws`](https://github.com/enisdenjo/graphql-ws/blob/master/PROTOCOL.md)
+protocol (the `graphql-ws` client, Apollo Client, urql). Browsers can't set
+headers on a WebSocket, so the token goes in `connection_init`:
+
+```ts
+import { createClient } from "graphql-ws";
+
+const client = createClient({
+  url: "wss://api.example.com/graphql",
+  connectionParams: async () => ({ authorization: `Bearer ${await getToken()}` }),
+});
+```
+
+`authenticator` checks it (the same one as `bearer_actor`), and
+`auth_required=False` lets anonymous sockets in. Queries and mutations also
+work on the socket. The server closes with 4401 when `connection_init` doesn't
+come first, 4403 for a missing or invalid token, 4408 when it doesn't come
+within 10 seconds, 4409 for a duplicate operation id, 4429 for a second
+`connection_init` and 4400 for messages it can't read. Tokens expire: the
+socket keeps the caller it authenticated, so reconnect with a fresh token
+when you refresh it. Over HTTP, a subscription operation is refused.
+
+`GraphQLAdapter.subscribe(query, variables, actor=...)` yields the results
+without a socket (tests, server-sent events).
+
 ## Not included (yet)
 
-- **Subscriptions:** events go to brokers. See [AsyncAPI](asyncapi.md) and the
-  [front-end guide](frontend.md#live-updates).
 - **Relay connections and global ids:** lists are offset pages.
 - **Document uploads:** use the REST document routes.
-- **Persisted queries and a query cost analysis** beyond the depth limit.

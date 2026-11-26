@@ -18,7 +18,7 @@ moved to its own repository without code changes.
 |---|---|---|---|
 | `resource-engine` | `resource_engine` | pydantic, python-statemachine | Core: `Resource`, registry, hooks, `ResourceManager`, documents, messaging, ports, in-memory adapters |
 | `resource-engine-fastapi` | `resource_engine_fastapi` | core, FastAPI | HTTP adapter: generated routes, document routes, bearer auth, error mapping, event push endpoint |
-| `resource-engine-graphql` | `resource_engine_graphql` | core, graphql-core | GraphQL adapter: schema generated from the resources, batched relations, `mount_graphql` |
+| `resource-engine-graphql` | `resource_engine_graphql` | core, graphql-core | GraphQL adapter: schema generated from the resources, batched relations, subscriptions, cost limits, persisted queries, `mount_graphql` |
 | `resource-engine-mcp` | `resource_engine_mcp` | core, mcp | MCP server: every operation as a tool for AI agents, over stdio or Streamable HTTP with bearer tokens |
 | `resource-engine-sqlalchemy` | `resource_engine_sqlalchemy` | core, SQLAlchemy 2 (async) | Persistence adapter: repository, unit of work, outbox, inbox, documents, permission and audit tables, job leases, Alembic setup (`[alembic]`) |
 | `resource-engine-devtools` | `resource_engine_devtools` | core, docstring-parser | `resource-engine` CLI: inspect, check (architecture and hook/effect lints), docs and AsyncAPI, AI skill and context (`ai install`, `ai sync`), scaffold (modules, consumers), worker, development MCP server (`[mcp]`) |

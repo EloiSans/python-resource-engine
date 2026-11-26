@@ -145,6 +145,12 @@
   Bugsink; access log with request ids (`mount_resources(access_log=True)`);
   outgoing-call logs and spans in the REST, SOAP and webhook adapters; failed
   operations in the audit trail (`audit_failures=True`).
+- GraphQL subscriptions (`<singular>Changed`) over `graphql-transport-ws`, fed
+  by an in-process `EventHub` (after commit, from the outbox with
+  `FanoutPublisher`, or a broadcast topic per instance), each event re-read
+  as the subscriber; query cost limits (`QUERY_TOO_COSTLY`); automatic
+  persisted queries with an optional allow-list. Relay connections dropped:
+  offset pages stay.
 - `resource-engine scaffold consumer`: payload models, a typed `EventRouter`
   and contract tests from a provider's AsyncAPI (3.0 or 2.x; envelope,
   CloudEvents or raw bodies). Contract testing on both sides:
@@ -166,8 +172,6 @@ what follows builds on it.
 
 ### Soon
 
-- GraphQL next steps: subscriptions from the outbox events, Relay connections,
-  persisted queries and query cost limits.
 - Several state machines per resource (an invoice's approval and payment
   states), each with its own field, transitions, permissions, routes and
   history.
