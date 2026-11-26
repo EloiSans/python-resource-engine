@@ -165,6 +165,7 @@ uv run uvicorn invoices.app:app --app-dir examples --reload   # then open /docs 
 - [AI assistance](docs/ai.md) — the skill for coding agents, `ai install`, `ai sync`; [evaluation](evals/README.md).
 - [Observability](docs/observability.md) — traces from request to consumer, metrics hooks, JSON logs, error reporting (Sentry, GlitchTip), access and outgoing-call logs.
 - [Process managers](docs/processes.md) — long-running processes across resources, as resources with event handlers.
+- [View resources](docs/views.md) — read-only resources computed by a query (totals per customer, projections).
 - [Polymorphic resources](docs/polymorphism.md) — a base resource (requests) with subtypes that add fields (vacation, expenses).
 - [State machines](docs/state-machines.md) — transitions, guards and several machines per resource.
 - [Timed transitions](docs/timers.md) — deadlines on state machines, run by the worker.

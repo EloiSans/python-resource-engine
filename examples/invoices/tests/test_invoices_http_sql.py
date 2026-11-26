@@ -269,3 +269,37 @@ def test_processes_are_read_only_over_http(client):
     assert set(spec["/invoice_payments"]) == {"get"}  # no POST: the process creates them
     assert not [p for p in spec if p.startswith("/invoice_payments/{entity_id}/transitions")]
     assert client.get("/invoice_payments").json()["total"] == 0
+
+
+def test_customer_balances_view(app, tokens):
+    acme = tokens.headers("eli", ["issuer", "approver"], "acme")
+    globex = tokens.headers("gina", ["issuer"], "globex")
+    with TestClient(app) as c:
+        customer = c.post("/customers", json={"name": "Bar", "tax_id": "B123"}, headers=acme)
+        cid = customer.json()["id"]
+        for amount in ("100.50", "20"):
+            r = c.post(
+                "/invoices",
+                json={"customer": "Bar", "amount": amount, "customer_id": cid},
+                headers=acme,
+            )
+            invoice = r.json()["id"]
+        c.post(f"/invoices/{invoice}/transitions/submit", headers=acme)
+        other = c.post("/customers", json={"name": "G", "tax_id": "B999"}, headers=globex)
+        c.post(
+            "/invoices",
+            json={"customer": "G", "amount": "7", "customer_id": other.json()["id"]},
+            headers=globex,
+        )
+
+        page = c.get("/customer_balances", headers=acme).json()  # one GROUP BY query
+        assert page["total"] == 1  # only the caller's organization
+        [row] = page["items"]
+        assert (row["customer_id"], row["invoices"], row["organization"]) == (cid, 2, "acme")
+        assert (row["total"], row["outstanding"], row["paid"]) == ("120.50", "20.00", "0.00")
+        one = c.get(f"/customer_balances/{cid}", headers=acme, params={"expand": "customer"})
+        assert one.json()["customer"]["name"] == "Bar"
+        assert c.get(f"/customer_balances/{other.json()['id']}", headers=acme).status_code == 404
+        assert c.post("/customer_balances", json={}, headers=acme).status_code == 405
+        ranked = c.get("/customer_balances", headers=globex, params={"order_by": "-total"})
+        assert ranked.json()["items"][0]["total"] == "7.00"

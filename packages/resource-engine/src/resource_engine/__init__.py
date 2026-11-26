@@ -29,12 +29,19 @@ from resource_engine.application.resource import (
 from resource_engine.application.slots import DocumentSlot
 from resource_engine.application.state_machines import Machine, describe_machine
 from resource_engine.application.timers import Timer, TimerJob
+from resource_engine.application.views import Aggregate, Avg, Count, Max, Min, Sum
 from resource_engine.domain import DomainError, DomainEvent
 from resource_engine.errors import ResourceEngineError
 
 __version__ = "0.1.0.dev0"
 
 __all__ = [
+    "Aggregate",
+    "Avg",
+    "Count",
+    "Max",
+    "Min",
+    "Sum",
     "CRUD_OPERATIONS",
     "Action",
     "ActionDefinition",

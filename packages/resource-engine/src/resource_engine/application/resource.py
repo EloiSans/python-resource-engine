@@ -29,6 +29,7 @@ from resource_engine.application.relations import (
 from resource_engine.application.slots import DocumentSlot
 from resource_engine.application.state_machines import Machine, MachineRunner
 from resource_engine.application.timers import Timer, TimerDefinition, normalize_timers
+from resource_engine.application.views import check_view
 from resource_engine.domain.events import DomainEvent
 from resource_engine.errors import ConfigurationError, StateFieldExposed
 
@@ -128,6 +129,9 @@ class Resource:
             machines and CRUD hooks.
         identity: The subtype's value in the discriminator field (default: its
             name).
+        view: A read-only resource computed by a query: an ``Aggregate`` over
+            another resource (computed by every storage adapter), or ``True``
+            for a custom view the storage adapter defines (see docs/views.md).
     """
 
     name: ClassVar[str | None] = None
@@ -166,6 +170,7 @@ class Resource:
     discriminator: ClassVar[str | None] = None
     extends: ClassVar[type[Resource] | None] = None
     identity: ClassVar[str | None] = None
+    view: ClassVar[Any] = None
 
     # --- Mapping between schemas and entities. Override when needed. ---
 
@@ -248,6 +253,7 @@ class ResourceDefinition:
     machines: Mapping[str, MachineRunner] = field(default_factory=dict, repr=False, compare=False)
     discriminator: str | None = None
     identity: str | None = None
+    view: Any = None
     #: The base resource's definition, on a subtype.
     parent: ResourceDefinition | None = field(default=None, repr=False, compare=False)
 
@@ -505,6 +511,14 @@ class ResourceDefinition:
         references = normalize_references(name, owner, resource_cls.references, known_fields)
         description = resource_cls.__doc__ and inspect.cleandoc(resource_cls.__doc__)
         discriminator = _check_family(owner, resource_cls, parent, schemas, operations)
+        if resource_cls.view is not None:
+            _check_view_resource(owner, resource_cls, operations, runners, actions, slots)
+            check_view(
+                owner,
+                set(read_fields),
+                resource_cls.id_field,
+                resource_cls.view,
+            )
         if parent is not None:
             hooks = _merge_hooks(parent.hooks, hooks)
         return cls(
@@ -548,6 +562,7 @@ class ResourceDefinition:
             discriminator=discriminator,
             identity=(resource_cls.identity or name) if parent else None,
             parent=parent,
+            view=resource_cls.view,
         )
 
 
@@ -768,3 +783,30 @@ def _merge_hooks(
     for key, hooks in own.items():
         merged[key] = (*merged.get(key, ()), *hooks)
     return merged
+
+
+def _check_view_resource(
+    owner: str,
+    resource_cls: type[Resource],
+    operations: tuple[str, ...],
+    runners: Mapping[str, Any],
+    actions: Mapping[str, Any],
+    slots: Mapping[str, Any],
+) -> None:
+    """Views only list and read."""
+    problems = [op for op in operations if op not in ("list", "get")]
+    for what, present in (
+        ("state machines", runners),
+        ("actions", actions),
+        ("document slots", slots),
+        ("a version field", resource_cls.version_field),
+        ("subtypes or a base", resource_cls.discriminator or resource_cls.extends),
+        ("a link", resource_cls.link),
+    ):
+        if present:
+            problems.append(what)
+    if problems:
+        raise ConfigurationError(
+            f"{owner}: a view only lists and reads; remove {', '.join(problems)}",
+            doc="docs/views.md",
+        )

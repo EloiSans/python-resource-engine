@@ -54,6 +54,8 @@ Els rols de sistema es defineixen al codi i no es poden modificar des del front-
 | `invoice_payments:create` | ✓ |  |
 | `invoice_payments:transition:receive` | ✓ |  |
 | `invoice_payments:transition:expire` | ✓ |  |
+| `customer_balances:list` | ✓ | ✓ |
+| `customer_balances:get` | ✓ | ✓ |
 | `documents:list` | ✓ |  |
 | `documents:get` | ✓ |  |
 | `documents:transition:confirm` | ✓ |  |

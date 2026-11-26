@@ -148,3 +148,17 @@ class RejectInvoice(BaseModel):
 
 class ApplyDiscount(BaseModel):
     percent: Decimal = Field(gt=0, le=100)
+
+
+class CustomerBalanceRead(BaseModel):
+    """Saldo d'un client: les seves factures sumades per estat."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    customer_id: int = Field(description="Client (customers)")
+    organization: str | None = Field(default=None, description=ORGANIZATION)
+    invoices: int = Field(description="Nombre de factures")
+    total: Decimal = Field(description="Import total de les factures")
+    outstanding: Decimal = Field(description="Import pendent d'aprovar o de cobrar")
+    paid: Decimal = Field(description="Import cobrat")
+    last_issue_date: date | None = Field(description="Data d'emissió més recent")

@@ -159,7 +159,9 @@ class ResourceManager:
                 doc="docs/audit.md#setup",
             )
         from resource_engine.application.relations import check_references, reverse_relations
+        from resource_engine.application.views import check_views
 
+        check_views(registry)
         #: References pointing to each resource, by target name (docs/relationships.md).
         self.dependents = check_references(registry)
         #: Reverse relations of each resource, by target and related name.
@@ -1511,9 +1513,13 @@ class ResourceManager:
         )
         await self._gate(ctx, "delete")
         hooks = definition.dispatcher
-        dependents = (
-            *self.dependents.get(definition.name, ()),
-            *(self.dependents.get(definition.parent.name, ()) if definition.parent else ()),
+        dependents = tuple(
+            ref
+            for ref in (
+                *self.dependents.get(definition.name, ()),
+                *(self.dependents.get(definition.parent.name, ()) if definition.parent else ()),
+            )
+            if self.registry.get(ref.owner).view is None  # view rows follow their sources
         )
         # set_null / cascade change other records: one transaction for all of them
         grouped = any(r.on_delete != "restrict" for r in dependents)

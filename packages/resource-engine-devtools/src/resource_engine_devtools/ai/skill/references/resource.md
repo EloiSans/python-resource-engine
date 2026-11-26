@@ -45,6 +45,7 @@ class InvoiceResource(Resource):
 | `operation_docs` | `{}` | One sentence per enabled CRUD operation (`docs validate` needs it) |
 | `hooks` | `{}` | `{"<point>[:<qualifier>]": fn or [fn, ...]}`; see [lifecycle.md](lifecycle.md) |
 | `state_machine`, `state_field` | `None`, `"status"` | See [state-machines.md](state-machines.md) |
+| `view` | `None` | A read-only resource computed by a query: `Aggregate("invoices", group_by=[...], values={...})` or `True` (custom; docs/views.md) |
 | `discriminator` | `None` | On a base resource with subtypes: the field naming each record's kind (docs/polymorphism.md) |
 | `extends`, `identity` | `None` | On a subtype: the base resource class and its discriminator value |
 | `machines` | `{}` | Several named machines: `{"delivery": Machine(Cls, field="delivery_status")}` |
@@ -258,3 +259,10 @@ class VacationResource(Resource):
 
 SQL: `extension_table(...)` per subtype and `map_family(mapper_registry,
 registry, "requests", tables)`. See docs/polymorphism.md.
+
+## Figures computed from other records
+
+Totals, counts and balances are a view resource, not a stored field kept up
+to date in hooks and not a custom endpoint: see
+`examples/invoices/application/balances.py`. `map_views(mapper_registry,
+registry)` after mapping the sources; nothing to migrate.

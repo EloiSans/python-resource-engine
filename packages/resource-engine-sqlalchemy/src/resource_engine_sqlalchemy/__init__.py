@@ -22,8 +22,12 @@ from resource_engine_sqlalchemy.schema import (
     map_engine,
 )
 from resource_engine_sqlalchemy.unit_of_work import SqlAlchemyUnitOfWork, unit_of_work_factory
+from resource_engine_sqlalchemy.views import aggregate_select, map_view, map_views
 
 __all__ = [
+    "aggregate_select",
+    "map_view",
+    "map_views",
     "NAMING_CONVENTION",
     "EngineTables",
     "AuthzTables",

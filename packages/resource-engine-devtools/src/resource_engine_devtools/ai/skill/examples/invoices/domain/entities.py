@@ -97,3 +97,16 @@ class Invoice:
     def ensure_valid_amount(self) -> None:
         if self.amount < 0:
             raise InvoiceError("Invoice amount cannot be negative")
+
+
+@dataclass
+class CustomerBalance:
+    """Saldo de facturació d'un client, calculat a partir de les seves factures."""
+
+    customer_id: int
+    invoices: int = 0
+    total: Decimal = Decimal(0)
+    outstanding: Decimal = Decimal(0)
+    paid: Decimal = Decimal(0)
+    last_issue_date: date | None = None
+    organization: str | None = None

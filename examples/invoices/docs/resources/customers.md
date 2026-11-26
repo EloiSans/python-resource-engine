@@ -32,11 +32,12 @@ Multi-inquilí: cada registre pertany a l'inquilí del camp `organization`; les 
 
 Auditoria: s'auditen els canvis i els intents denegats.
 
-Hi fan referència: [invoices.customer_id](invoices.md) (es denega mentre hi hagi referències).
+Hi fan referència: [invoices.customer_id](invoices.md) (es denega mentre hi hagi referències), [customer_balances.customer_id](customer_balances.md) (es denega mentre hi hagi referències).
 
 | Relació inversa | Registres | Ruta | `expand` |
 |---|---|---|---|
 | `invoices` | [invoices](invoices.md) | `GET /customers/{id}/invoices` | `invoices` o `invoices:25` (una pàgina) |
+| `balance` | [customer_balances](customer_balances.md) | `GET /customers/{id}/balance` | `balance` o `balance:25` (una pàgina) |
 
 ## Schemas
 

@@ -177,6 +177,10 @@ class ResourceDoc:
     subtypes: dict[str, str] = field(default_factory=dict)
     extends: str | None = None
     identity: str | None = None
+    #: View resources: "custom", or the source of an aggregate, its groups and values.
+    view: str | None = None
+    view_group_by: list[str] = field(default_factory=list)
+    view_values: dict[str, str] = field(default_factory=dict)
 
 
 @dataclass

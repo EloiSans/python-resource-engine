@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from resource_engine_sqlalchemy import NAMING_CONVENTION, engine_tables, map_engine
+from resource_engine_sqlalchemy import NAMING_CONVENTION, engine_tables, map_engine, map_views
 from sqlalchemy import (
     Column,
     Date,
@@ -111,5 +111,9 @@ def map_entities() -> None:
         mapper_registry.map_imperatively(Tag, tags_table)
         mapper_registry.map_imperatively(InvoiceTag, invoice_tags_table)
         mapper_registry.map_imperatively(InvoicePayment, invoice_payments_table)
+        # views (customer_balances): mapped onto their GROUP BY query, no table
+        from invoices.bootstrap import registry
+
+        map_views(mapper_registry, registry)
         map_engine(mapper_registry, engine)
         _mapped = True

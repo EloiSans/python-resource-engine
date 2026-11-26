@@ -35,18 +35,37 @@ class InMemoryStore:
         id_fields: dict[str, str] | None = None,
         version_fields: dict[str, str] | None = None,
         families: dict[str, tuple[str, str, str]] | None = None,
+        views: dict[str, tuple[Any, Any]] | None = None,
     ) -> None:
         self.id_fields: dict[str, str] = dict(id_fields or {})
         self.version_fields: dict[str, str] = dict(version_fields or {})
         #: subtype -> (base, discriminator, identity): subtypes live in the base's table
         self.families: dict[str, tuple[str, str, str]] = dict(families or {})
+        #: view -> (Aggregate or rows function, model)
+        self.views: dict[str, tuple[Any, Any]] = dict(views or {})
         self.tables: dict[str, dict[Any, Any]] = {
-            name: {} for name in self.id_fields if name not in self.families
+            name: {} for name in self.id_fields if name not in self.families | self.views
         }
         self._counters: dict[str, itertools.count[int]] = {}
 
     @classmethod
-    def from_registry(cls, registry: ResourceRegistry) -> InMemoryStore:
+    def from_registry(
+        cls, registry: ResourceRegistry, *, views: dict[str, Any] | None = None
+    ) -> InMemoryStore:
+        """A store for every registered resource. ``views`` computes custom
+        views (``view = True``): ``{"name": lambda read: rows}``, where
+        ``read("invoices")`` returns that resource's records and each row is a
+        dict or an entity. Aggregate views need nothing."""
+        custom = dict(views or {})
+        declared: dict[str, tuple[Any, Any]] = {}
+        for d in registry:
+            if d.view is None:
+                continue
+            if d.view is True and d.name not in custom:
+                raise ValueError(
+                    f"{d.name} is a custom view: pass views={{{d.name!r}: lambda read: [...]}}"
+                )
+            declared[d.name] = (custom.get(d.name, d.view), d.model)
         return cls(
             {d.name: d.id_field for d in registry},
             {d.name: d.version_field for d in registry if d.version_field},
@@ -55,6 +74,7 @@ class InMemoryStore:
                 for d in registry
                 if d.parent is not None
             },
+            declared,
         )
 
     def next_id(self, resource: str) -> int:
@@ -260,6 +280,48 @@ class InMemoryIdempotency:
         return len(old)
 
 
+class InMemoryViewRepository:
+    """A view's rows, computed from the unit of work's tables on each read."""
+
+    supports_conditions = True
+    supports_versions = False
+
+    def __init__(self, store: InMemoryStore, working: dict[str, Any], resource: str) -> None:
+        self._store = store
+        self._working = working
+        self._resource = resource
+
+    def _read(self, resource: str) -> list[Any]:
+        family = self._store.families.get(resource)
+        rows = self._working.get(family[0] if family else resource, {}).values()
+        return [e for e in rows if _of_kind(e, family)]
+
+    def _rows(self) -> InMemoryRepository[Any]:
+        from resource_engine.application.views import Aggregate, compute
+
+        spec, model = self._store.views[self._resource]
+        id_field = self._store.id_fields.get(self._resource, "id")
+        raw = (
+            compute(spec, self._read(spec.source), id_field)
+            if isinstance(spec, Aggregate)
+            else spec(self._read)
+        )
+        entities = [model(**r) if isinstance(r, dict) else r for r in raw]
+        table = {getattr(e, id_field): e for e in entities}
+        return InMemoryRepository(self._store, table, self._resource)
+
+    async def get(self, entity_id: Any) -> Any:
+        return await self._rows().get(entity_id)
+
+    async def list(self, query: ListQuery) -> Page[Any]:
+        return await self._rows().list(query)
+
+    async def add(self, entity: Any) -> Any:
+        raise TypeError(f"{self._resource} is a view: it cannot be written")
+
+    update = delete = add
+
+
 class InMemoryUnitOfWork:
     def __init__(self, store: InMemoryStore) -> None:
         self._store = store
@@ -284,9 +346,11 @@ class InMemoryUnitOfWork:
         if not self.committed:
             await self.rollback()
 
-    def repository(self, resource_name: str) -> InMemoryRepository[Any]:
+    def repository(self, resource_name: str) -> Any:
         if self._working is None:
             raise RuntimeError("Unit of work is not active")
+        if resource_name in self._store.views:
+            return InMemoryViewRepository(self._store, self._working, resource_name)
         family = self._store.families.get(resource_name)
         table = self._working.setdefault(family[0] if family else resource_name, {})
         return InMemoryRepository(self._store, table, resource_name, self._checks)

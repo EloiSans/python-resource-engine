@@ -93,6 +93,8 @@ ISSUER_POLICIES: list[dict[str, Any]] = [
             "customers:create",
             "customers:update",
             "customers:delete",
+            "customer_balances:list",
+            "customer_balances:get",
         ],
     },
 ]

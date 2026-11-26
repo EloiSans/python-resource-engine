@@ -277,6 +277,7 @@ def _resource_doc(d: ResourceDefinition) -> ResourceDoc:
         discriminator=d.discriminator,
         extends=d.parent.name if d.parent is not None else None,
         identity=d.identity,
+        **_view_doc(d.view),
         filterable=list(d.filterable),
         sortable=list(d.sortable),
         restricted_fields=list(d.restricted_fields),
@@ -373,3 +374,19 @@ def introspect(registry: ResourceRegistry, authz: Any = None) -> DocumentationMo
         audit_resource="audit_log" if "audit_log" in registry else None,
         system_roles=roles,
     )
+
+
+def _view_doc(view: Any) -> dict[str, Any]:
+    from resource_engine.application.views import Aggregate
+
+    if view is None:
+        return {}
+    if not isinstance(view, Aggregate):
+        return {"view": "custom"}
+    values = {}
+    for name, m in view.values.items():
+        text = f"{m.kind}({m.field or ''})"
+        if m.where:
+            text += " where " + ", ".join(f"{k}={v}" for k, v in m.where.items())
+        values[name] = text
+    return {"view": view.source, "view_group_by": list(view.group_by), "view_values": values}

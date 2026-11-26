@@ -163,6 +163,11 @@
   One id space, references to any kind, base grants cover reads and writes
   need the subtype's. Joined tables in SQL (`extension_table`, `map_family`),
   `anyOf` in OpenAPI, a GraphQL interface implemented by each subtype.
+- View resources: read-only resources computed by a query, with the usual
+  filters, sorting, permissions, tenancy, `expand`, docs, GraphQL and MCP
+  tools. `Aggregate` views (`Count`, `Sum`, `Min`, `Max`, `Avg`, with `where`)
+  run in every storage adapter (one `GROUP BY` in SQL, `map_views`); custom
+  views map any `select` (`map_view`). The example gains `customer_balances`.
 - `resource-engine scaffold consumer`: payload models, a typed `EventRouter`
   and contract tests from a provider's AsyncAPI (3.0 or 2.x; envelope,
   CloudEvents or raw bodies). Contract testing on both sides:
@@ -183,11 +188,6 @@ Ordered by priority. The MVP of the
 what follows builds on it.
 
 ### Soon
-
-- View resources: read-only resources backed by a query (aggregates,
-  projections, joins such as invoices with their balance or totals per
-  customer) with the same filters, sorting, permissions, `expand`, docs,
-  GraphQL and MCP tools as entity resources.
 
 - Opaque access tokens: an `Authenticator` using OAuth token introspection
   (RFC 7662) with a short cache, for providers that do not issue JWTs and for

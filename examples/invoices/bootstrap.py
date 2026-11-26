@@ -5,6 +5,7 @@ from __future__ import annotations
 from resource_engine import ResourceRegistry
 from resource_engine.authz import AuthzConfig, IdpRoleSource, SystemRole
 
+from invoices.application.balances import CustomerBalanceResource
 from invoices.application.customers import CustomerResource
 from invoices.application.processes import InvoicePaymentProcess
 from invoices.application.resource import InvoiceResource
@@ -18,6 +19,7 @@ MODULE = (
     TagResource,
     InvoiceTagResource,
     InvoicePaymentProcess,
+    CustomerBalanceResource,
 )
 
 

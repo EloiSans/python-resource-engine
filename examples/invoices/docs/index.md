@@ -7,6 +7,7 @@
 | [tags](resources/tags.md) | Etiquetes per classificar factures. | `list`, `get`, `create`, `update`, `delete` |
 | [invoice_tags](resources/invoice_tags.md) | Etiquetes assignades a factures (molts a molts). | `list`, `get`, `create`, `delete` |
 | [invoice_payments](resources/invoice_payments.md) | Cobrament de les factures aprovades. | `list`, `get`, `create`, `receive`, `expire` |
+| [customer_balances](resources/customer_balances.md) | Saldo de facturació de cada client, calculat a partir de les factures. | `list`, `get` |
 | [documents](resources/documents.md) | Files attached to entities of other resources. | `list`, `get`, `confirm`, `start_processing`, `reject`, `discard`, `complete` |
 | [authz_policies](resources/authz_policies.md) | Access policies (ABAC), managed from the front end. | `list`, `get`, `create`, `update`, `delete` |
 | [authz_roles](resources/authz_roles.md) | Custom roles, created from the front end. System roles are defined in code. | `list`, `get`, `create`, `update`, `delete` |

@@ -48,6 +48,19 @@ def render_resource(r: ResourceDoc, audit_resource: str | None = None) -> str:
             f"| `{op.name}` | {op.kind} | `{op.method} {op.path}` | {op.input_schema or ''} "
             f"| {op.output_schema or ''} | {_cell(op.doc.summary) or '—'} |"
         )
+    if r.view == "custom":
+        out += ["", "Vista de només lectura: els registres es calculen amb una consulta."]
+    elif r.view:
+        groups = ", ".join(f"`{g}`" for g in r.view_group_by)
+        out += [
+            "",
+            f"Vista de només lectura calculada a partir de [{r.view}]({r.view}.md), "
+            f"amb una fila per {groups}:",
+            "",
+            "| Camp | Càlcul |",
+            "|---|---|",
+            *(f"| `{k}` | `{v}` |" for k, v in r.view_values.items()),
+        ]
     if r.discriminator:
         kinds = ", ".join(f"`{i}` ([{n}]({n}.md))" for i, n in r.subtypes.items()) or "—"
         out += [

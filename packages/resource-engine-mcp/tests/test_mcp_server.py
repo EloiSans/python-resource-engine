@@ -389,7 +389,7 @@ async def test_reverse_relations(manager):
     assert tool.annotations.read_only_hint is True
     assert "id" in tool.input_schema["required"]
     pattern = server.tools["customers_get"].to_mcp().input_schema["properties"]["expand"]
-    assert pattern["items"]["pattern"].startswith("^(invoices(:[0-9]+)?)")
+    assert pattern["items"]["pattern"].startswith("^(invoices(:[0-9]+)?|balance(:[0-9]+)?)")
     async with Client(server.server) as client:
         await client.list_tools()
         customer = await client.call_tool(
