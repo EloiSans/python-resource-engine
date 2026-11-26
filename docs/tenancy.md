@@ -25,8 +25,10 @@ composite indexes): every query filters by it.
 ## Who belongs to which tenant
 
 The caller's tenant is `Principal.tenant`, filled from the token by the identity
-presets (Keycloak, Cognito, Entra ID `tid`, Google Identity Platform tenants; see
-[identity](identity.md)).
+presets: Keycloak Organizations or a claim (`tenant_claim=`), Entra ID `tid`,
+Google Identity Platform tenants (see [identity](identity.md)). Cognito has no
+tenant claim of its own; map a custom attribute. The
+[example app](example-app.md) runs tenant-scoped with Keycloak Organizations.
 
 | Caller | Scope |
 |---|---|

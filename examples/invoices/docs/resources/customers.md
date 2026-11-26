@@ -28,6 +28,8 @@ Facturació
 
 Filtres: `country`, `name`, `tax_id` · Ordenació: `id`, `name`
 
+Multi-inquilí: cada registre pertany a l'inquilí del camp `organization`; les operacions es limiten a l'inquilí de qui crida.
+
 Auditoria: s'auditen els canvis i els intents denegats.
 
 Hi fan referència: [invoices.customer_id](invoices.md) (es denega mentre hi hagi referències).
@@ -60,6 +62,7 @@ Hi fan referència: [invoices.customer_id](invoices.md) (es denega mentre hi hag
 | Camp | Tipus | Obligatori | Descripció |
 |---|---|---|---|
 | `id` | `int` | sí | — |
+| `organization` | `str \| None` | no | Organització propietària (tenant); la posa el motor a partir del token |
 | `name` | `str` | sí | — |
 | `tax_id` | `str` | sí | — |
 | `country` | `str` | sí | — |

@@ -121,6 +121,11 @@
   mutations for writes, transitions and actions), references batched per
   request (`manager.get_many`), reverse and many-to-many fields with their own
   paging, engine error codes in `extensions`, a depth limit, `mount_graphql`.
+- Example app with Keycloak: realm `invoices` (organizations ACME and Globex,
+  demo users per role, a public PKCE client), the app verifies bearer tokens and
+  runs tenant-scoped by organization with policies seeded at start-up;
+  `keycloak(tenant_claim="organization")`; tests with locally signed tokens and
+  end to end against the compose Keycloak.
 - `resource-engine scaffold consumer`: payload models, a typed `EventRouter`
   and contract tests from a provider's AsyncAPI (3.0 or 2.x; envelope,
   CloudEvents or raw bodies). Contract testing on both sides:
@@ -142,7 +147,6 @@ what follows builds on it.
 
 ### Soon
 
-- Example app with authentication (Keycloak) so `invoices` can be tenant-scoped.
 - GraphQL next steps: subscriptions from the outbox events, Relay connections,
   persisted queries and query cost limits.
 - Timed transitions: deadlines declared on the state machine (expire a quote

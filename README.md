@@ -138,7 +138,8 @@ uv run ruff check . && uv run ruff format --check .
 uv run resource-engine inspect
 uv run resource-engine docs validate
 uv run resource-engine docs generate --out examples/invoices/docs
-uv run uvicorn invoices.app:app --app-dir examples --reload   # then open /docs
+docker compose -f compose.emulators.yaml up -d keycloak          # the example app's sign-in
+uv run uvicorn invoices.app:app --app-dir examples --reload   # then open /docs (docs/example-app.md)
 ```
 
 ## Documentation
@@ -164,6 +165,7 @@ uv run uvicorn invoices.app:app --app-dir examples --reload   # then open /docs
 - [Observability](docs/observability.md) — traces from request to consumer, metrics hooks, JSON logs.
 - [Background jobs](docs/jobs.md) — worker process, periodic jobs, services, one worker at a time.
 - [Audit trail](docs/audit.md) — committed changes and refused attempts, tamper-evident seals, retention.
+- [Example app](docs/example-app.md) — run `invoices` with Keycloak sign-in, organizations as tenants, demo users.
 - [Tenancy](docs/tenancy.md) — tenant-scoped resources, cross-tenant roles.
 - [Idempotency keys](docs/idempotency.md) — safe retries of writes (`Idempotency-Key`).
 - [Concurrency](docs/concurrency.md) — version field, `ETag` / `If-Match`, stale writes refused.

@@ -34,7 +34,7 @@ echoed.
 
 | Preset | Issuer | Roles | Notes | Tested against |
 |---|---|---|---|---|
-| `keycloak(base, realm, audience=)` | `<base>/realms/<realm>` | realm roles + client roles (built-ins removed) | add an *audience* mapper to the client | real Keycloak (compose) |
+| `keycloak(base, realm, audience=, tenant_claim=)` | `<base>/realms/<realm>` | realm roles + client roles (built-ins removed) | add an *audience* mapper to the client; `tenant_claim="organization"` takes the tenant from Keycloak Organizations (one organization per user), or name any claim | real Keycloak (compose), the [example app](example-app.md) |
 | `cognito(region, pool, client_ids=)` | `cognito-idp.<region>.amazonaws.com/<pool>` | `cognito:groups` | access tokens: checks `client_id` and `token_use`; `token_use="id"` for ID tokens | signed test tokens |
 | `entra_id(tenant, audience=)` | `login.microsoftonline.com/<tid>/v2.0` | app `roles`; `groups`; `scp` → scopes | v2 tokens; `organizations` + `allowed_tenants` for multi-tenant; subject = `oid` | signed test tokens |
 | `google_identity_platform(project)` | `securetoken.google.com/<project>` | custom claim (`roles_claim`) | Firebase Auth / Identity Platform; `tenants=` for multi-tenancy | signed test tokens |

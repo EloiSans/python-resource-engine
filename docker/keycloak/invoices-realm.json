@@ -1,0 +1,82 @@
+{
+  "realm": "invoices",
+  "displayName": "Invoices (Resource Engine example)",
+  "enabled": true,
+  "organizationsEnabled": true,
+  "accessTokenLifespan": 900,
+  "roles": {
+    "realm": [
+      {"name": "invoices-admin", "description": "Every organization: the admin system role (cross-tenant)"},
+      {"name": "accountant", "description": "Reads the organization's invoices (viewer system role)"},
+      {"name": "approver", "description": "Approves and rejects pending invoices under 10,000"},
+      {"name": "issuer", "description": "Creates and runs the organization's invoices, customers and tags"}
+    ]
+  },
+  "clients": [
+    {
+      "clientId": "invoices-web",
+      "name": "Invoices front end",
+      "description": "Public client for the front end (authorization code + PKCE); password grant for local development only",
+      "enabled": true,
+      "publicClient": true,
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": true,
+      "redirectUris": ["http://localhost:*", "http://127.0.0.1:*"],
+      "webOrigins": ["+"],
+      "attributes": {"pkce.code.challenge.method": "S256"},
+      "defaultClientScopes": ["basic", "roles", "profile", "email", "organization", "web-origins", "acr"],
+      "protocolMappers": [
+        {
+          "name": "audience-invoices-api",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "config": {
+            "included.custom.audience": "invoices-api",
+            "access.token.claim": "true",
+            "id.token.claim": "false",
+            "introspection.token.claim": "true"
+          }
+        }
+      ]
+    }
+  ],
+  "users": [
+    {
+      "username": "root", "email": "root@invoices.example", "firstName": "Platform", "lastName": "Admin",
+      "enabled": true, "emailVerified": true, "realmRoles": ["invoices-admin"],
+      "credentials": [{"type": "password", "value": "dev", "temporary": false}]
+    },
+    {
+      "username": "ada", "email": "ada@acme.example", "firstName": "Ada", "lastName": "Accountant",
+      "enabled": true, "emailVerified": true, "realmRoles": ["accountant"],
+      "credentials": [{"type": "password", "value": "dev", "temporary": false}]
+    },
+    {
+      "username": "pau", "email": "pau@acme.example", "firstName": "Pau", "lastName": "Approver",
+      "enabled": true, "emailVerified": true, "realmRoles": ["approver"],
+      "credentials": [{"type": "password", "value": "dev", "temporary": false}]
+    },
+    {
+      "username": "eli", "email": "eli@acme.example", "firstName": "Eli", "lastName": "Issuer",
+      "enabled": true, "emailVerified": true, "realmRoles": ["issuer"],
+      "credentials": [{"type": "password", "value": "dev", "temporary": false}]
+    },
+    {
+      "username": "gina", "email": "gina@globex.example", "firstName": "Gina", "lastName": "Issuer",
+      "enabled": true, "emailVerified": true, "realmRoles": ["issuer"],
+      "credentials": [{"type": "password", "value": "dev", "temporary": false}]
+    }
+  ],
+  "organizations": [
+    {
+      "name": "ACME", "alias": "acme", "enabled": true,
+      "domains": [{"name": "acme.example", "verified": false}],
+      "members": [{"username": "ada"}, {"username": "pau"}, {"username": "eli"}]
+    },
+    {
+      "name": "Globex", "alias": "globex", "enabled": true,
+      "domains": [{"name": "globex.example", "verified": false}],
+      "members": [{"username": "gina"}]
+    }
+  ]
+}

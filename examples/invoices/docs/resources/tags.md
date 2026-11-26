@@ -24,6 +24,8 @@ Facturació
 
 Filtres: `name` · Ordenació: `name`
 
+Multi-inquilí: cada registre pertany a l'inquilí del camp `organization`; les operacions es limiten a l'inquilí de qui crida.
+
 Auditoria: s'auditen els canvis i els intents denegats.
 
 Hi fan referència: [invoice_tags.tag_id](invoice_tags.md) (s'eliminen en cascada).
@@ -59,3 +61,4 @@ S'enllacen i es desenllacen creant i eliminant registres del recurs intermedi; `
 | `name` | `str` | sí | Nom visible |
 | `color` | `str` | no | Color a la interfície |
 | `id` | `int` | sí | — |
+| `organization` | `str \| None` | no | Organització propietària (tenant); la posa el motor a partir del token |

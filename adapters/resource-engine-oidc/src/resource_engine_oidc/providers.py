@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import re
 from collections.abc import Collection, Sequence
+from typing import Any
 
 import httpx
 from resource_engine.errors import AuthenticationFailed
@@ -20,12 +21,26 @@ from resource_engine_oidc.verifier import Claims, OidcAuthenticator, claim_path,
 KEYCLOAK_BUILTIN_ROLES = ("offline_access", "uma_authorization")
 
 
+def single_tenant(value: Any) -> str | None:
+    """One tenant from a claim: a string, a one-item list, or a one-key map
+    (Keycloak's organization claim with attributes); otherwise ``None``."""
+    if isinstance(value, str) and value:
+        return value
+    if isinstance(value, list | tuple) and len(value) == 1 and isinstance(value[0], str):
+        return value[0]
+    if isinstance(value, dict) and len(value) == 1:
+        (key,) = value
+        return str(key)
+    return None
+
+
 def keycloak(
     base_url: str,
     realm: str,
     *,
     audience: str | Sequence[str],
     client_id: str | None = None,
+    tenant_claim: str | None = None,
     http: httpx.AsyncClient | None = None,
 ) -> OidcAuthenticator:
     """Keycloak realm.
@@ -33,6 +48,15 @@ def keycloak(
     Roles are the realm roles plus the client roles of ``client_id`` (or of the
     token's ``azp``), without Keycloak's built-in ones. Add an *audience* mapper
     to the client so tokens carry ``audience``.
+
+    ``tenant_claim`` fills ``Principal.tenant``:
+
+    - ``"organization"`` for Keycloak Organizations (the ``organization`` client
+      scope gives the user's organization aliases; a user in exactly one
+      organization has it as tenant, in several none, so tenant-scoped
+      resources refuse them);
+    - any other claim (dotted paths allowed), for example a ``tenant`` user
+      attribute mapped to the token.
     """
     issuer = f"{base_url.rstrip('/')}/realms/{realm}"
     builtin = {*KEYCLOAK_BUILTIN_ROLES, f"default-roles-{realm}"}
@@ -55,6 +79,7 @@ def keycloak(
             scopes=split(claims.get("scope")),
             client_id=claims.get("azp"),
             service=username.startswith("service-account-"),
+            tenant=single_tenant(claim_path(claims, tenant_claim)) if tenant_claim else None,
             claims=claims,
         )
 

@@ -5,6 +5,9 @@ from decimal import Decimal
 
 from pydantic import BaseModel, ConfigDict, Field
 
+#: Tenant of every record of the module when tenancy is on (bootstrap.build_registry).
+ORGANIZATION = "Organització propietària (tenant); la posa el motor a partir del token"
+
 
 class CustomerCreate(BaseModel):
     """Dades per donar d'alta un client."""
@@ -29,6 +32,7 @@ class CustomerRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
+    organization: str | None = Field(default=None, description=ORGANIZATION)
     name: str
     tax_id: str
     country: str
@@ -48,6 +52,7 @@ class TagRead(TagCreate):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
+    organization: str | None = Field(default=None, description=ORGANIZATION)
 
 
 class InvoiceTagCreate(BaseModel):
@@ -63,6 +68,7 @@ class InvoiceTagRead(InvoiceTagCreate):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
+    organization: str | None = Field(default=None, description=ORGANIZATION)
 
 
 CUSTOMER_ID = "Client registrat (customers); el nom de `customer` es manté per compatibilitat"
@@ -102,6 +108,7 @@ class InvoiceRead(BaseModel):
     status: str
     rejection_reason: str | None
     version: int = Field(description="Versió del registre (ETag); envia-la a If-Match")
+    organization: str | None = Field(default=None, description=ORGANIZATION)
 
 
 class RejectInvoice(BaseModel):

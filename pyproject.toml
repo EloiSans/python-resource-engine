@@ -78,7 +78,7 @@ target-version = "py312"
 select = ["E", "F", "I", "UP", "B", "SIM"]
 
 [tool.resource-engine]
-registry = "invoices.bootstrap:registry"
+registry = "invoices.bootstrap:tenant_registry"
 authz = "invoices.bootstrap:authz"
 policies = "invoices.authz:SEED_POLICIES"
 metadata = "invoices.infrastructure.persistence:metadata"

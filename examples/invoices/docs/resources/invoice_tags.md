@@ -27,6 +27,8 @@ Facturació
 
 Filtres: `invoice_id`, `tag_id` · Ordenació: —
 
+Multi-inquilí: cada registre pertany a l'inquilí del camp `organization`; les operacions es limiten a l'inquilí de qui crida.
+
 Auditoria: s'auditen els canvis i els intents denegats.
 
 ## Referències
@@ -60,3 +62,4 @@ Amb `expand` (`?expand=` per HTTP) la resposta inclou el registre relacionat; el
 | `invoice_id` | `int` | sí | Factura |
 | `tag_id` | `int` | sí | Etiqueta |
 | `id` | `int` | sí | — |
+| `organization` | `str \| None` | no | Organització propietària (tenant); la posa el motor a partir del token |

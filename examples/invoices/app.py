@@ -1,5 +1,12 @@
 """Runnable example: ``uv run uvicorn invoices.app:app --app-dir examples --reload``.
 
+Every request needs a bearer token from Keycloak (``docker compose -f
+compose.emulators.yaml up -d keycloak``; realm ``invoices``, users ``eli``,
+``pau``, ``ada``, ``gina`` and ``root``, password ``dev``; see
+docs/example-app.md). Records belong to the caller's organization (the token's
+``organization`` claim): ACME users never see Globex records.
+``KEYCLOAK_URL`` and ``KEYCLOAK_REALM`` point elsewhere.
+
 Documents go to Garage/S3 when ``S3_ENDPOINT`` is set (see compose.emulators.yaml),
 otherwise to an in-memory store (lost on restart; for trying things out only)::
 
@@ -14,17 +21,36 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from resource_engine import ResourceManager
-from resource_engine_fastapi import mount_asyncapi, mount_resources
+from resource_engine.authz import PolicyAuthorizer, system_principal
+from resource_engine.ports.identity import Authenticator
+from resource_engine_fastapi import bearer_actor, mount_asyncapi, mount_resources
 from resource_engine_sqlalchemy import unit_of_work_factory
 from sqlalchemy.ext.asyncio import AsyncEngine, async_sessionmaker, create_async_engine
 
-from invoices.bootstrap import registry
+from invoices.authz import seed
+from invoices.bootstrap import authz, tenant_registry
 from invoices.infrastructure.persistence import engine as engine_tables
 from invoices.infrastructure.persistence import map_entities, metadata
 
 
-def create_app(engine: AsyncEngine | None = None) -> FastAPI:
+def keycloak_authenticator() -> Authenticator:
+    """Tokens of the example realm: roles from the realm, the tenant from the
+    user's organization."""
+    from resource_engine_oidc import keycloak
+
+    return keycloak(
+        os.getenv("KEYCLOAK_URL", "http://127.0.0.1:8180"),
+        os.getenv("KEYCLOAK_REALM", "invoices"),
+        audience="invoices-api",
+        tenant_claim="organization",
+    )
+
+
+def create_app(
+    engine: AsyncEngine | None = None, *, authenticator: Authenticator | None = None
+) -> FastAPI:
     map_entities()
+    registry = tenant_registry
     engine = engine or create_async_engine(
         os.getenv("DATABASE_URL", "sqlite+aiosqlite:///invoices.db")
     )
@@ -34,6 +60,7 @@ def create_app(engine: AsyncEngine | None = None) -> FastAPI:
     async def lifespan(app: FastAPI):
         async with engine.begin() as conn:
             await conn.run_sync(metadata.create_all)
+        await seed(manager, system_principal("invoices-seed"))  # roles and policies
         yield
         await engine.dispose()
 
@@ -45,15 +72,18 @@ def create_app(engine: AsyncEngine | None = None) -> FastAPI:
             yield
 
     app = FastAPI(title="Invoices (Resource Engine example)", lifespan=lifespan_with_store)
+    uow = unit_of_work_factory(
+        session_factory, registry, idempotency_table=engine_tables.idempotency
+    )
     manager = ResourceManager(
         registry,
-        unit_of_work_factory(
-            session_factory, registry, idempotency_table=engine_tables.idempotency
-        ),
+        uow,
         blob_store=blob_store,
+        authorizer=PolicyAuthorizer(authz, uow),  # system roles + policies as data
         audit=True,  # audit_log table, same transaction as each change
     )
-    mount_resources(app, registry, manager)
+    actor = bearer_actor(authenticator or keycloak_authenticator())
+    mount_resources(app, registry, manager, actor_dependency=actor)
     mount_asyncapi(app, registry)  # GET /asyncapi.json: the events it publishes
     return app
 

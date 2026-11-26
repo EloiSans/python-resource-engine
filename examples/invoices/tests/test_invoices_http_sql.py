@@ -5,18 +5,31 @@ from __future__ import annotations
 import pytest
 from fastapi.testclient import TestClient
 from invoices.app import create_app
+from invoices.devtokens import Tokens
 from sqlalchemy.ext.asyncio import create_async_engine
 from sqlalchemy.pool import StaticPool
 
 
 @pytest.fixture
-def client():
+def tokens():
+    return Tokens()
+
+
+@pytest.fixture
+def app(tokens):
     engine = create_async_engine(
         "sqlite+aiosqlite:///:memory:",
         poolclass=StaticPool,
         connect_args={"check_same_thread": False},
     )
-    with TestClient(create_app(engine)) as c:
+    return create_app(engine, authenticator=tokens.authenticator())
+
+
+@pytest.fixture
+def client(app, tokens):
+    """An ACME user who issues and approves invoices."""
+    with TestClient(app) as c:
+        c.headers.update(tokens.headers("eli", ["issuer", "approver"], "acme"))
         yield c
 
 
@@ -32,7 +45,7 @@ def test_crud_and_transitions_over_http(client):
     assert r.json()["error"]["code"] == "RE-E201"
 
     assert client.post("/invoices/1/transitions/submit").json()["status"] == "pending"
-    r = client.patch("/invoices/1", json={"notes": "late"})
+    r = client.patch("/invoices/1", json={"issue_date": "2026-12-01"})
     assert r.status_code == 422 and r.json()["error"]["code"] == "INVOICE"
 
     r = client.post("/invoices/1/transitions/reject", json={"reason": "Wrong VAT"})
@@ -181,3 +194,63 @@ def test_tags_many_to_many(client):
 
     assert client.delete(f"/tags/{urgent['id']}").status_code == 204  # cascades
     assert client.get(f"/invoices/{invoice['id']}/tags").json()["total"] == 1
+
+
+def test_every_request_needs_a_token(app):
+    with TestClient(app) as anonymous:
+        r = anonymous.get("/invoices")
+        assert r.status_code == 401 and r.json()["error"]["code"] == "RE-E701"
+        bad = anonymous.get("/invoices", headers={"Authorization": "Bearer nope"})
+        assert bad.status_code == 401
+
+
+def test_organizations_are_isolated(app, tokens):
+    acme = tokens.headers("eli", ["issuer"], "acme")
+    globex = tokens.headers("gina", ["issuer"], "globex")
+    nobody = tokens.headers("lost", ["issuer"])  # no organization in the token
+    with TestClient(app) as c:
+        mine = c.post("/invoices", json={"customer": "ACME", "amount": "5"}, headers=acme).json()
+        assert mine["organization"] == "acme"
+        theirs = c.post("/invoices", json={"customer": "G", "amount": "7"}, headers=globex).json()
+        assert theirs["organization"] == "globex"
+
+        assert [i["id"] for i in c.get("/invoices", headers=acme).json()["items"]] == [mine["id"]]
+        assert c.get(f"/invoices/{theirs['id']}", headers=acme).status_code == 404
+        stolen = c.post(
+            "/invoices",
+            json={"customer": "x", "amount": "1", "customer_id": None},
+            headers=acme,
+            params={"tenant": "globex"},
+        )
+        assert stolen.status_code == 403 and stolen.json()["error"]["code"] == "RE-E709"
+        customer = c.post("/customers", json={"name": "G", "tax_id": "B777"}, headers=globex)
+        cross = c.post(
+            "/invoices",
+            json={"customer": "x", "amount": "1", "customer_id": customer.json()["id"]},
+            headers=acme,
+        )
+        assert cross.json()["error"]["code"] == "RE-E108"  # another organization's customer
+        assert c.get("/invoices", headers=nobody).json()["error"]["code"] == "RE-E708"
+
+        admin = tokens.headers("root", ["invoices-admin"])  # cross-tenant system role
+        everyone = c.get("/invoices", headers=admin).json()
+        assert everyone["total"] == 2
+        only = c.get("/invoices", headers=admin, params={"tenant": "globex"}).json()
+        assert [i["organization"] for i in only["items"]] == ["globex"]
+        need = c.post("/tags", json={"name": "x"}, headers=admin)
+        assert need.json()["error"]["code"] == "RE-E708"  # admins name the organization
+        made = c.post("/tags", json={"name": "x"}, headers=admin, params={"tenant": "globex"})
+        assert made.json()["organization"] == "globex"
+
+
+def test_roles_from_the_token(app, tokens):
+    accountant = tokens.headers("ada", ["accountant"], "acme")
+    issuer = tokens.headers("eli", ["issuer"], "acme")
+    with TestClient(app) as c:
+        invoice = c.post("/invoices", json={"customer": "x", "amount": "1"}, headers=issuer)
+        assert invoice.status_code == 201
+        assert c.get("/invoices", headers=accountant).json()["total"] == 1
+        denied = c.post("/invoices", json={"customer": "x", "amount": "1"}, headers=accountant)
+        assert denied.status_code == 403 and denied.json()["error"]["code"] == "RE-E702"
+        me = c.get("/authz/me", headers=accountant).json()
+        assert me["roles"] == ["viewer"] and me["actions"]["invoices:list"] == "allowed"

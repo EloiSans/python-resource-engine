@@ -29,9 +29,11 @@ customers_table = Table(
     metadata,
     Column("id", Integer, primary_key=True, autoincrement=True),
     Column("name", String(200), nullable=False),
-    Column("tax_id", String(20), nullable=False, unique=True),
+    Column("tax_id", String(20), nullable=False),
     Column("country", String(2), nullable=False),
     Column("email", String(320), nullable=True),
+    Column("organization", String(100), nullable=True, index=True),
+    UniqueConstraint("organization", "tax_id"),
 )
 
 invoices_table = Table(
@@ -47,14 +49,18 @@ invoices_table = Table(
     Column("status", String(32), nullable=False),
     Column("rejection_reason", Text, nullable=True),
     Column("version", Integer, nullable=False, default=1),
+    # tenant (organization) when the app runs tenant-scoped; every query filters by it
+    Column("organization", String(100), nullable=True, index=True),
 )
 
 tags_table = Table(
     "tags",
     metadata,
     Column("id", Integer, primary_key=True, autoincrement=True),
-    Column("name", String(50), nullable=False, unique=True),
+    Column("name", String(50), nullable=False),
     Column("color", String(20), nullable=False),
+    Column("organization", String(100), nullable=True, index=True),
+    UniqueConstraint("organization", "name"),
 )
 
 invoice_tags_table = Table(
@@ -63,6 +69,7 @@ invoice_tags_table = Table(
     Column("id", Integer, primary_key=True, autoincrement=True),
     Column("invoice_id", Integer, ForeignKey("invoices.id"), nullable=False, index=True),
     Column("tag_id", Integer, ForeignKey("tags.id"), nullable=False, index=True),
+    Column("organization", String(100), nullable=True, index=True),
     UniqueConstraint("invoice_id", "tag_id"),
 )
 

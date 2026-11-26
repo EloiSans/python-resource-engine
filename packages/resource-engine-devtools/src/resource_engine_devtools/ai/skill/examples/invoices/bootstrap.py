@@ -9,14 +9,44 @@ from invoices.application.customers import CustomerResource
 from invoices.application.resource import InvoiceResource
 from invoices.application.tags import InvoiceTagResource, TagResource
 
-registry = ResourceRegistry()
-registry.register(CustomerResource)
-registry.register(InvoiceResource)
-registry.register(TagResource)
-registry.register(InvoiceTagResource)
-registry.register_documents()
-registry.register_authz()
-registry.register_audit()
+#: Records of these resources belong to an organization when tenancy is on.
+TENANT_FIELD = "organization"
+MODULE = (CustomerResource, InvoiceResource, TagResource, InvoiceTagResource)
+
+
+def build_registry(*, tenant_scoped: bool = False) -> ResourceRegistry:
+    """The module's resources and the engine's (documents, permissions, audit).
+
+    With ``tenant_scoped`` every module resource is confined to the caller's
+    organization (``tenant_field = "organization"``, from the Keycloak token):
+    the application (``invoices.app``) runs that way. Without it the same
+    resources ignore tenants, which keeps engine tests short.
+    """
+    registry = ResourceRegistry()
+    for resource in MODULE:
+        registry.register(_tenant_scoped(resource) if tenant_scoped else resource)
+    registry.register_documents()
+    registry.register_authz()
+    registry.register_audit()
+    return registry
+
+
+def _tenant_scoped(resource: type) -> type:
+    return type(
+        resource.__name__,
+        (resource,),
+        {
+            "__doc__": resource.__doc__,
+            "__module__": resource.__module__,
+            "name": resource.definition().name,
+            "tenant_field": TENANT_FIELD,
+        },
+    )
+
+
+registry = build_registry()
+#: What the application serves: every module record belongs to an organization.
+tenant_registry = build_registry(tenant_scoped=True)
 
 # Permissions: system roles are fixed here; everything else is policies created
 # from the front end (see invoices.authz for the seed used by tests and demos).

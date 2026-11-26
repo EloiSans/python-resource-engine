@@ -36,6 +36,8 @@ Facturació
 
 Filtres: `status`, `customer`, `customer_id` · Ordenació: `id`, `amount`, `issue_date`
 
+Multi-inquilí: cada registre pertany a l'inquilí del camp `organization`; les operacions es limiten a l'inquilí de qui crida.
+
 Concurrència optimista: el camp `version` és la versió del registre (capçalera `ETag`); les modificacions envien `If-Match` i una versió antiga es rebutja amb 409.
 
 Camps restringits: `notes` — cal una concessió explícita (`invoices:read:<camp>`, `invoices:write:<camp>`); si no, s'ometen de les respostes.
@@ -199,3 +201,4 @@ L'import d'una factura s'ha recalculat aplicant un descompte.
 | `status` | `str` | sí | — |
 | `rejection_reason` | `str \| None` | sí | — |
 | `version` | `int` | sí | Versió del registre (ETag); envia-la a If-Match |
+| `organization` | `str \| None` | no | Organització propietària (tenant); la posa el motor a partir del token |

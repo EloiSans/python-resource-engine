@@ -24,6 +24,7 @@ class Customer:
     tax_id: str
     country: str = "ES"
     email: str | None = None
+    organization: str | None = None
     id: int | None = field(default=None)
 
 
@@ -33,6 +34,7 @@ class Tag:
 
     name: str
     color: str = "grey"
+    organization: str | None = None
     id: int | None = field(default=None)
 
 
@@ -46,6 +48,7 @@ class InvoiceTag:
 
     invoice_id: int
     tag_id: int
+    organization: str | None = None
     id: int | None = field(default=None)
 
 
@@ -66,6 +69,7 @@ class Invoice:
     status: str | None = None
     rejection_reason: str | None = None
     version: int | None = None
+    organization: str | None = None
     id: int | None = field(default=None)
 
     def ensure_editable(self) -> None:

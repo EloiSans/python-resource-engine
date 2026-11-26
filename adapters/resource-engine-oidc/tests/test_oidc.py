@@ -46,6 +46,28 @@ async def test_keycloak_roles_and_service_account(signer, http):
     assert p.id == "keycloak:u-1"
 
 
+async def test_keycloak_organization_as_tenant(signer, http):
+    auth = keycloak(
+        "https://sso.example.com",
+        "acme",
+        audience="invoices-api",
+        tenant_claim="organization",
+        http=http,
+    )
+    base = {"iss": KC_ISS, "aud": "invoices-api", "sub": "u-2", "azp": "invoices-web"}
+    one = await auth.authenticate(signer.token({**base, "organization": ["acme"]}))
+    assert one.tenant == "acme"
+    attributes = {"organization": {"globex": {"region": ["eu"]}}}  # with organization attributes
+    assert (await auth.authenticate(signer.token({**base, **attributes}))).tenant == "globex"
+    several = {"organization": ["acme", "globex"]}
+    assert (await auth.authenticate(signer.token({**base, **several}))).tenant is None
+    assert (await auth.authenticate(signer.token(base))).tenant is None
+    custom = keycloak(
+        "https://sso.example.com", "acme", audience="invoices-api", tenant_claim="org.id", http=http
+    )
+    assert (await custom.authenticate(signer.token({**base, "org": {"id": "t-9"}}))).tenant == "t-9"
+
+
 async def test_rejections(signer, http):
     auth = keycloak("https://sso.example.com", "acme", audience="invoices-api", http=http)
     base = {"iss": KC_ISS, "aud": "invoices-api", "sub": "u"}
