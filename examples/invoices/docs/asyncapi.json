@@ -53,6 +53,35 @@
         }
       }
     },
+    "tags": {
+      "address": "tags",
+      "description": "Etiquetes per classificar factures.",
+      "title": "tags events",
+      "messages": {
+        "ResourceCreated": {
+          "$ref": "#/components/messages/tags.ResourceCreated"
+        },
+        "ResourceUpdated": {
+          "$ref": "#/components/messages/tags.ResourceUpdated"
+        },
+        "ResourceDeleted": {
+          "$ref": "#/components/messages/tags.ResourceDeleted"
+        }
+      }
+    },
+    "invoice_tags": {
+      "address": "invoice_tags",
+      "description": "Etiquetes assignades a factures (molts a molts).",
+      "title": "invoice_tags events",
+      "messages": {
+        "ResourceCreated": {
+          "$ref": "#/components/messages/invoice_tags.ResourceCreated"
+        },
+        "ResourceDeleted": {
+          "$ref": "#/components/messages/invoice_tags.ResourceDeleted"
+        }
+      }
+    },
     "authz_policies": {
       "address": "authz_policies",
       "description": "Access policies (ABAC), managed from the front end.",
@@ -156,6 +185,41 @@
         },
         {
           "$ref": "#/channels/invoices/messages/InvoiceTotalsRecalculated"
+        }
+      ]
+    },
+    "publish.tags": {
+      "action": "send",
+      "channel": {
+        "$ref": "#/channels/tags"
+      },
+      "title": "Publish tags events",
+      "summary": "Sent after each committed change, directly or through the outbox.",
+      "messages": [
+        {
+          "$ref": "#/channels/tags/messages/ResourceCreated"
+        },
+        {
+          "$ref": "#/channels/tags/messages/ResourceUpdated"
+        },
+        {
+          "$ref": "#/channels/tags/messages/ResourceDeleted"
+        }
+      ]
+    },
+    "publish.invoice_tags": {
+      "action": "send",
+      "channel": {
+        "$ref": "#/channels/invoice_tags"
+      },
+      "title": "Publish invoice_tags events",
+      "summary": "Sent after each committed change, directly or through the outbox.",
+      "messages": [
+        {
+          "$ref": "#/channels/invoice_tags/messages/ResourceCreated"
+        },
+        {
+          "$ref": "#/channels/invoice_tags/messages/ResourceDeleted"
         }
       ]
     },
@@ -617,6 +681,186 @@
           }
         },
         "summary": "L'import d'una factura s'ha recalculat aplicant un descompte."
+      },
+      "tags.ResourceCreated": {
+        "name": "ResourceCreated",
+        "title": "ResourceCreated",
+        "contentType": "application/json",
+        "payload": {
+          "$ref": "#/components/schemas/tags.ResourceCreated"
+        },
+        "correlationId": {
+          "location": "$message.payload#/correlation_id"
+        },
+        "headers": {
+          "type": "object",
+          "description": "Broker message attributes (SNS/SQS attributes, Service Bus application properties, Pub/Sub attributes, AMQP headers)",
+          "properties": {
+            "event_type": {
+              "const": "ResourceCreated"
+            },
+            "event_id": {
+              "type": "string"
+            },
+            "schema_version": {
+              "const": "1"
+            },
+            "resource": {
+              "type": "string"
+            },
+            "correlation_id": {
+              "type": "string"
+            },
+            "traceparent": {
+              "type": "string"
+            }
+          }
+        },
+        "summary": "tags: a record was created."
+      },
+      "tags.ResourceUpdated": {
+        "name": "ResourceUpdated",
+        "title": "ResourceUpdated",
+        "contentType": "application/json",
+        "payload": {
+          "$ref": "#/components/schemas/tags.ResourceUpdated"
+        },
+        "correlationId": {
+          "location": "$message.payload#/correlation_id"
+        },
+        "headers": {
+          "type": "object",
+          "description": "Broker message attributes (SNS/SQS attributes, Service Bus application properties, Pub/Sub attributes, AMQP headers)",
+          "properties": {
+            "event_type": {
+              "const": "ResourceUpdated"
+            },
+            "event_id": {
+              "type": "string"
+            },
+            "schema_version": {
+              "const": "1"
+            },
+            "resource": {
+              "type": "string"
+            },
+            "correlation_id": {
+              "type": "string"
+            },
+            "traceparent": {
+              "type": "string"
+            }
+          }
+        },
+        "summary": "tags: fields of a record changed."
+      },
+      "tags.ResourceDeleted": {
+        "name": "ResourceDeleted",
+        "title": "ResourceDeleted",
+        "contentType": "application/json",
+        "payload": {
+          "$ref": "#/components/schemas/tags.ResourceDeleted"
+        },
+        "correlationId": {
+          "location": "$message.payload#/correlation_id"
+        },
+        "headers": {
+          "type": "object",
+          "description": "Broker message attributes (SNS/SQS attributes, Service Bus application properties, Pub/Sub attributes, AMQP headers)",
+          "properties": {
+            "event_type": {
+              "const": "ResourceDeleted"
+            },
+            "event_id": {
+              "type": "string"
+            },
+            "schema_version": {
+              "const": "1"
+            },
+            "resource": {
+              "type": "string"
+            },
+            "correlation_id": {
+              "type": "string"
+            },
+            "traceparent": {
+              "type": "string"
+            }
+          }
+        },
+        "summary": "tags: a record was deleted."
+      },
+      "invoice_tags.ResourceCreated": {
+        "name": "ResourceCreated",
+        "title": "ResourceCreated",
+        "contentType": "application/json",
+        "payload": {
+          "$ref": "#/components/schemas/invoice_tags.ResourceCreated"
+        },
+        "correlationId": {
+          "location": "$message.payload#/correlation_id"
+        },
+        "headers": {
+          "type": "object",
+          "description": "Broker message attributes (SNS/SQS attributes, Service Bus application properties, Pub/Sub attributes, AMQP headers)",
+          "properties": {
+            "event_type": {
+              "const": "ResourceCreated"
+            },
+            "event_id": {
+              "type": "string"
+            },
+            "schema_version": {
+              "const": "1"
+            },
+            "resource": {
+              "type": "string"
+            },
+            "correlation_id": {
+              "type": "string"
+            },
+            "traceparent": {
+              "type": "string"
+            }
+          }
+        },
+        "summary": "invoice_tags: a record was created."
+      },
+      "invoice_tags.ResourceDeleted": {
+        "name": "ResourceDeleted",
+        "title": "ResourceDeleted",
+        "contentType": "application/json",
+        "payload": {
+          "$ref": "#/components/schemas/invoice_tags.ResourceDeleted"
+        },
+        "correlationId": {
+          "location": "$message.payload#/correlation_id"
+        },
+        "headers": {
+          "type": "object",
+          "description": "Broker message attributes (SNS/SQS attributes, Service Bus application properties, Pub/Sub attributes, AMQP headers)",
+          "properties": {
+            "event_type": {
+              "const": "ResourceDeleted"
+            },
+            "event_id": {
+              "type": "string"
+            },
+            "schema_version": {
+              "const": "1"
+            },
+            "resource": {
+              "type": "string"
+            },
+            "correlation_id": {
+              "type": "string"
+            },
+            "traceparent": {
+              "type": "string"
+            }
+          }
+        },
+        "summary": "invoice_tags: a record was deleted."
       },
       "authz_policies.ResourceCreated": {
         "name": "ResourceCreated",
@@ -1924,6 +2168,146 @@
           "payload"
         ]
       },
+      "invoice_tags.ResourceCreated": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Unique message id"
+          },
+          "type": {
+            "const": "ResourceCreated"
+          },
+          "occurred_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "correlation_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Id of the operation that produced the event"
+          },
+          "resource": {
+            "const": "invoice_tags"
+          },
+          "key": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Ordering key: <resource>:<entity_id>"
+          },
+          "schema_version": {
+            "const": "1"
+          },
+          "payload": {
+            "type": "object",
+            "properties": {
+              "resource": {
+                "const": "invoice_tags"
+              },
+              "entity_id": {
+                "type": "integer"
+              }
+            },
+            "required": [
+              "resource",
+              "entity_id"
+            ]
+          },
+          "trace": {
+            "type": "object",
+            "description": "W3C trace context of the producing operation",
+            "properties": {
+              "traceparent": {
+                "type": "string"
+              },
+              "tracestate": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "required": [
+          "id",
+          "type",
+          "occurred_at",
+          "schema_version",
+          "payload"
+        ]
+      },
+      "invoice_tags.ResourceDeleted": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Unique message id"
+          },
+          "type": {
+            "const": "ResourceDeleted"
+          },
+          "occurred_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "correlation_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Id of the operation that produced the event"
+          },
+          "resource": {
+            "const": "invoice_tags"
+          },
+          "key": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Ordering key: <resource>:<entity_id>"
+          },
+          "schema_version": {
+            "const": "1"
+          },
+          "payload": {
+            "type": "object",
+            "properties": {
+              "resource": {
+                "const": "invoice_tags"
+              },
+              "entity_id": {
+                "type": "integer"
+              }
+            },
+            "required": [
+              "resource",
+              "entity_id"
+            ]
+          },
+          "trace": {
+            "type": "object",
+            "description": "W3C trace context of the producing operation",
+            "properties": {
+              "traceparent": {
+                "type": "string"
+              },
+              "tracestate": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "required": [
+          "id",
+          "type",
+          "occurred_at",
+          "schema_version",
+          "payload"
+        ]
+      },
       "invoices.ActionExecuted": {
         "type": "object",
         "properties": {
@@ -2555,6 +2939,226 @@
               "transition",
               "source",
               "target"
+            ]
+          },
+          "trace": {
+            "type": "object",
+            "description": "W3C trace context of the producing operation",
+            "properties": {
+              "traceparent": {
+                "type": "string"
+              },
+              "tracestate": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "required": [
+          "id",
+          "type",
+          "occurred_at",
+          "schema_version",
+          "payload"
+        ]
+      },
+      "tags.ResourceCreated": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Unique message id"
+          },
+          "type": {
+            "const": "ResourceCreated"
+          },
+          "occurred_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "correlation_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Id of the operation that produced the event"
+          },
+          "resource": {
+            "const": "tags"
+          },
+          "key": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Ordering key: <resource>:<entity_id>"
+          },
+          "schema_version": {
+            "const": "1"
+          },
+          "payload": {
+            "type": "object",
+            "properties": {
+              "resource": {
+                "const": "tags"
+              },
+              "entity_id": {
+                "type": "integer"
+              }
+            },
+            "required": [
+              "resource",
+              "entity_id"
+            ]
+          },
+          "trace": {
+            "type": "object",
+            "description": "W3C trace context of the producing operation",
+            "properties": {
+              "traceparent": {
+                "type": "string"
+              },
+              "tracestate": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "required": [
+          "id",
+          "type",
+          "occurred_at",
+          "schema_version",
+          "payload"
+        ]
+      },
+      "tags.ResourceDeleted": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Unique message id"
+          },
+          "type": {
+            "const": "ResourceDeleted"
+          },
+          "occurred_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "correlation_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Id of the operation that produced the event"
+          },
+          "resource": {
+            "const": "tags"
+          },
+          "key": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Ordering key: <resource>:<entity_id>"
+          },
+          "schema_version": {
+            "const": "1"
+          },
+          "payload": {
+            "type": "object",
+            "properties": {
+              "resource": {
+                "const": "tags"
+              },
+              "entity_id": {
+                "type": "integer"
+              }
+            },
+            "required": [
+              "resource",
+              "entity_id"
+            ]
+          },
+          "trace": {
+            "type": "object",
+            "description": "W3C trace context of the producing operation",
+            "properties": {
+              "traceparent": {
+                "type": "string"
+              },
+              "tracestate": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "required": [
+          "id",
+          "type",
+          "occurred_at",
+          "schema_version",
+          "payload"
+        ]
+      },
+      "tags.ResourceUpdated": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Unique message id"
+          },
+          "type": {
+            "const": "ResourceUpdated"
+          },
+          "occurred_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "correlation_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Id of the operation that produced the event"
+          },
+          "resource": {
+            "const": "tags"
+          },
+          "key": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Ordering key: <resource>:<entity_id>"
+          },
+          "schema_version": {
+            "const": "1"
+          },
+          "payload": {
+            "type": "object",
+            "properties": {
+              "resource": {
+                "const": "tags"
+              },
+              "entity_id": {
+                "type": "integer"
+              },
+              "changes": {
+                "type": "object",
+                "description": "Changed fields: [old value, new value]",
+                "additionalProperties": {
+                  "type": "array",
+                  "minItems": 2,
+                  "maxItems": 2
+                }
+              }
+            },
+            "required": [
+              "resource",
+              "entity_id",
+              "changes"
             ]
           },
           "trace": {

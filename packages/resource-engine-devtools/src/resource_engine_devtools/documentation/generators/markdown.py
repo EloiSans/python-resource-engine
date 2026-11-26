@@ -159,6 +159,25 @@ def render_resource(r: ResourceDoc, audit_resource: str | None = None) -> str:
                     f"| `{ref.related_name}` o `{ref.related_name}:25` (una pàgina) |"
                 )
 
+    if r.links:
+        out += [
+            "",
+            "## Relacions molts a molts",
+            "",
+            "| Relació | Registres | A través de | Ruta |",
+            "|---|---|---|---|",
+        ]
+        for link in r.links:
+            out.append(
+                f"| `{link.name}` | [{link.resource}]({link.resource}.md) "
+                f"| [{link.field}]({link.field}.md) | `GET /{r.name}/{{id}}/{link.name}` |"
+            )
+        out += [
+            "",
+            "S'enllacen i es desenllacen creant i eliminant registres del recurs "
+            "intermedi; `expand` també accepta aquestes relacions.",
+        ]
+
     if r.events:
         out += ["", "## Esdeveniments de domini"]
         for e in r.events:

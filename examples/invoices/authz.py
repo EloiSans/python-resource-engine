@@ -26,6 +26,12 @@ APPROVER_POLICIES: list[dict[str, Any]] = [
         "actions": ["customers:list", "customers:get"],
     },
     {
+        "name": "Approvers see tags",
+        "effect": "allow",
+        "subjects": {"roles": ["approver"]},
+        "actions": ["tags:list", "tags:get", "invoice_tags:list", "invoice_tags:get"],
+    },
+    {
         "name": "Approvers read internal notes",
         "effect": "allow",
         "subjects": {"roles": ["approver"]},
@@ -60,6 +66,12 @@ ISSUER_POLICIES: list[dict[str, Any]] = [
             "invoices:detach:*",
             "invoices:download:*",
         ],
+    },
+    {
+        "name": "Issuers manage tags",
+        "effect": "allow",
+        "subjects": {"roles": ["issuer"]},
+        "actions": ["tags:*", "invoice_tags:*"],
     },
     {
         "name": "Issuers manage customers",

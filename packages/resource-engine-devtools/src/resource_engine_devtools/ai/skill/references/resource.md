@@ -206,7 +206,10 @@ and `list` filters on `customer_record.<filterable field>`. Never check
 references in hooks or join by hand. Each reference also gives the target a
 reverse relation (`GET /customers/{id}/invoices`, `manager.list_related`,
 `expand=["invoices:10"]`); name it with `related_name=` or hide it with
-`reverse=False`. See docs/relationships.md.
+`reverse=False`. Many-to-many: a join resource with two references and
+`link = ("invoice_id", "tag_id")` gives `invoices` a `tags` relation (and
+`tags` an `invoices` one); link by creating join records. `expand` paths nest
+with dots (`invoices.customer_record`). See docs/relationships.md.
 
 MCP tools for AI agents (`resource-engine-mcp`): `ResourceMcpServer(registry,
 manager)` turns the same operations into tools (`invoices_list`,

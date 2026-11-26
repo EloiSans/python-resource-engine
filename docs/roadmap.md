@@ -112,6 +112,10 @@
   capped inline `expand=invoices[:N]` with `total` and `has_more`;
   `related_name` / `reverse=False` on `Reference`. Front-end guide
   (`docs/frontend.md`).
+- Nested expansion (`expand=invoices.customer_record`, three levels), inline
+  reverse expansion on lists batched in one query, many-to-many links through
+  a join resource (`link = ("invoice_id", "tag_id")`: `GET /invoices/{id}/tags`,
+  `expand=tags`); the example gains `tags` and `invoice_tags`.
 - `resource-engine scaffold consumer`: payload models, a typed `EventRouter`
   and contract tests from a provider's AsyncAPI (3.0 or 2.x; envelope,
   CloudEvents or raw bodies). Contract testing on both sides:
@@ -133,16 +137,14 @@ what follows builds on it.
 
 ### Soon
 
-- Relationships, next steps: nested expansion (`expand=invoices.customer_record`),
-  many-to-many through a join resource, batched inline reverse expansion on lists.
+- GraphQL adapter (queries for `list`/`get` with relations, mutations for
+  writes, transitions and actions).
+- Example app with authentication (Keycloak) so `invoices` can be tenant-scoped.
 
 ### Later
 
-- GraphQL adapter (queries for `list`/`get` with relations, mutations for
-  writes, transitions and actions).
 - SOAP server adapter (WSDL from the schemas), only for a concrete integration
   that needs it; the SOAP client side already exists.
-- Example app with authentication (Keycloak) so `invoices` can be tenant-scoped.
 - Policy engines: OpenFGA conditions on input values, OPA bundles, Cedar schemas
   generated from the registry.
 - Audit: external sinks (OpenTelemetry logs, SIEM); retention per resource or outcome.

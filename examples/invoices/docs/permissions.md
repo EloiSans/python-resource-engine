@@ -37,6 +37,15 @@ Els rols de sistema es defineixen al codi i no es poden modificar des del front-
 | `invoices:download:summary` | ✓ | ✓ |
 | `invoices:read:notes` | ✓ |  |
 | `invoices:write:notes` | ✓ |  |
+| `tags:list` | ✓ | ✓ |
+| `tags:get` | ✓ | ✓ |
+| `tags:create` | ✓ |  |
+| `tags:update` | ✓ |  |
+| `tags:delete` | ✓ |  |
+| `invoice_tags:list` | ✓ | ✓ |
+| `invoice_tags:get` | ✓ | ✓ |
+| `invoice_tags:create` | ✓ |  |
+| `invoice_tags:delete` | ✓ |  |
 | `documents:list` | ✓ |  |
 | `documents:get` | ✓ |  |
 | `documents:transition:confirm` | ✓ |  |

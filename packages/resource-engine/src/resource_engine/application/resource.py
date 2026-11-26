@@ -23,6 +23,7 @@ from resource_engine.application.hooks import (
 from resource_engine.application.relations import (
     Reference,
     ReferenceDefinition,
+    normalize_link,
     normalize_references,
 )
 from resource_engine.application.slots import DocumentSlot
@@ -100,6 +101,11 @@ class Resource:
             ``{"customer_id": Reference("customers")}``. Integrity on writes,
             ``on_delete`` behaviour, ``expand`` and related filters (see
             docs/relationships.md).
+        link: On a join resource, the two reference fields it links
+            (``("invoice_id", "tag_id")``): invoices get a ``tags`` relation and
+            tags an ``invoices`` one (many-to-many).
+        link_names: Names of those relations, by link field
+            (``{"invoice_id": "labels"}``: the invoices' relation is ``labels``).
     """
 
     name: ClassVar[str | None] = None
@@ -129,6 +135,8 @@ class Resource:
     audit_exclude: ClassVar[Sequence[str]] = ()
     events: ClassVar[Sequence[type[DomainEvent]]] = ()
     references: ClassVar[Mapping[str, Reference]] = {}
+    link: ClassVar[Sequence[str] | None] = None
+    link_names: ClassVar[Mapping[str, str]] = {}
 
     # --- Mapping between schemas and entities. Override when needed. ---
 
@@ -204,6 +212,8 @@ class ResourceDefinition:
     require_version: bool
     events: tuple[type[DomainEvent], ...]
     references: Mapping[str, ReferenceDefinition]
+    link: tuple[str, str] | None
+    link_names: Mapping[str, str]
     dispatcher: HookDispatcher = field(repr=False, compare=False)
     machine: MachineRunner | None = field(repr=False, compare=False)
 
@@ -417,6 +427,7 @@ class ResourceDefinition:
                 doc="docs/messaging.md#declaring-events",
             )
 
+        references = normalize_references(name, owner, resource_cls.references, known_fields)
         description = resource_cls.__doc__ and inspect.cleandoc(resource_cls.__doc__)
         return cls(
             name=name,
@@ -443,7 +454,9 @@ class ResourceDefinition:
             version_field=version_field,
             require_version=resource_cls.require_version,
             events=events,
-            references=normalize_references(name, owner, resource_cls.references, known_fields),
+            references=references,
+            link=normalize_link(owner, resource_cls.link, resource_cls.link_names, references),
+            link_names=dict(resource_cls.link_names),
             dispatcher=HookDispatcher(hooks),
             machine=machine,
         )

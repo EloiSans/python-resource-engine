@@ -24,6 +24,7 @@ EXAMPLE_FILES = (
     "application/__init__.py",
     "application/schemas.py",
     "application/customers.py",
+    "application/tags.py",
     "application/resource.py",
     "application/hooks.py",
     "application/actions.py",

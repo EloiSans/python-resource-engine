@@ -7,10 +7,13 @@ from resource_engine.authz import AuthzConfig, IdpRoleSource, SystemRole
 
 from invoices.application.customers import CustomerResource
 from invoices.application.resource import InvoiceResource
+from invoices.application.tags import InvoiceTagResource, TagResource
 
 registry = ResourceRegistry()
 registry.register(CustomerResource)
 registry.register(InvoiceResource)
+registry.register(TagResource)
+registry.register(InvoiceTagResource)
 registry.register_documents()
 registry.register_authz()
 registry.register_audit()

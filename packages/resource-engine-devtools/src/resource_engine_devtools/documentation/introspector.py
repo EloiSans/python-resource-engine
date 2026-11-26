@@ -288,6 +288,21 @@ def introspect(registry: ResourceRegistry, authz: Any = None) -> DocumentationMo
                         related_name=ref.related_name if d.enabled("list") else None,
                     )
                 )
+    for d in registry:
+        if d.link is None:
+            continue
+        by_field = {r.field: r for r in d.references.values()}
+        a, b = (by_field[f] for f in d.link)
+        for source, target in ((a, b), (b, a)):
+            if source.target in by_name:
+                by_name[source.target].links.append(
+                    ReferenceDoc(
+                        name=d.link_names.get(source.field, target.target),
+                        field=d.name,
+                        resource=target.target,
+                        on_delete="link",
+                    )
+                )
     return DocumentationModel(
         resources=resources,
         engine_version=resource_engine.__version__,

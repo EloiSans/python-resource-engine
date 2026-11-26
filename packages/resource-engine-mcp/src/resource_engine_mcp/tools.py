@@ -206,15 +206,21 @@ class _Builder:
         names += [f"{re.escape(n)}(:[0-9]+)?" for n in reverse]
         parts = [f"{r.name} ({r.target} via {r.field})" for r in d.references.values()]
         parts += [
-            f"{n} (a page of {r.owner} whose {r.field} is this record; '{n}:25' sets the size)"
+            f"{n} (a page of {r.owner} "
+            + (f"whose {r.field} is this record" if r.field else f"linked through {r.join}")
+            + f"; '{n}:25' sets the size)"
             for n, r in reverse.items()
         ]
+        segment = r"[a-z_][a-z0-9_]*(:[0-9]+)?"
+        pattern = "^(" + "|".join(names) + r")(\." + segment + "){0,2}$"
         schema.add(
             "expand",
             {
                 "type": "array",
-                "items": {"type": "string", "pattern": f"^({'|'.join(names)})$"},
-                "description": "Related records to include: " + "; ".join(parts),
+                "items": {"type": "string", "pattern": pattern},
+                "description": "Related records to include: "
+                + "; ".join(parts)
+                + ". Nest with dots (invoices.customer_record), up to 3 levels.",
             },
         )
 
@@ -493,8 +499,12 @@ class _Builder:
             title=f"{ref.owner} of a {self.d.name} record",
             description=_describe(
                 self.d,
-                f"The {ref.owner} records whose {ref.field} is this {self.d.name} record, "
-                f"paged. The {self.d.name} record must be readable.",
+                (
+                    f"The {ref.owner} records whose {ref.field} is this {self.d.name} record"
+                    if ref.field
+                    else f"The {ref.owner} linked to this {self.d.name} record (through {ref.join})"
+                )
+                + f", paged. The {self.d.name} record must be readable.",
             ),
             input_schema=schema.build(),
             output_schema=_page_output(owner_read, list(owner.references)),

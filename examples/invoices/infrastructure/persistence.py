@@ -3,10 +3,21 @@
 from __future__ import annotations
 
 from resource_engine_sqlalchemy import NAMING_CONVENTION, engine_tables, map_engine
-from sqlalchemy import Column, Date, ForeignKey, Integer, MetaData, Numeric, String, Table, Text
+from sqlalchemy import (
+    Column,
+    Date,
+    ForeignKey,
+    Integer,
+    MetaData,
+    Numeric,
+    String,
+    Table,
+    Text,
+    UniqueConstraint,
+)
 from sqlalchemy.orm import registry as orm_registry
 
-from invoices.domain.entities import Customer, Invoice
+from invoices.domain.entities import Customer, Invoice, InvoiceTag, Tag
 
 # One MetaData for the module's tables and the engine's: Alembic autogenerate
 # sees both (examples/invoices/migrations). The convention names constraints.
@@ -38,6 +49,23 @@ invoices_table = Table(
     Column("version", Integer, nullable=False, default=1),
 )
 
+tags_table = Table(
+    "tags",
+    metadata,
+    Column("id", Integer, primary_key=True, autoincrement=True),
+    Column("name", String(50), nullable=False, unique=True),
+    Column("color", String(20), nullable=False),
+)
+
+invoice_tags_table = Table(
+    "invoice_tags",
+    metadata,
+    Column("id", Integer, primary_key=True, autoincrement=True),
+    Column("invoice_id", Integer, ForeignKey("invoices.id"), nullable=False, index=True),
+    Column("tag_id", Integer, ForeignKey("tags.id"), nullable=False, index=True),
+    UniqueConstraint("invoice_id", "tag_id"),
+)
+
 engine = engine_tables(metadata, documents=True, authz=True, audit=True, idempotency=True)
 
 _mapped = False
@@ -49,5 +77,7 @@ def map_entities() -> None:
     if not _mapped:
         mapper_registry.map_imperatively(Customer, customers_table)
         mapper_registry.map_imperatively(Invoice, invoices_table)
+        mapper_registry.map_imperatively(Tag, tags_table)
+        mapper_registry.map_imperatively(InvoiceTag, invoice_tags_table)
         map_engine(mapper_registry, engine)
         _mapped = True

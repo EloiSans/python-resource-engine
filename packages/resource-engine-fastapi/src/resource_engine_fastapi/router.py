@@ -177,6 +177,7 @@ def build_resource_router(
 
     reverse = manager.reverse.get(name, {})
     relations = [*definition.references, *(f"{r}[:size]" for r in reverse)]
+    nested_hint = ". Nest with dots (invoices.customer_record), up to 3 levels"
     expand_params = (
         [
             _param(
@@ -190,7 +191,8 @@ def build_resource_router(
                         f" (reverse relations embed one page, {EXPAND_PAGE_SIZE} by default)"
                         if reverse
                         else ""
-                    ),
+                    )
+                    + nested_hint,
                 ),
             )
         ]
@@ -519,8 +521,12 @@ def build_resource_router(
             if (owner_read := manager.registry.get(ref.owner).schemas.get("read"))
             else None,
             summary=f"{ref.owner} of one {name} record",
-            description=f"The {ref.owner} records whose {ref.field} is this {name} record, "
-            f"paged, with the caller's list permissions on {ref.owner}.",
+            description=(
+                f"The {ref.owner} records whose {ref.field} is this {name} record"
+                if ref.field
+                else f"The {ref.owner} records linked to this {name} record through {ref.join}"
+            )
+            + f", paged, with the caller's list permissions on {ref.owner}.",
         )
 
     add_owner_document_routes(router, definition, manager, actor_dependency)

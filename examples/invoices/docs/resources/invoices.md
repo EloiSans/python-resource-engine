@@ -122,6 +122,16 @@ Desa el document al magatzem de fitxers i emet ``DocumentAttached``.
 
 Amb `expand` (`?expand=` per HTTP) la resposta inclou el registre relacionat; els filtres `<relació>.<camp>` filtren pels camps filtrables del recurs relacionat.
 
+Hi fan referència: [invoice_tags.invoice_id](invoice_tags.md) (s'eliminen en cascada).
+
+## Relacions molts a molts
+
+| Relació | Registres | A través de | Ruta |
+|---|---|---|---|
+| `tags` | [tags](tags.md) | [invoice_tags](invoice_tags.md) | `GET /invoices/{id}/tags` |
+
+S'enllacen i es desenllacen creant i eliminant registres del recurs intermedi; `expand` també accepta aquestes relacions.
+
 ## Esdeveniments de domini
 
 ### `InvoiceTotalsRecalculated`

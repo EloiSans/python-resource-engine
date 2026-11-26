@@ -75,6 +75,11 @@ GET /invoices?offset=40&limit=20&order_by=-issue_date,id&status=draft&customer_r
 | All of a customer's invoices, paged | `GET /customers/3/invoices?offset=0&limit=20` | A normal page |
 
 - **Several at once:** `expand=customer_record,invoices`.
+- **Nested:** `expand=invoices.customer_record` or `customer_record.invoices:5`,
+  up to three levels.
+- **Many-to-many:** `GET /invoices/7/tags` or `expand=tags` work like reverse
+  relations. Link and unlink by creating and deleting the join records
+  (`POST /invoice_tags`, `DELETE /invoice_tags/{id}`).
 - **Expanded records:** they follow the same field rules as any other read.
 - **Choosing between them:** embed short lists you always show with the
   parent. Call the paged route for lists that grow, or that the user filters

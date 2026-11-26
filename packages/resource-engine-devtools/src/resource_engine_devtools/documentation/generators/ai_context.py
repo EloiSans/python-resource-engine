@@ -48,6 +48,10 @@ def render_ai_context(model: DocumentationModel) -> str:
         reverse = [x for x in r.referenced_by if x.related_name]
         if reverse:
             out.append("  reverse: " + ", ".join(f"{x.related_name}<-{x.field}" for x in reverse))
+        if r.links:
+            out.append(
+                "  links: " + ", ".join(f"{x.name}->{x.resource}(via {x.field})" for x in r.links)
+            )
         if r.events:
             out.append(
                 "  events: "

@@ -140,6 +140,8 @@ class ResourceDoc:
     events: list[EventDoc] = field(default_factory=list)
     references: list[ReferenceDoc] = field(default_factory=list)
     referenced_by: list[ReferenceDoc] = field(default_factory=list)
+    #: Many-to-many relations: ``name`` lists ``resource`` through the join ``field``.
+    links: list[ReferenceDoc] = field(default_factory=list)
 
 
 @dataclass

@@ -95,6 +95,8 @@ if TYPE_CHECKING:
 MAX_RELATED_MATCHES = 1000
 #: Records an inline reverse expansion embeds by default (``expand=["invoices"]``).
 EXPAND_PAGE_SIZE = 10
+#: Levels of a nested expansion (``invoices.customer_record`` is two).
+MAX_EXPAND_DEPTH = 3
 
 logger = logging.getLogger("resource_engine")
 
@@ -768,6 +770,8 @@ class ResourceManager:
         tenant: str | None = None,
         expand: Sequence[str] = (),
         _within: Mapping[str, Any] | None = None,
+        _condition: Any = None,
+        _unbounded: bool = False,
     ) -> Page[Any]:
         definition = self.registry.get(resource)
         self._require(definition, "list")
@@ -801,7 +805,8 @@ class ResourceManager:
                 ),
             )
         self._check_expand(definition, expand)
-        if query.limit < 1 or query.limit > definition.max_page_size or query.offset < 0:
+        too_many = query.limit > definition.max_page_size and not _unbounded
+        if query.limit < 1 or too_many or query.offset < 0:
             raise InvalidQuery(
                 f"limit must be between 1 and {definition.max_page_size} and offset >= 0",
             )
@@ -809,6 +814,10 @@ class ResourceManager:
         await self._gate(ctx, "list")
         # _within: the parent of a reverse relation (not a client filter)
         query = dataclasses.replace(query, filters={**own, **(_within or {})})
+        if _condition is not None:  # internal: related records by id
+            from resource_engine.authz.conditions import conjunction
+
+            query = dataclasses.replace(query, condition=conjunction(query.condition, _condition))
         tenant_query = self._tenant_query(ctx, query)
         if tenant_query is None:
             return Page([], 0, query.offset, query.limit)
@@ -816,6 +825,15 @@ class ResourceManager:
         rules = await self._read_rules(ctx)
         await self._gate_query(ctx, query, rules)
         async with self._reading(ctx):
+            if _condition is not None and not getattr(
+                ctx.repository(), "supports_conditions", False
+            ):
+                raise ConditionNotSupported(
+                    f"The repository of {definition.name!r} cannot select related records",
+                    hint="Many-to-many links need a repository with supports_conditions "
+                    "(in-memory, SQLAlchemy).",
+                    doc="docs/relationships.md#many-to-many",
+                )
             scoped = await self._scoped(ctx, query)
             if scoped is not None and related:
                 scoped = await self._related_scope(ctx, scoped, related)
@@ -869,30 +887,57 @@ class ResourceManager:
 
     # --------------------------------------------------------------- references
 
+    def _relation(self, definition: ResourceDefinition, name: str) -> tuple[str, Any, Any] | None:
+        """``(kind, relation, definition of the related records)`` for a relation
+        name: ``forward`` (a reference), ``reverse`` or ``link`` (many-to-many)."""
+        from resource_engine.application.relations import LinkDefinition
+
+        if name in definition.references:
+            ref = definition.references[name]
+            return "forward", ref, self.registry.get(ref.target)
+        rel = self.reverse.get(definition.name, {}).get(name)
+        if rel is None:
+            return None
+        kind = "link" if isinstance(rel, LinkDefinition) else "reverse"
+        return kind, rel, self.registry.get(rel.owner)
+
     def _check_expand(self, definition: ResourceDefinition, expand: Sequence[str]) -> None:
+        """Every path names relations (``invoices.customer_record``, at most
+        ``MAX_EXPAND_DEPTH`` levels); sizes only on reverse and link relations."""
         from resource_engine.application.relations import parse_expand
 
-        reverse = self.reverse.get(definition.name, {})
-        known = [*definition.references, *reverse]
         for item in expand:
-            name, size = parse_expand(item)
-            if name not in known:
+            path = item.split(".")
+            if len(path) > MAX_EXPAND_DEPTH:
                 raise InvalidQuery(
-                    f"{definition.name} has no relation {name!r} to expand",
-                    hint=f"Relations: {known or '(none)'}",
-                    doc="docs/relationships.md#expanding",
+                    f"expand {item!r} is nested more than {MAX_EXPAND_DEPTH} levels",
+                    doc="docs/relationships.md#nested-expansion",
                 )
-            if size is None:
-                continue
-            ref = reverse.get(name)
-            limit = self.registry.get(ref.owner).max_page_size if ref else 0
-            if ref is None or not 1 <= size <= limit:
-                raise InvalidQuery(
-                    f"Invalid expand {item!r}"
-                    + (f": the size must be between 1 and {limit}" if ref else "")
-                    + ("" if ref else ": only reverse relations take a page size"),
-                    doc="docs/relationships.md#reverse-relations",
-                )
+            current = definition
+            for segment in path:
+                name, size = parse_expand(segment)
+                found = self._relation(current, name)
+                if found is None:
+                    known = [*current.references, *self.reverse.get(current.name, {})]
+                    raise InvalidQuery(
+                        f"{current.name} has no relation {name!r} to expand",
+                        hint=f"Relations of {current.name}: {known or '(none)'}",
+                        doc="docs/relationships.md#expanding",
+                    )
+                kind, _rel, related = found
+                if size is not None:
+                    limit = related.max_page_size
+                    if kind == "forward" or not 1 <= size <= limit:
+                        raise InvalidQuery(
+                            f"Invalid expand {item!r}"
+                            + (
+                                ": only reverse relations take a page size"
+                                if kind == "forward"
+                                else f": the size must be between 1 and {limit}"
+                            ),
+                            doc="docs/relationships.md#reverse-relations",
+                        )
+                current = related
 
     async def _related_context(
         self, ctx: OperationContext, target: ResourceDefinition
@@ -907,6 +952,7 @@ class ResourceManager:
             correlation_id=ctx.correlation_id,
             uow=ctx.uow,
         )
+        tctx.extras["requested_tenant"] = ctx.extras.get("requested_tenant")
         if target.tenant_field is not None:
             from resource_engine.tenancy import resolve_tenant
 
@@ -936,7 +982,13 @@ class ResourceManager:
         return decision.allowed is True
 
     async def _related(
-        self, ctx: OperationContext, ref: ReferenceDefinition, ids: list[Any], *, read: bool = True
+        self,
+        ctx: OperationContext,
+        ref: ReferenceDefinition,
+        ids: list[Any],
+        *,
+        read: bool = True,
+        nested: Sequence[str] = (),
     ) -> dict[Any, Any]:
         """The records of ``ref.target`` with these ids that the caller may read
         (read models, or entities with ``read=False``), by id."""
@@ -952,10 +1004,15 @@ class ResourceManager:
             entities = [e for i in ids if (e := await repository.get(i)) is not None]
         rules = await self._read_rules(tctx) if read else None
         found: dict[Any, Any] = {}
+        visible: list[Any] = []
         for entity in entities:
             if await self._visible(tctx, entity):
                 key = getattr(entity, target.id_field)
                 found[key] = self._to_read(tctx, entity, rules) if read else entity
+                visible.append(entity)
+        if read and nested and visible:
+            reads = [found[getattr(e, target.id_field)] for e in visible]
+            await self._expand(tctx, visible, reads, nested)
         return found
 
     async def _check_references(
@@ -981,47 +1038,164 @@ class ResourceManager:
     async def _expand(
         self, ctx: OperationContext, entities: list[Any], results: list[Any], names: Sequence[str]
     ) -> None:
+        """Attach the expanded relations to ``results`` (read models of
+        ``entities``); nested paths continue on the related records."""
         from resource_engine.application.relations import attach, parse_expand, unique
 
-        for item in dict.fromkeys(names):
-            name, size = parse_expand(item)
-            reverse = self.reverse.get(ctx.resource.name, {}).get(name)
-            if reverse is not None:
+        groups: dict[str, tuple[int | None, list[str]]] = {}
+        for item in names:
+            head, _, rest = item.partition(".")
+            name, size = parse_expand(head)
+            known_size, nested = groups.setdefault(name, (size, []))
+            if known_size is None and size is not None:
+                groups[name] = (size, nested)
+            if rest:
+                nested.append(rest)
+        for name, (size, nested) in groups.items():
+            found = self._relation(ctx.resource, name)
+            assert found is not None  # checked by _check_expand
+            kind, rel, _related = found
+            if kind == "forward":
+                ids = unique(getattr(e, rel.field, None) for e in entities)
+                records = await self._related(ctx, rel, ids, nested=nested)
                 for entity, result in zip(entities, results, strict=True):
-                    page = await self._reverse_page(
-                        ctx, reverse, getattr(entity, ctx.resource.id_field), size
-                    )
-                    attach(result, {name: page})
+                    value = getattr(entity, rel.field, None)
+                    attach(result, {name: None if value is None else records.get(value)})
                 continue
-            ref = ctx.resource.references[name]
-            ids = unique(getattr(e, ref.field, None) for e in entities)
-            found = await self._related(ctx, ref, ids)
-            for entity, result in zip(entities, results, strict=True):
-                value = getattr(entity, ref.field, None)
-                attach(result, {name: None if value is None else found.get(value)})
+            parent_ids = [getattr(e, ctx.resource.id_field) for e in entities]
+            pages = await self._related_pages(ctx, kind, rel, parent_ids, size, nested)
+            for parent_id, result in zip(parent_ids, results, strict=True):
+                attach(result, {name: pages.get(parent_id)})
 
-    async def _reverse_page(
-        self, ctx: OperationContext, ref: ReferenceDefinition, parent_id: Any, size: int | None
-    ) -> Any:
-        """One page of the records pointing to ``parent_id``, or ``None`` when
-        the caller may not list them."""
+    async def _related_pages(
+        self,
+        ctx: OperationContext,
+        kind: str,
+        rel: Any,
+        parent_ids: list[Any],
+        size: int | None,
+        nested: Sequence[str],
+    ) -> dict[Any, Any]:
+        """One ``RelatedPage`` per parent (``None`` when the caller may not list
+        the records). Reverse relations of several parents load in one query
+        when they match at most ``MAX_RELATED_MATCHES`` records."""
         from resource_engine.application.relations import RelatedPage
 
-        owner = self.registry.get(ref.owner)
+        owner = self.registry.get(rel.owner)
         limit = min(size or EXPAND_PAGE_SIZE, owner.max_page_size)
-        if not await self.can(ctx.actor, ref.owner, "list"):
-            return None
+        needed = [rel.owner] if kind == "reverse" else [rel.join, rel.target]
+        for resource in needed:
+            if not await self.can(ctx.actor, resource, "list"):
+                return dict.fromkeys(parent_ids)
+        tenant = ctx.extras.get("requested_tenant")
+        out: dict[Any, Any] = {}
         try:
-            page = await self.list(
-                ref.owner,
-                ListQuery(limit=limit),
-                actor=ctx.actor,
-                tenant=ctx.extras.get("requested_tenant"),
-                _within={ref.field: parent_id},
-            )
+            if kind == "reverse" and len(parent_ids) > 1:
+                batch = await self._reverse_batch(ctx, rel, parent_ids, limit, nested)
+                if batch is not None:
+                    return batch
+            for parent_id in parent_ids:
+                if kind == "reverse":
+                    page = await self.list(
+                        rel.owner,
+                        ListQuery(limit=limit),
+                        actor=ctx.actor,
+                        tenant=tenant,
+                        expand=nested,
+                        _within={rel.field: parent_id},
+                    )
+                else:
+                    page = await self._linked(
+                        rel, parent_id, ListQuery(limit=limit), ctx.actor, tenant, nested
+                    )
+                out[parent_id] = RelatedPage(page.items, page.total, limit)
         except (PermissionDenied, TenantRequired, TenantMismatch):
+            return dict.fromkeys(parent_ids)
+        return out
+
+    async def _reverse_batch(
+        self,
+        ctx: OperationContext,
+        rel: ReferenceDefinition,
+        parent_ids: list[Any],
+        limit: int,
+        nested: Sequence[str],
+    ) -> dict[Any, Any] | None:
+        """Every parent's page from one query; ``None`` to fall back to one
+        query per parent (too many records, no conditions, hidden field)."""
+        from resource_engine.application.relations import RelatedPage
+        from resource_engine.authz.fields import hidden_fields
+
+        owner = self.registry.get(rel.owner)
+        repository_supports = await self._supports_conditions(owner.name)
+        if not repository_supports:
             return None
-        return RelatedPage(page.items, page.total, limit)
+        page = await self.list(
+            rel.owner,
+            ListQuery(limit=MAX_RELATED_MATCHES + 1),
+            actor=ctx.actor,
+            tenant=ctx.extras.get("requested_tenant"),
+            expand=nested,
+            _condition={"in": [{"attr": f"resource.{rel.field}"}, list(parent_ids)]},
+            _unbounded=True,
+        )
+        if page.total > MAX_RELATED_MATCHES:
+            return None
+        grouped: dict[Any, list[Any]] = {p: [] for p in parent_ids}
+        for item in page.items:
+            if rel.field in hidden_fields(item) or not hasattr(item, rel.field):
+                return None  # cannot tell whose it is
+            grouped.setdefault(getattr(item, rel.field), []).append(item)
+        return {
+            p: RelatedPage(items[:limit], len(items), limit)
+            for p, items in grouped.items()
+            if p in parent_ids or items
+        }
+
+    async def _supports_conditions(self, resource: str) -> bool:
+        async with self._reading() as uow:
+            return bool(getattr(uow.repository(resource), "supports_conditions", False))
+
+    async def _linked(
+        self,
+        link: Any,
+        source_id: Any,
+        query: ListQuery | None,
+        actor: Any,
+        tenant: str | None,
+        expand: Sequence[str],
+    ) -> Page[Any]:
+        """The ``link.target`` records linked to ``source_id`` through the join
+        resource, with the caller's permissions on both."""
+        target = self.registry.get(link.target)
+        rows = await self.list(
+            link.join,
+            ListQuery(limit=MAX_RELATED_MATCHES + 1),
+            actor=actor,
+            tenant=tenant,
+            _within={link.source_field: source_id},
+            _unbounded=True,
+        )
+        if rows.total > MAX_RELATED_MATCHES:
+            raise InvalidQuery(
+                f"More than {MAX_RELATED_MATCHES} {link.join} records link this {link.source}",
+                hint=f"List {link.join} filtered by {link.source_field} instead.",
+                doc="docs/relationships.md#many-to-many",
+            )
+        from resource_engine.application.relations import unique
+
+        ids = unique(getattr(row, link.target_field, None) for row in rows.items)
+        query = query or ListQuery()
+        if not ids:
+            return Page([], 0, query.offset, query.limit)
+        return await self.list(
+            link.target,
+            query,
+            actor=actor,
+            tenant=tenant,
+            expand=expand,
+            _condition={"in": [{"attr": f"resource.{target.id_field}"}, ids]},
+        )
 
     async def list_related(
         self,
@@ -1034,26 +1208,30 @@ class ResourceManager:
         tenant: str | None = None,
         expand: Sequence[str] = (),
     ) -> Page[Any]:
-        """The records of a reverse relation: ``list_related("customers", 7,
-        "invoices")`` lists the invoices of customer 7. The customer must be
-        readable by the caller (``get``); the invoices are listed with the
-        caller's ``list`` permissions, filters and ordering."""
+        """The records of a reverse relation or a many-to-many link:
+        ``list_related("customers", 7, "invoices")`` lists the invoices of
+        customer 7, ``list_related("invoices", 3, "tags")`` the tags of invoice 3.
+        The record must be readable by the caller (``get``); the related records
+        are listed with the caller's ``list`` permissions, filters and ordering."""
         definition = self.registry.get(resource)
-        ref = self.reverse.get(definition.name, {}).get(relation)
-        if ref is None:
+        found = self._relation(definition, relation)
+        if found is None or found[0] == "forward":
             raise InvalidQuery(
-                f"{definition.name} has no reverse relation {relation!r}",
-                hint=f"Reverse relations: {list(self.reverse.get(definition.name, {}))}",
+                f"{definition.name} has no reverse or many-to-many relation {relation!r}",
+                hint=f"Relations: {list(self.reverse.get(definition.name, {}))}",
                 doc="docs/relationships.md#reverse-relations",
             )
+        kind, rel, _related = found
         await self.get(definition.name, entity_id, actor=actor, tenant=tenant)
+        if kind == "link":
+            return await self._linked(rel, entity_id, query, actor, tenant, expand)
         return await self.list(
-            ref.owner,
+            rel.owner,
             query,
             actor=actor,
             tenant=tenant,
             expand=expand,
-            _within={ref.field: entity_id},
+            _within={rel.field: entity_id},
         )
 
     async def _related_scope(

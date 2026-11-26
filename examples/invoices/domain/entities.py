@@ -28,6 +28,28 @@ class Customer:
 
 
 @dataclass
+class Tag:
+    """Etiqueta per classificar factures (urgent, revisar, client nou...)."""
+
+    name: str
+    color: str = "grey"
+    id: int | None = field(default=None)
+
+
+@dataclass
+class InvoiceTag:
+    """Assignació d'una etiqueta a una factura.
+
+    Business Rules:
+        - Una factura no pot tenir la mateixa etiqueta dues vegades.
+    """
+
+    invoice_id: int
+    tag_id: int
+    id: int | None = field(default=None)
+
+
+@dataclass
 class Invoice:
     """Factura emesa a un client.
 

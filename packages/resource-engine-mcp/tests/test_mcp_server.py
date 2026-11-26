@@ -84,6 +84,7 @@ def test_tools_from_the_registry(manager):
         "invoices_transition_reopen",
         "invoices_action_recalculate_totals",
         "invoices_action_render_summary",
+        "invoices_tags",
     }
     create = tools["invoices_create"].to_mcp()
     assert create.input_schema["required"] == ["data"]
@@ -348,7 +349,9 @@ async def test_stdio():
 async def test_expand_and_related_filters(manager):
     server = ResourceMcpServer(registry, manager)
     get = server.tools["invoices_get"].to_mcp()
-    assert get.input_schema["properties"]["expand"]["items"]["pattern"] == "^(customer_record)$"
+    assert get.input_schema["properties"]["expand"]["items"]["pattern"].startswith(
+        "^(customer_record|tags"
+    )
     filters = server.tools["invoices_list"].to_mcp().input_schema["properties"]["filters"]
     assert "customer_record.country" in filters["properties"]
     async with Client(server.server) as client:
@@ -380,7 +383,7 @@ async def test_reverse_relations(manager):
     assert tool.annotations.read_only_hint is True
     assert "id" in tool.input_schema["required"]
     pattern = server.tools["customers_get"].to_mcp().input_schema["properties"]["expand"]
-    assert pattern["items"]["pattern"] == "^(invoices(:[0-9]+)?)$"
+    assert pattern["items"]["pattern"].startswith("^(invoices(:[0-9]+)?)")
     async with Client(server.server) as client:
         await client.list_tools()
         customer = await client.call_tool(
@@ -401,3 +404,28 @@ async def test_reverse_relations(manager):
         assert len(embedded["items"]) == 2
         missing = await client.call_tool("customers_invoices", {"id": 404})
         assert missing.structured_content["error"]["code"] == "RE-E102"
+
+
+async def test_many_to_many_tool(manager):
+    server = ResourceMcpServer(registry, manager)
+    assert (
+        "linked through invoice_tags"
+        in server.tools["invoices_get"].to_mcp().input_schema["properties"]["expand"]["description"]
+    )
+    async with Client(server.server) as client:
+        await client.list_tools()
+        created = await client.call_tool(
+            "invoices_create", {"data": {"customer": "x", "amount": 1}}
+        )
+        iid = created.structured_content["id"]
+        tag = await client.call_tool("tags_create", {"data": {"name": "urgent"}})
+        await client.call_tool(
+            "invoice_tags_create",
+            {"data": {"invoice_id": iid, "tag_id": tag.structured_content["id"]}},
+        )
+        tags = await client.call_tool("invoices_tags", {"id": iid})
+        assert [t["name"] for t in tags.structured_content["items"]] == ["urgent"]
+        nested = await client.call_tool("invoices_get", {"id": iid, "expand": ["tags.invoices"]})
+        assert not nested.is_error, nested.content
+        inner = nested.structured_content["tags"]["items"][0]["invoices"]
+        assert inner["total"] == 1

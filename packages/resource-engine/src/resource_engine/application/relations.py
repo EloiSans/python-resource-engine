@@ -23,7 +23,7 @@ from __future__ import annotations
 
 import types
 import typing
-from collections.abc import Iterable, Mapping
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Literal
 
@@ -173,26 +173,109 @@ def check_references(registry: ResourceRegistry) -> dict[str, list[ReferenceDefi
     return dependents
 
 
+@dataclass(frozen=True)
+class LinkDefinition:
+    """A many-to-many relation through a join resource: from a ``source``
+    record, the ``target`` records linked to it by ``join`` rows
+    (``join.source_field`` → source, ``join.target_field`` → target)."""
+
+    join: str
+    source: str
+    source_field: str
+    target: str
+    target_field: str
+    name: str
+    description: str | None = None
+
+    @property
+    def owner(self) -> str:
+        """The resource whose records the relation lists."""
+        return self.target
+
+    @property
+    def field(self) -> None:
+        return None
+
+
+def normalize_link(
+    qualname: str,
+    link: Sequence[str] | None,
+    link_names: Mapping[str, str],
+    references: Mapping[str, ReferenceDefinition],
+) -> tuple[str, str] | None:
+    """Validate ``Resource.link``: two of the resource's reference fields."""
+    if link is None:
+        if link_names:
+            raise ConfigurationError(f"{qualname}: link_names needs link", doc=DOC)
+        return None
+    fields = {ref.field for ref in references.values()}
+    pair = tuple(link)
+    if len(pair) != 2 or pair[0] == pair[1] or not set(pair) <= fields:
+        raise ConfigurationError(
+            f"{qualname}: link must name two different reference fields, not {link!r}",
+            hint='link = ("invoice_id", "tag_id"), both declared in references.',
+            doc=DOC + "#many-to-many",
+        )
+    unknown = set(link_names) - set(pair)
+    if unknown:
+        raise ConfigurationError(
+            f"{qualname}: link_names keys must be the link fields, not {sorted(unknown)}",
+            doc=DOC + "#many-to-many",
+        )
+    return pair  # type: ignore[return-value]
+
+
 #: Path segments of a record's own routes; reverse relations cannot use them.
 RESERVED_RELATIONS = frozenset({"transitions", "history", "actions", "documents"})
 
 
+def _links(registry: ResourceRegistry) -> dict[str, list[LinkDefinition]]:
+    """Many-to-many relations by the resource that gets them."""
+    out: dict[str, list[LinkDefinition]] = {}
+    for d in registry:
+        if d.link is None:
+            continue
+        by_field = {r.field: r for r in d.references.values()}
+        a, b = (by_field[f] for f in d.link)
+        for source, target in ((a, b), (b, a)):
+            if not (d.enabled("list") and registry.get(target.target).enabled("list")):
+                continue
+            out.setdefault(source.target, []).append(
+                LinkDefinition(
+                    join=d.name,
+                    source=source.target,
+                    source_field=source.field,
+                    target=target.target,
+                    target_field=target.field,
+                    name=d.link_names.get(source.field, target.target),
+                    description=d.description and d.description.splitlines()[0],
+                )
+            )
+    return out
+
+
 def reverse_relations(
     registry: ResourceRegistry, dependents: Mapping[str, list[ReferenceDefinition]]
-) -> dict[str, dict[str, ReferenceDefinition]]:
-    """The reverse relations of each resource (``customers`` → ``invoices``),
-    by target and related name."""
-    out: dict[str, dict[str, ReferenceDefinition]] = {}
-    for target, refs in dependents.items():
+) -> dict[str, dict[str, ReferenceDefinition | LinkDefinition]]:
+    """The reverse relations (``customers`` → ``invoices``) and many-to-many
+    links (``invoices`` → ``tags``) of each resource, by resource and name."""
+    out: dict[str, dict[str, ReferenceDefinition | LinkDefinition]] = {}
+    links = _links(registry)
+    for target in sorted(set(dependents) | set(links)):
+        refs: list[Any] = list(dependents.get(target, ())) + list(links.get(target, ()))
         definition = registry.get(target)
         read = definition.schemas.get("read")
         fields = set(read.model_fields) if read is not None else set()
-        named: dict[str, ReferenceDefinition] = {}
+        named: dict[str, ReferenceDefinition | LinkDefinition] = {}
         for ref in refs:
-            name = ref.related_name
-            if name is None or not registry.get(ref.owner).enabled("list"):
-                continue  # no reverse relation without list on the referencing resource
-            where = f"{ref.owner}.{ref.field}"
+            if isinstance(ref, LinkDefinition):
+                name = ref.name
+                where = f"{ref.join} link"
+            else:
+                name = ref.related_name
+                if name is None or not registry.get(ref.owner).enabled("list"):
+                    continue  # no reverse relation without list on the referencing resource
+                where = f"{ref.owner}.{ref.field}"
             clash = (
                 "another reverse relation"
                 if name in named
@@ -206,9 +289,10 @@ def reverse_relations(
             )
             if clash or not name.isidentifier():
                 raise ConfigurationError(
-                    f"{where}: the reverse relation {name!r} on {target} "
+                    f"{where}: the relation {name!r} on {target} "
                     + (f"clashes with {clash}" if clash else "is not a valid name"),
-                    hint="Pass related_name=... (or reverse=False) to the Reference.",
+                    hint="Pass related_name=... (or reverse=False) to the Reference, "
+                    "or link_names=... on the join resource.",
                     doc=DOC + "#reverse-relations",
                 )
             named[name] = ref
@@ -351,6 +435,7 @@ def unique(values: Iterable[Any]) -> list[Any]:
 
 
 __all__ = [
+    "LinkDefinition",
     "Reference",
     "ReferenceDefinition",
     "RelatedPage",

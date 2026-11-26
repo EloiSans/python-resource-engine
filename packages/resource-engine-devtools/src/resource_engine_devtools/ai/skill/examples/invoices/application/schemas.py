@@ -35,6 +35,36 @@ class CustomerRead(BaseModel):
     email: str | None
 
 
+class TagCreate(BaseModel):
+    """Dades d'una etiqueta nova."""
+
+    name: str = Field(min_length=1, max_length=50, description="Nom visible")
+    color: str = Field(default="grey", max_length=20, description="Color a la interfície")
+
+
+class TagRead(TagCreate):
+    """Representació pública d'una etiqueta."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+
+
+class InvoiceTagCreate(BaseModel):
+    """Etiqueta assignada a una factura."""
+
+    invoice_id: int = Field(description="Factura")
+    tag_id: int = Field(description="Etiqueta")
+
+
+class InvoiceTagRead(InvoiceTagCreate):
+    """Assignació d'una etiqueta a una factura."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+
+
 CUSTOMER_ID = "Client registrat (customers); el nom de `customer` es manté per compatibilitat"
 
 

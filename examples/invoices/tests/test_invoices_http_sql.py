@@ -154,3 +154,30 @@ def test_customers_and_references(client):
     params = {p["name"] for p in spec["paths"]["/invoices"]["get"]["parameters"]}
     assert {"expand", "customer_record.country", "customer_id"} <= params
     assert "/customers/{entity_id}/invoices" in spec["paths"]
+
+
+def test_tags_many_to_many(client):
+    acme = client.post("/customers", json={"name": "ACME", "tax_id": "B33333333"}).json()
+    invoice = client.post(
+        "/invoices", json={"customer": "x", "amount": "1", "customer_id": acme["id"]}
+    ).json()
+    urgent = client.post("/tags", json={"name": "urgent", "color": "red"}).json()
+    review = client.post("/tags", json={"name": "review"}).json()
+    for tag in (urgent, review):
+        r = client.post("/invoice_tags", json={"invoice_id": invoice["id"], "tag_id": tag["id"]})
+        assert r.status_code == 201, r.text
+    again = client.post("/invoice_tags", json={"invoice_id": invoice["id"], "tag_id": urgent["id"]})
+    assert again.status_code == 422 and again.json()["error"]["code"] == "INVOICE_TAG"
+
+    tags = client.get(f"/invoices/{invoice['id']}/tags", params={"order_by": "name"}).json()
+    assert [t["name"] for t in tags["items"]] == ["review", "urgent"]
+    assert client.get(f"/tags/{urgent['id']}/invoices").json()["total"] == 1
+
+    nested = client.get(
+        f"/customers/{acme['id']}", params={"expand": "invoices.tags,invoices.customer_record"}
+    ).json()
+    first = nested["invoices"]["items"][0]
+    assert first["tags"]["total"] == 2 and first["customer_record"]["name"] == "ACME"
+
+    assert client.delete(f"/tags/{urgent['id']}").status_code == 204  # cascades
+    assert client.get(f"/invoices/{invoice['id']}/tags").json()["total"] == 1

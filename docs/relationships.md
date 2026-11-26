@@ -144,13 +144,74 @@ GET /customers/7?expand=invoices:25       # first 25 (up to the related resource
   value is `null`.
 - **More records:** for more than the embedded page, call the paged route
   with `offset`.
-- **Cost:** on `list`, each record's page is one more query, so keep inline
-  pages small, or use the paged route.
+- **Cost on `list`:** every record's page loads in one query when together
+  they match at most `MAX_RELATED_MATCHES` (1,000) records. Above that, or
+  when the reference field is hidden from the caller, it falls back to one
+  query per record. Keep inline pages small, or use the paged route.
 
 Use inline expansion for short lists that are always shown with their parent,
 like an order's lines. Use the separate call for anything that can grow, like
 a customer's invoices or comment threads, where the front end pages, filters
 or loads it lazily.
+
+## Many-to-many
+
+A join resource links two resources. It holds two references and declares
+them as a `link`:
+
+```python
+class InvoiceTagResource(Resource):
+    model = InvoiceTag
+    schemas = {"create": InvoiceTagCreate, "read": InvoiceTagRead}
+    operations = ["list", "get", "create", "delete"]
+    references = {
+        "invoice_id": Reference("invoices", on_delete="cascade", reverse=False),
+        "tag_id": Reference("tags", on_delete="cascade", reverse=False),
+    }
+    link = ("invoice_id", "tag_id")  # invoices get `tags`, tags get `invoices`
+```
+
+- **Relations on both sides:** invoices get a `tags` relation and tags get
+  `invoices`, named after the other resource. `link_names={"invoice_id":
+  "labels"}` renames the relation on the resource that field points to.
+- **Reading:** links behave like reverse relations:
+  - `GET /invoices/{id}/tags` and `manager.list_related("invoices", 7, "tags")`
+    give a paged list of tags, with their filters, ordering and `expand`;
+  - `expand=tags` or `tags:5` embeds one page;
+  - the MCP tool is `invoices_tags`.
+- **Permissions:** the caller needs `list` on the join resource and on the
+  other side. Each linked record is checked like any other read.
+- **Linking and unlinking:** create or delete join records
+  (`POST /invoice_tags`, `DELETE /invoice_tags/{id}`). They are ordinary
+  operations with their own permissions, hooks, audit and events. Prevent
+  duplicates with a hook (as the example does) or a unique key in the table.
+- **Deleting a linked record:** `on_delete="cascade"` on the join resource's
+  references removes its links in the same transaction.
+- **Limits:**
+  - At most 1,000 links per record are followed (RE-E103 beyond that).
+  - The other side needs a repository with conditions (in-memory, SQLAlchemy).
+
+Use `reverse=False` on the join's references, as above, unless the join
+records carry data of their own worth listing (a role, a date). Without it, the
+join rows also appear as a reverse relation (`invoices.invoice_tags`).
+
+## Nested expansion
+
+Expansion paths nest with dots, up to three levels:
+
+```http
+GET /invoices/7?expand=customer_record.invoices:5
+GET /customers/3?expand=invoices.tags,invoices.customer_record
+```
+
+Each level follows the rules of its own kind:
+- a reference gives one record or `null`;
+- a reverse relation or link gives a page;
+- the caller's permissions apply at every level.
+
+Unknown names at any level, a page size on a reference, or more than three
+levels are refused with RE-E103. Every level costs at least one more query,
+so expand what the screen shows and no more.
 
 ## Filtering
 

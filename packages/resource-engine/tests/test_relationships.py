@@ -398,7 +398,7 @@ async def test_bad_reverse_expansions(manager):
         await manager.get("customers", acme, actor=ADMIN, expand=["invoices:0"])
     with pytest.raises(InvalidQuery, match="only reverse relations"):
         await manager.get("invoices", 1, actor=ADMIN, expand=["customer_record:5"])
-    with pytest.raises(InvalidQuery, match="no reverse relation"):
+    with pytest.raises(InvalidQuery, match="no reverse or many-to-many relation"):
         await manager.list_related("customers", acme, "orders", actor=ADMIN)
 
 
@@ -424,3 +424,133 @@ def test_reverse_names_are_checked():
     for name, clash in (("status", "a field"), ("history", "a route")):
         with pytest.raises(ConfigurationError, match=clash):
             build(related_name=name)
+
+
+# ---------------------------------------------- nested, batched, many-to-many
+
+
+async def _tag(manager, name: str) -> int:
+    return (await manager.create("tags", {"name": name}, actor=ADMIN)).id
+
+
+async def test_nested_expansion(manager):
+    acme = await _customer(manager, "ACME")
+    first = await _invoice(manager, acme)
+    await _invoice(manager, acme)
+
+    invoice = await manager.get(
+        "invoices", first, actor=ADMIN, expand=["customer_record.invoices:1"]
+    )
+    customer = expansions(invoice)["customer_record"]
+    siblings = expansions(customer)["invoices"]
+    assert (siblings.total, len(siblings.items)) == (2, 1)
+    dumped = dump_read(invoice)
+    assert dumped["customer_record"]["invoices"]["total"] == 2
+
+    customer = await manager.get(
+        "customers", acme, actor=ADMIN, expand=["invoices.customer_record"]
+    )
+    for item in expansions(customer)["invoices"].items:
+        assert expansions(item)["customer_record"].name == "ACME"
+
+    with pytest.raises(InvalidQuery, match="no relation 'vendor'"):
+        await manager.get("invoices", first, actor=ADMIN, expand=["customer_record.vendor"])
+    with pytest.raises(InvalidQuery, match="more than 3 levels"):
+        await manager.get(
+            "invoices",
+            first,
+            actor=ADMIN,
+            expand=["customer_record.invoices.customer_record.invoices"],
+        )
+
+
+async def test_reverse_expansion_on_lists_is_batched(manager, monkeypatch):
+    acme = await _customer(manager, "ACME")
+    globex = await _customer(manager, "Globex", "FR")
+    for customer, count in ((acme, 3), (globex, 1)):
+        for _ in range(count):
+            await _invoice(manager, customer)
+    calls: list[str] = []
+    original = manager.list
+
+    async def counting(resource, *args, **kw):
+        calls.append(resource)
+        return await original(resource, *args, **kw)
+
+    monkeypatch.setattr(manager, "list", counting)
+    page = await manager.list("customers", actor=ADMIN, expand=("invoices:2",))
+    assert calls.count("invoices") == 1  # one query for every customer's page
+    pages = {c.name: expansions(c)["invoices"] for c in page.items}
+    assert (pages["ACME"].total, len(pages["ACME"].items)) == (3, 2)
+    assert (pages["Globex"].total, pages["Globex"].has_more) == (1, False)
+
+    calls.clear()
+    monkeypatch.setattr(manager_module, "MAX_RELATED_MATCHES", 2)  # too many: one per parent
+    again = await manager.list("customers", actor=ADMIN, expand=("invoices:2",))
+    assert calls.count("invoices") == 3  # the batch, then one per customer
+    assert {c.name: expansions(c)["invoices"].total for c in again.items} == {
+        "ACME": 3,
+        "Globex": 1,
+    }
+
+
+async def test_many_to_many(manager):
+    acme = await _customer(manager, "ACME")
+    invoice = await _invoice(manager, acme)
+    other = await _invoice(manager, acme)
+    urgent, review, unused = [await _tag(manager, n) for n in ("urgent", "review", "unused")]
+    for tag in (urgent, review):
+        await manager.create("invoice_tags", {"invoice_id": invoice, "tag_id": tag}, actor=ADMIN)
+    await manager.create("invoice_tags", {"invoice_id": other, "tag_id": urgent}, actor=ADMIN)
+
+    tags = await manager.list_related(
+        "invoices", invoice, "tags", ListQuery(order_by=["name"]), actor=ADMIN
+    )
+    assert [t.name for t in tags.items] == ["review", "urgent"]
+    tagged = await manager.list_related("tags", urgent, "invoices", actor=ADMIN)
+    assert {i.id for i in tagged.items} == {invoice, other}
+    assert (await manager.list_related("tags", unused, "invoices", actor=ADMIN)).total == 0
+
+    one = await manager.get("invoices", invoice, actor=ADMIN, expand=["tags"])
+    assert {t.name for t in expansions(one)["tags"].items} == {"review", "urgent"}
+    listed = await manager.list("invoices", actor=ADMIN, expand=("tags:1",))
+    assert {i.id: expansions(i)["tags"].total for i in listed.items} == {invoice: 2, other: 1}
+
+    with pytest.raises(Exception, match="already has this tag"):
+        await manager.create("invoice_tags", {"invoice_id": invoice, "tag_id": urgent}, actor=ADMIN)
+    # deleting a tag cascades to its assignments
+    await manager.delete("tags", urgent, actor=ADMIN)
+    assert (await manager.list_related("invoices", other, "tags", actor=ADMIN)).total == 0
+
+
+async def test_links_follow_permissions(manager):
+    acme = await _customer(manager, "ACME")
+    invoice = await _invoice(manager, acme)
+    tag = await _tag(manager, "urgent")
+    await manager.create("invoice_tags", {"invoice_id": invoice, "tag_id": tag}, actor=ADMIN)
+    # clerks read invoices, but not tags or their assignments
+    seen = await manager.get("invoices", invoice, actor=CLERK, expand=["tags"])
+    assert expansions(seen) == {"tags": None}
+
+
+def test_link_declarations_are_checked():
+    class TagLink(Resource):
+        name = "links"
+        model = Line
+        schemas = {"create": LineIO, "read": LineIO}
+        operations = ["list", "get"]
+        references = {"order_id": Reference("orders")}
+        link = ("order_id", "sku")
+
+    with pytest.raises(ConfigurationError, match="two different reference fields"):
+        TagLink.definition()
+
+    class Names(Resource):
+        name = "names"
+        model = Line
+        schemas = {"create": LineIO, "read": LineIO}
+        operations = ["list", "get"]
+        link_names = {"order_id": "x"}
+
+    with pytest.raises(ConfigurationError, match="link_names needs link"):
+        Names.definition()
