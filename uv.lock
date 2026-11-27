@@ -2332,6 +2332,9 @@ dependencies = [
 all = [
     { name = "aiobotocore" },
 ]
+athena = [
+    { name = "aiobotocore" },
+]
 eventbridge = [
     { name = "aiobotocore" },
 ]
@@ -2348,13 +2351,14 @@ sqs = [
 [package.metadata]
 requires-dist = [
     { name = "aiobotocore", marker = "extra == 'all'", specifier = ">=2.13" },
+    { name = "aiobotocore", marker = "extra == 'athena'", specifier = ">=2.13" },
     { name = "aiobotocore", marker = "extra == 'eventbridge'", specifier = ">=2.13" },
     { name = "aiobotocore", marker = "extra == 'ses'", specifier = ">=2.13" },
     { name = "aiobotocore", marker = "extra == 'sns'", specifier = ">=2.13" },
     { name = "aiobotocore", marker = "extra == 'sqs'", specifier = ">=2.13" },
     { name = "resource-engine", editable = "packages/resource-engine" },
 ]
-provides-extras = ["sqs", "sns", "ses", "eventbridge", "all"]
+provides-extras = ["sqs", "sns", "ses", "eventbridge", "athena", "all"]
 
 [[package]]
 name = "resource-engine-azure"

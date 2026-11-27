@@ -10,6 +10,7 @@ from resource_engine_aws.sqs import SqsMessagePublisher
 from resource_engine_aws.sqs_source import SqsMessageSource, decode_sqs_body
 
 __all__ = [
+    "AthenaEngine",
     "decode_sqs_body",
     "EventBridgePublisher",
     "parse_ses",
@@ -21,6 +22,7 @@ __all__ = [
 
 #: Imported on first use, so each needs only its own extra.
 _LAZY = {
+    "AthenaEngine": "resource_engine_aws.athena",
     "EventBridgePublisher": "resource_engine_aws.eventbridge",
 }
 

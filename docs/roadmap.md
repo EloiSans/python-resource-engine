@@ -289,6 +289,11 @@
   V4 signed URLs; fake-gcs-server) pass `BlobStoreContract`;
   `EventBridgePublisher` (`PutEvents`, `detail-type` = event type) and
   `EventGridPublisher` (CloudEvents batches under 1 MB, topic key or Entra).
+- Data-lake views (`docs/query-engines.md`): `QueryEngineStore` serves view
+  resources from a `QueryEngine`, compiling filters, the row filter, tenancy,
+  sorting and paging to parameterised SQL per dialect; `TrinoEngine` and
+  `BigQueryEngine` (`resource-engine-http`), `AthenaEngine` (`[athena]`), each
+  with a scan or billing limit and a timeout; Trino in compose.
 
 ## Next
 
@@ -313,11 +318,3 @@ Nothing scheduled: the next items come from Later.
   compensation hooks for remote writes.
 - Reference document processors (ClamAV scan, text extraction).
 - NoSQL repositories (DynamoDB, Cosmos DB, Firestore) after adding capability flags.
-- Query-engine adapters over data lakes: Amazon Athena, Google BigQuery, Azure
-  Synapse serverless SQL, Trino/Presto (and Databricks SQL, Snowflake). Read-only
-  repositories for view resources: filters, sorting and paging compiled to the
-  engine's SQL, the caller's row filter and tenant pushed down, asynchronous
-  queries (start, poll, read pages) with timeouts and a scanned-bytes or cost
-  limit, results cached with the `Cache` port. Tested against Trino in compose
-  (MinIO or Garage with Iceberg or Hive tables); the managed services through
-  their emulators where they exist.

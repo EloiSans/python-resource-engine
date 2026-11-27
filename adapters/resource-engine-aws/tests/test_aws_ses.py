@@ -168,3 +168,66 @@ async def test_eventbridge_entries_and_failures():
     assert entry["DetailType"] == "InvoiceApproved" and entry["EventBusName"] == "invoices"
     assert json.loads(entry["Detail"])["id"] == sent[0].id
     assert entry["Resources"] == ["com.example.invoices:invoices"]
+
+
+async def test_athena_runs_polls_and_types_the_results():
+    from decimal import Decimal
+
+    from resource_engine.errors import RemoteCallFailed
+    from resource_engine_aws import AthenaEngine
+
+    class Athena:
+        def __init__(self, final="SUCCEEDED"):
+            self.states = ["RUNNING", final]
+            self.request = None
+
+        async def start_query_execution(self, **request):
+            self.request = request
+            return {"QueryExecutionId": "q1"}
+
+        async def get_query_execution(self, QueryExecutionId):
+            state = self.states.pop(0)
+            return {
+                "QueryExecution": {
+                    "Status": {"State": state, "StateChangeReason": "scanned too much"}
+                }
+            }
+
+        async def get_query_results(self, **kw):
+            meta = {
+                "ColumnInfo": [
+                    {"Name": "id", "Type": "integer"},
+                    {"Name": "amount", "Type": "decimal"},
+                ]
+            }
+            if "NextToken" not in kw:
+                return {
+                    "ResultSet": {
+                        "ResultSetMetadata": meta,
+                        "Rows": [
+                            {"Data": [{"VarCharValue": "id"}, {"VarCharValue": "amount"}]},
+                            {"Data": [{"VarCharValue": "1"}, {"VarCharValue": "10.50"}]},
+                        ],
+                    },
+                    "NextToken": "t",
+                }
+            return {
+                "ResultSet": {
+                    "ResultSetMetadata": meta,
+                    "Rows": [{"Data": [{"VarCharValue": "2"}, {}]}],
+                }
+            }
+
+        async def stop_query_execution(self, QueryExecutionId):
+            pass
+
+    # fmt: skip
+
+    client = Athena()
+    engine = AthenaEngine(client, database="sales", poll=0)
+    rows = await engine.query("SELECT id, amount FROM t WHERE region = ?", ["it's"])
+    assert rows == [{"id": 1, "amount": Decimal("10.50")}, {"id": 2, "amount": None}]
+    assert client.request["ExecutionParameters"] == ["'it''s'"]
+    assert client.request["QueryExecutionContext"] == {"Database": "sales"}
+    with pytest.raises(RemoteCallFailed, match="scanned too much"):
+        await AthenaEngine(Athena(final="FAILED"), poll=0).query("SELECT 1", [])

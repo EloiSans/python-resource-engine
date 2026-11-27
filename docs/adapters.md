@@ -327,6 +327,7 @@ uv run pytest -m emulator
 | Mailpit | `axllent/mailpit:v1.27.0` | http://127.0.0.1:8026; SMTP on :1026 | Catches every email (`resource-engine-smtp`, the example's worker). Not the usual 1025/8025, so it can run next to another project's Mailpit. |
 | Azurite | `mcr.microsoft.com/azure-storage/azurite:3.34.0` | Blob on :10000 | `AzureBlobStore`, with the well-known development account. |
 | fake-gcs-server | `fsouza/fake-gcs-server:1.52.2` | JSON API on :4443 | `GcsBlobStore`. |
+| Trino | `trinodb/trino:476` | REST on :8088 | Data-lake views (`TrinoEngine`), memory catalog (`docker/trino/catalog`). |
 | Gotenberg | `gotenberg/gotenberg:8.17.3` | API on :3010 | HTML to PDF for generated documents (`GotenbergPdfConverter`). |
 | Keycloak | `quay.io/keycloak/keycloak:26.4` | http://127.0.0.1:8180 (admin/admin) | Realm imported from `docker/keycloak/`. |
 | OPA | `openpolicyagent/opa:1.22.4` | REST on :8181 | Serves `docker/opa/*.rego` and reloads on change. |

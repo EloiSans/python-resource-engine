@@ -74,7 +74,7 @@ asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
 testpaths = ["packages", "adapters", "examples", "evals", "scripts"]
 markers = [
-    "emulator(name): needs a running emulator or local service (aws, pubsub, garage, rabbitmq, redis, mailpit, gotenberg, keycloak, opa, openfga, postgres); skipped when it is not reachable",
+    "emulator(name): needs a running emulator or local service (aws, pubsub, garage, rabbitmq, redis, mailpit, gotenberg, trino, azurite, fake-gcs, keycloak, opa, openfga, postgres); skipped when it is not reachable",
 ]
 pythonpath = ["examples"]
 

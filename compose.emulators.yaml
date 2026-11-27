@@ -118,6 +118,18 @@ services:
     ports:
       - "127.0.0.1:4443:4443"
 
+  trino:
+    # Query engine for data-lake view resources: REST on :8088, the memory catalog.
+    image: trinodb/trino:476
+    ports:
+      - "127.0.0.1:8088:8080"
+    volumes:
+      - ./docker/trino/catalog/memory.properties:/etc/trino/catalog/memory.properties:ro
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://127.0.0.1:8080/v1/info"]
+      interval: 5s
+      retries: 60
+
   keycloak:
     # Admin console: http://127.0.0.1:8180 (admin / admin). Realms "resource-engine",
     # "invoices" (the example app) and "partner" (a SAML IdP federated into "invoices").

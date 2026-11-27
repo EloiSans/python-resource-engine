@@ -25,6 +25,7 @@ sqs = ["aiobotocore>=2.13"]
 sns = ["aiobotocore>=2.13"]
 ses = ["aiobotocore>=2.13"]
 eventbridge = ["aiobotocore>=2.13"]
+athena = ["aiobotocore>=2.13"]
 all = ["aiobotocore>=2.13"]
 
 [project.urls]

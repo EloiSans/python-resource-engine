@@ -16,6 +16,7 @@ from resource_engine_http.email import (
     parse_postmark,
     parse_sendgrid,
 )
+from resource_engine_http.engines import BigQueryEngine, TrinoEngine
 from resource_engine_http.pdf import GotenbergPdfConverter
 from resource_engine_http.rest import (
     RemoteUnitOfWork,
@@ -28,6 +29,8 @@ from resource_engine_http.rest import (
 from resource_engine_http.webhook import WebhookMessagePublisher
 
 __all__ = [
+    "BigQueryEngine",
+    "TrinoEngine",
     "GraphEmailSender",
     "PostmarkEmailSender",
     "SendGridEmailSender",
