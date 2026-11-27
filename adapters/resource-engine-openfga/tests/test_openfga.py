@@ -122,3 +122,135 @@ async def test_large_listings_are_refused(fga_engine):
         await manager.create("notes", {"owner": ANN.id, "text": text}, actor=ANN)
     with pytest.raises(ConditionNotSupported):
         await manager.list("notes", actor=ANN)
+
+
+# ---------------------------------------------------------------- conditions
+
+
+@dataclass
+class Payment:
+    amount: float
+    id: int | None = None
+
+
+class PaymentIn(BaseModel):
+    amount: float
+
+
+class PaymentOut(PaymentIn):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+
+
+def conditional_model() -> dict:
+    """Writers may create payments under the limit stored on their tuple, and
+    update them while the stored amount is under it too."""
+    double = {"type_name": "TYPE_NAME_DOUBLE"}
+
+    def via_role(condition: str) -> dict:
+        return {
+            "directly_related_user_types": [
+                {"type": "role", "relation": "member", "condition": condition}
+            ]
+        }
+
+    users = {"directly_related_user_types": [{"type": "user"}]}
+    return {
+        "schema_version": "1.1",
+        "type_definitions": [
+            {"type": "user"},
+            {
+                "type": "role",
+                "relations": {"member": {"this": {}}},
+                "metadata": {"relations": {"member": users}},
+            },
+            {
+                "type": "payments",
+                "relations": {"creator": {"this": {}}, "editor": {"this": {}}},
+                "metadata": {
+                    "relations": {
+                        "creator": via_role("input_under_limit"),
+                        "editor": via_role("record_under_limit"),
+                    }
+                },
+            },
+        ],
+        "conditions": {
+            "input_under_limit": {
+                "name": "input_under_limit",
+                "expression": "input_amount < limit",
+                "parameters": {"input_amount": double, "limit": double},
+            },
+            "record_under_limit": {
+                "name": "record_under_limit",
+                "expression": "resource_amount < limit",
+                "parameters": {"resource_amount": double, "limit": double},
+            },
+        },
+    }  # fmt: skip
+
+
+async def test_conditions_read_the_input_and_the_record():
+    import httpx as _httpx
+    from openfga_sdk.client.models import ClientTuple
+    from openfga_sdk.models import RelationshipCondition
+    from resource_engine_openfga import OpenFgaEngine
+
+    from .conftest import OPENFGA_URL
+
+    async with _httpx.AsyncClient(base_url=OPENFGA_URL) as http:
+        store = (await http.post("/stores", json={"name": "t-conditions"})).json()
+        model = await http.post(
+            f"/stores/{store['id']}/authorization-models", json=conditional_model()
+        )
+        model.raise_for_status()
+    engine = OpenFgaEngine(
+        api_url=OPENFGA_URL,
+        store_id=store["id"],
+        model_id=model.json()["authorization_model_id"],
+        relations={"payments:create": "creator", "payments:get": "editor",
+                   "payments:update": "editor"},
+        conditions=True,
+    )  # fmt: skip
+    limit = {"limit": 1000.0}
+    await engine.client.write_tuples(
+        [
+            ClientTuple(
+                user="role:writer#member",
+                relation=relation,
+                object=f"payments:{target}",
+                condition=RelationshipCondition(name=name, context=limit),
+            )
+            for relation, target, name in (
+                ("creator", "collection", "input_under_limit"),
+                ("editor", "1", "record_under_limit"),
+                ("editor", "2", "record_under_limit"),
+            )
+        ]
+    )
+
+    class PaymentResource(Resource):
+        model = Payment
+        schemas = {"create": PaymentIn, "update": PaymentIn, "read": PaymentOut}
+        operations = ["get", "create", "update"]
+
+    registry = ResourceRegistry()
+    registry.register(PaymentResource)
+    store_ = InMemoryStore.from_registry(registry)
+    manager = ResourceManager(registry, store_.unit_of_work, authorizer=EngineAuthorizer(engine))
+    try:
+        small = await manager.create("payments", {"amount": 500}, actor=ANN)
+        from resource_engine.errors import PermissionDenied
+
+        with pytest.raises(PermissionDenied):
+            await manager.create("payments", {"amount": 5000}, actor=ANN)
+        big = Payment(amount=4000)
+        store_.tables["payments"][2] = big
+        big.id = 2
+        assert (
+            await manager.update("payments", small.id, {"amount": 700}, actor=ANN)
+        ).amount == 700
+        with pytest.raises((PermissionDenied, EntityNotFound)):
+            await manager.update("payments", 2, {"amount": 10}, actor=ANN)
+    finally:
+        await engine.client.close()

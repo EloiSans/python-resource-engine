@@ -715,6 +715,50 @@ def cmd_i18n(args: argparse.Namespace) -> int:
     return 1 if failed else 0
 
 
+def cmd_authz(args: argparse.Namespace) -> int:
+    """Artefacts for external policy engines: a Cedar schema, an OPA bundle."""
+    registry = _registry(args)
+    if args.authz_command == "cedar-schema":
+        try:
+            from resource_engine_cedar import cedar_schema, validate
+        except ImportError:
+            _emit(
+                args,
+                {"error": "install resource-engine-cedar"},
+                "error: needs resource-engine-cedar",
+            )
+            return 2
+        types = dict(item.split("=", 1) for item in args.entity_type or [])
+        schema = cedar_schema(registry, entity_types=types)
+        text = json.dumps(schema, indent=2, sort_keys=True) + "\n"
+        if args.out:
+            Path(args.out).write_text(text, encoding="utf-8")
+        if args.check:
+            problems = validate(Path(args.check), schema)
+            _emit(
+                args,
+                {"passed": not problems, "problems": problems},
+                "\n".join(problems) or f"{args.check}: every policy fits the schema",
+            )
+            return 1 if problems else 0
+        if args.out:
+            _emit(args, {"written": args.out}, f"wrote {args.out}")
+        else:
+            sys.stdout.write(text)
+        return 0
+    try:
+        from resource_engine_opa import opa_bundle
+    except ImportError:
+        _emit(args, {"error": "install resource-engine-opa"}, "error: needs resource-engine-opa")
+        return 2
+    bundle = opa_bundle(registry, load_authz(Path.cwd()), policies=args.policies)
+    Path(args.out).write_bytes(bundle)
+    _emit(
+        args, {"written": args.out, "bytes": len(bundle)}, f"wrote {args.out} ({len(bundle)} bytes)"
+    )
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     common = argparse.ArgumentParser(add_help=False)
     common.add_argument("--json", action="store_true", help="machine-readable output")
@@ -962,6 +1006,27 @@ def build_parser() -> argparse.ArgumentParser:
         "--variable", default="SEED_POLICIES", help="list in <package>/authz.py to append to"
     )
     p.set_defaults(func=cmd_scaffold)
+
+    authz = sub.add_parser(
+        "authz", help="artefacts for external policy engines (Cedar, OPA)"
+    ).add_subparsers(dest="authz_command", required=True)
+    p = authz.add_parser(
+        "cedar-schema", parents=[common], help="the Cedar schema of the resources and actions"
+    )
+    p.add_argument("--out", help="write it to this file (default: print it)")
+    p.add_argument(
+        "--entity-type",
+        action="append",
+        help="resource=EntityType, as CedarEngine(entity_types=...) (repeatable)",
+    )
+    p.add_argument("--check", help="validate the .cedar policies in this file or directory")
+    p.set_defaults(func=cmd_authz)
+    p = authz.add_parser(
+        "opa-bundle", parents=[common], help="an OPA bundle: the catalogue and your Rego"
+    )
+    p.add_argument("--out", default="bundle.tar.gz")
+    p.add_argument("--policies", help="a .rego file or a directory of them to include")
+    p.set_defaults(func=cmd_authz)
 
     i18n = sub.add_parser(
         "i18n", help="translation catalogues ([tool.resource-engine.i18n])"

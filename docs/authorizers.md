@@ -157,6 +157,39 @@ The translator supports these Cedar constructs:
 `like`, `in` on entity hierarchies, arithmetic, `if` and tags fail closed. Call
 `engine.reload()` after editing the files.
 
+### Validating policies against the application
+
+A misspelled action or attribute in a Cedar policy doesn't fail: it just
+never matches, and access is silently denied. A schema generated from the
+registry catches those mistakes before they ship:
+
+```bash
+uv run resource-engine authz cedar-schema --entity-type invoices=Invoice --out cedar.schema.json
+uv run resource-engine authz cedar-schema --entity-type invoices=Invoice --check policies/   # in CI
+```
+
+```python
+from resource_engine_cedar import CedarEngine, cedar_schema, validate
+
+schema = cedar_schema(registry, entity_types={"invoices": "Invoice"})
+assert validate(Path("policies/"), schema) == []
+engine = CedarEngine(Path("policies/"), schema=schema, entity_types={"invoices": "Invoice"})
+```
+
+- **Principal:** `User`, a member of `Role`, with `id`, `subject`,
+  `provider`, `roles`, `groups` and `scopes`, plus the optional `tenant`,
+  `client_id`, `service`, `email` and `name`. The token's other `claims` are
+  left out, because their shape is the provider's.
+- **Resources:** one entity type per resource, with the entity's attributes
+  and their types: strings, longs, booleans, `decimal`, `datetime`, sets and
+  records. Fields typed `X | None` are optional, so policies test them with
+  `has`.
+- **Actions:** every action of the catalogue, field actions included,
+  applying to its resource's type. Their context has `action`, `now` and
+  `operation`, and `input` typed from the operation's input schema.
+- **Requests fit it:** with a JSON schema, `CedarEngine` sends only the
+  attributes the schema declares, so requests always fit it.
+
 ## OpenFGA
 
 ```python
@@ -204,6 +237,87 @@ class InvoiceResource(Resource):
 
 Changes that move relationships, such as a new owner, need a hook of their own.
 
+### Conditions
+
+OpenFGA conditions (CEL) attach a rule to a tuple: a role may create
+payments *under its limit*. With `conditions=True`, every check sends the
+condition context:
+
+| Parameter | Value |
+|---|---|
+| `input_<field>` | The operation's validated input (`input_amount`) |
+| `resource_<field>` | The record's attributes (`resource_status`) |
+| `action`, `operation` | The action and the operation |
+| `now` | The time of the check (RFC 3339) |
+
+Values are scalars or lists of scalars: decimals become doubles, and dates
+and datetimes become RFC 3339 text. Nested objects and `None` are left out.
+
+```text
+condition input_under_limit(input_amount: double, limit: double) {
+  input_amount < limit
+}
+
+type payments
+  relations
+    define creator: [role#member with input_under_limit]
+```
+
+```python
+engine = OpenFgaEngine(..., relations={"payments:create": "creator"}, conditions=True)
+await engine.client.write_tuples(
+    [
+        ClientTuple(
+            user="role:clerk#member",
+            relation="creator",
+            object="payments:collection",
+            condition=RelationshipCondition(name="input_under_limit", context={"limit": 1000.0}),
+        )
+    ]
+)
+```
+
+The input isn't known when the engine is first asked (step 2). A conditional
+decision therefore waits for the record: the engine answers "decide with the
+record", and the real check runs at step 5b with the input and the record.
+Row filters (`list_objects`) send the same context, without the input.
+
+## OPA bundles
+
+```bash
+uv run resource-engine authz opa-bundle --policies policies/ --out bundle.tar.gz
+```
+
+The bundle holds your `.rego` files (test files `*_test.rego` stay out) and
+the application's catalogue as data at `data.resource_engine.catalog`:
+
+- `actions`: every action with its `resource`, `kind`, `qualifier`,
+  whether it's `restricted`, and its `input` attributes;
+- `resources`: their `id_field`, `tenant_field`, `restricted_fields`,
+  `attributes` and their types, and the `states` of each state machine;
+- `system_roles`: their `grants`.
+
+Policies can then look the catalogue up instead of repeating it:
+
+```rego
+actions := data.resource_engine.catalog.actions
+
+allow if {
+	actions[input.action].kind == "transition"
+	actions[input.action].resource == "invoices"
+	"approver" in input.subject.roles
+}
+```
+
+Don't name a rule `catalog` in the `resource_engine` package: it would
+clash with the data at that path.
+
+- **Reproducible:** the manifest's revision is a hash of the content, so
+  the same code and policies give the same bytes, and OPA only reloads when
+  something changed.
+- **Publishing:** build it in CI and put it where OPA's bundle service polls
+  (S3, a CDN, nginx, GitHub Pages).
+
 ## Testing your engine
 
 `resource_engine.testing.ConditionEngine` is an in-memory engine, with rules
@@ -218,12 +332,6 @@ written in the condition language. It is handy for application tests.
 - anonymous and system callers.
 
 All three adapters run it.
-
-## Not yet
-
-- Serving OPA bundles.
-- Cedar schemas generated from the registry, to validate policies in CI.
-- OpenFGA conditions (CEL) on input values.
 
 ## Not planned
 

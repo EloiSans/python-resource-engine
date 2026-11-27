@@ -265,6 +265,13 @@
   bulk), OpenTelemetry log records. `Retention` rules per resource and outcome
   (first match, `None` keeps forever); with a sealer, a batch goes when every
   entry in it is past its own rule.
+- Policy-as-code support: `cedar_schema(registry)` and `resource-engine authz
+  cedar-schema --check policies/` validate Cedar policies against the real
+  resources, actions and attributes (and `CedarEngine` sends only declared
+  attributes); `resource-engine authz opa-bundle` builds a reproducible OPA
+  bundle with the Rego files and the catalogue as data; OpenFGA conditions
+  (`conditions=True`) get the input and the record as CEL parameters, deciding
+  at step 5b.
 
 ## Next
 
@@ -278,6 +285,11 @@ Nothing scheduled: the next items come from Later.
 
 ### Later
 
+- Document generation and table export: documents rendered from templates per
+  record (PDF, DOCX or HTML through the `TemplateRenderer` port, stored in a
+  document slot or downloaded), and list exports as CSV or XLSX with the
+  caller's filters, sorting, permissions, hidden fields and tenant, streamed
+  or as a background job for large tables.
 - Email: provider HTTP APIs (Postmark, SendGrid, Microsoft Graph), bounce and
   complaint handling, emails listed in the generated docs.
 - Translatable data fields (a product name per language): storage,
@@ -287,8 +299,6 @@ Nothing scheduled: the next items come from Later.
   OpenAPI, AsyncAPI and GraphQL, and the contract checks comparing versions.
 - SOAP server adapter (WSDL from the schemas), only for a concrete integration
   that needs it; the SOAP client side already exists.
-- Policy engines: OpenFGA conditions on input values, OPA bundles, Cedar schemas
-  generated from the registry.
 - EventBridge and Event Grid publishers.
 - SAP: OData v2/v4 repository for S/4HANA APIs on top of the REST repository,
   BTP destination service lookup.

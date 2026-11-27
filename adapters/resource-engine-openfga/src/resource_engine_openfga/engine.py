@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 from collections.abc import Iterable, Mapping
+from datetime import UTC, date, datetime
+from decimal import Decimal
 from typing import TYPE_CHECKING, Any
 
 from openfga_sdk.client import ClientConfiguration, OpenFgaClient
@@ -13,6 +15,23 @@ from resource_engine.ports.authz import AuthzRequest
 
 if TYPE_CHECKING:
     from resource_engine.application.registry import ResourceRegistry
+
+
+def _cel_value(value: Any) -> Any:
+    """A value OpenFGA's CEL conditions can take, or ``None``."""
+    if value is None or isinstance(value, bool | int | str):
+        return value
+    if isinstance(value, Decimal | float):
+        return float(value)
+    if isinstance(value, datetime):
+        moment = value if value.tzinfo else value.replace(tzinfo=UTC)
+        return moment.astimezone(UTC).isoformat().replace("+00:00", "Z")
+    if isinstance(value, date):
+        return value.isoformat() + "T00:00:00Z"
+    if isinstance(value, list | tuple | set | frozenset):
+        items = [_cel_value(v) for v in value]
+        return [i for i in items if i is not None]
+    return None
 
 
 def safe_id(value: Any) -> str:
@@ -42,6 +61,12 @@ class OpenFgaEngine:
             (default: ``*:create``).
         max_objects: Row filters list at most this many objects; beyond it the
             filter is refused (``ConditionNotSupported``) rather than truncated.
+        conditions: The model has conditions (CEL) on its tuples. Every check
+            then sends the condition context: the operation's input as
+            ``input_<field>``, the record as ``resource_<field>``, plus
+            ``action``, ``operation`` and ``now`` (RFC 3339). Decisions that
+            need the input wait for it: at step 2 the engine answers "decide
+            with the record", and the check runs at step 5b with both.
     """
 
     def __init__(
@@ -58,6 +83,7 @@ class OpenFgaEngine:
         collection_id: str = "collection",
         collection_actions: Iterable[str] = ("*:create",),
         max_objects: int = 1000,
+        conditions: bool = False,
     ) -> None:
         if client is None:
             client = OpenFgaClient(
@@ -73,6 +99,7 @@ class OpenFgaEngine:
         self.collection_id = collection_id
         self.collection_actions = tuple(collection_actions)
         self.max_objects = max_objects
+        self.conditions = conditions
         self._id_types: dict[str, type[Any]] = {}
 
     def bind(self, registry: ResourceRegistry) -> None:
@@ -114,25 +141,57 @@ class OpenFgaEngine:
             return False
         user = self.user(request.subject)
         tuples = self._context_tuples(request.subject) or None
+        key = {"attr": f"resource.{request.id_field}"}
+        context = self.condition_context(request) if self.conditions else None
+        if self.conditions and request.input is ... and not request.filter:
+            return {"exists": key}  # conditions may read the input: decide at step 5b
         if any(action_matches(p, request.action) for p in self.collection_actions):
+            if self.conditions and request.resource is ... and request.input is ...:
+                return {"exists": key}
             target = self.object(request.resource_type, self.collection_id)
-            return await self._check(user, relation, target, tuples)
+            return await self._check(user, relation, target, tuples, context)
         if request.resource is not ...:
             target = self.object(request.resource_type, request.entity_id)
-            return await self._check(user, relation, target, tuples)
-        key = {"attr": f"resource.{request.id_field}"}
+            return await self._check(user, relation, target, tuples, context)
         if not request.filter:  # decided on the record (step 5b)
             return {"exists": key}
-        ids = await self._list(user, relation, request.resource_type, tuples)
+        ids = await self._list(user, relation, request.resource_type, tuples, context)
         return {"in": [key, ids]}
 
+    def condition_context(self, request: AuthzRequest) -> dict[str, Any]:
+        """The CEL parameters a conditional tuple can declare: ``input_<field>``,
+        ``resource_<field>``, ``action``, ``operation`` and ``now``. Values are
+        scalars (decimals as doubles, dates as RFC 3339 text) or lists of them;
+        nested objects and ``None`` are left out."""
+        context: dict[str, Any] = {}
+        for prefix, values in (("input", request.input), ("resource", request.resource)):
+            if isinstance(values, Mapping):
+                for name, value in values.items():
+                    converted = _cel_value(value)
+                    if converted is not None:
+                        context[f"{prefix}_{name}"] = converted
+        for name in ("action", "operation", "now"):
+            converted = _cel_value(request.context.get(name))
+            if converted is not None:
+                context[name] = converted
+        return context
+
     async def _check(
-        self, user: str, relation: str, target: str, tuples: list[ClientTuple] | None
+        self,
+        user: str,
+        relation: str,
+        target: str,
+        tuples: list[ClientTuple] | None,
+        context: dict[str, Any] | None = None,
     ) -> bool:
         try:
             response = await self.client.check(
                 ClientCheckRequest(
-                    user=user, relation=relation, object=target, contextual_tuples=tuples
+                    user=user,
+                    relation=relation,
+                    object=target,
+                    contextual_tuples=tuples,
+                    context=context or None,
                 )
             )
         except Exception as exc:  # the SDK raises its own exception hierarchy
@@ -142,13 +201,22 @@ class OpenFgaEngine:
         return bool(response.allowed)
 
     async def _list(
-        self, user: str, relation: str, resource: str, tuples: list[ClientTuple] | None
+        self,
+        user: str,
+        relation: str,
+        resource: str,
+        tuples: list[ClientTuple] | None,
+        context: dict[str, Any] | None = None,
     ) -> list[Any]:
         kind = self.object_type(resource)
         try:
             response = await self.client.list_objects(
                 ClientListObjectsRequest(
-                    user=user, relation=relation, type=kind, contextual_tuples=tuples
+                    user=user,
+                    relation=relation,
+                    type=kind,
+                    contextual_tuples=tuples,
+                    context=context or None,
                 )
             )
         except Exception as exc:

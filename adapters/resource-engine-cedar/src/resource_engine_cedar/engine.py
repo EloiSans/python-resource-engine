@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import logging
 from collections.abc import Iterable, Mapping
 from datetime import UTC, date, datetime
@@ -51,7 +52,10 @@ class CedarEngine:
 
     Args:
         policies: Policy text, a ``.cedar`` file, or a directory of them.
-        schema: Optional Cedar schema (text, JSON or path) to validate requests.
+        schema: Optional Cedar schema (text, JSON, a dict or a path) to validate
+            requests, such as ``cedar_schema(registry)``. With a JSON schema,
+            only the attributes it declares are sent (the token's ``claims``,
+            say, are left out), so requests always fit it.
         entity_types: Resource name → Cedar entity type (default: PascalCase of
             the resource name, ``invoice_lines`` → ``InvoiceLines``).
         user_type, role_type: Entity types of the principal and of its roles
@@ -67,13 +71,16 @@ class CedarEngine:
         self,
         policies: str | Path,
         *,
-        schema: str | Path | None = None,
+        schema: str | Path | Mapping[str, Any] | None = None,
         entity_types: Mapping[str, str] | None = None,
         user_type: str = "User",
         role_type: str = "Role",
     ) -> None:
         self.source = policies
+        if isinstance(schema, Mapping):
+            schema = json.dumps(schema)
         self.schema = Path(schema).read_text() if isinstance(schema, Path) else schema
+        self._declared = _declared(self.schema)
         self.entity_types = dict(entity_types or {})
         self.user_type = user_type
         self.role_type = role_type
@@ -101,7 +108,7 @@ class CedarEngine:
         entities = [
             {
                 "uid": uid,
-                "attrs": encode(dict(subject)),
+                "attrs": encode(self._attrs(self.user_type, subject)),
                 "parents": [{"type": self.role_type, "id": r} for r in roles],
             },
             *(
@@ -115,7 +122,14 @@ class CedarEngine:
         context = {k: v for k, v in request.context.items() if v is not None}
         if request.input is not ...:
             context["input"] = request.input or {}
+        if self._declared is not None:
+            context = _only(context, self._declared.get(("context", request.action)))
         return encode(context)
+
+    def _attrs(self, kind: str, values: Mapping[str, Any]) -> dict[str, Any]:
+        if self._declared is None:
+            return dict(values)
+        return _only(values, self._declared.get(("entity", kind)))
 
     async def evaluate(self, request: AuthzRequest) -> Any:
         principal, entities = self._principal(request.subject)
@@ -127,7 +141,8 @@ class CedarEngine:
         if request.resource is not ...:
             uid = {"type": resource_type, "id": str(request.entity_id)}
             query["resource"] = _ref(uid)
-            entities.append({"uid": uid, "attrs": encode(request.resource), "parents": []})
+            attrs = self._attrs(resource_type, request.resource or {})
+            entities.append({"uid": uid, "attrs": encode(attrs), "parents": []})
         if request.input is not ...:
             query["context"] = self._context(request)
         if not request.unknowns:
@@ -147,6 +162,53 @@ class CedarEngine:
         return residual_condition(
             partial.residuals, resource_type=resource_type, context=request.context
         )
+
+
+def _declared(schema: str | None) -> dict[tuple[str, str], Any] | None:
+    """Declared attributes per entity type and per action's context, from a
+    JSON schema: ``{("entity", "User"): {"id": None, ...}, ("context", a): {...}}``
+    (nested records keep their own declared attributes). ``None`` for no
+    schema or a schema in Cedar's text format."""
+    if not schema:
+        return None
+    try:
+        data = json.loads(schema)
+    except ValueError:
+        return None
+    declared: dict[tuple[str, str], Any] = {}
+    for namespace, body in data.items():
+        prefix = f"{namespace}::" if namespace else ""
+        for name, kind in body.get("entityTypes", {}).items():
+            shape = kind.get("shape", {"attributes": {}})
+            declared[("entity", prefix + name)] = _record(shape)
+            declared[("entity", name)] = declared[("entity", prefix + name)]
+        for name, action in body.get("actions", {}).items():
+            context = action.get("appliesTo", {}).get("context")
+            if context:
+                declared[("context", name)] = _record(context)
+    return declared
+
+
+def _record(shape: Mapping[str, Any]) -> dict[str, Any]:
+    return {
+        name: _record(spec) if spec.get("type") == "Record" else None
+        for name, spec in shape.get("attributes", {}).items()
+    }
+
+
+def _only(values: Mapping[str, Any], declared: Mapping[str, Any] | None) -> dict[str, Any]:
+    """``values`` limited to the declared attributes (recursively for records)."""
+    if declared is None:
+        return dict(values)
+    out = {}
+    for name, value in values.items():
+        if name not in declared:
+            continue
+        nested = declared[name]
+        out[name] = (
+            _only(value, nested) if nested is not None and isinstance(value, Mapping) else value
+        )
+    return out
 
 
 def _ref(uid: Mapping[str, str]) -> str:
