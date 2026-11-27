@@ -118,5 +118,15 @@ class RedisCache:
         if keys:
             await self.client.delete(*(self.prefix + k for k in keys))
 
+    async def add(self, key: str, value: Any, ttl: float) -> bool:
+        """``SET NX``: stored only when absent (one winner across instances)."""
+        import pickle
+
+        payload = pickle.dumps(value, protocol=pickle.HIGHEST_PROTOCOL)
+        stored = await self.client.set(
+            self.prefix + key, self._sign(payload) + payload, px=int(ttl * 1000), nx=True
+        )
+        return bool(stored)
+
 
 __all__ = ["RedisCache", "RedisRateLimitStore"]

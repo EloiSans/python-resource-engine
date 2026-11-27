@@ -81,3 +81,12 @@ def test_snapshots_round_trip():
     invoice = Invoice(customer="x", amount=Decimal("1.50"), id=3, status="draft")
     copy = restore(snapshot(invoice))
     assert type(copy) is Invoice and copy == invoice
+
+
+async def test_add_stores_only_absent_keys():
+    cache = InMemoryCache()
+    assert await cache.add("k", 1, ttl=30) is True
+    assert await cache.add("k", 2, ttl=30) is False
+    assert await cache.get("k") == 1
+    await cache.set("gone", 1, ttl=-1)
+    assert await cache.add("gone", 2, ttl=30) is True

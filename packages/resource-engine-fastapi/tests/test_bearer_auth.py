@@ -41,3 +41,76 @@ async def test_optional_bearer_actor():
     api = client(required=False)
     assert (await api.get("/me")).json() == {"id": None}
     assert (await api.get("/me", headers={"Authorization": "Bearer nope"})).status_code == 401
+
+
+class RecordingAuthenticator:
+    """A request authenticator that keeps what it was given."""
+
+    def __init__(self) -> None:
+        self.seen = []
+
+    async def authenticate(self, token: str) -> Principal:
+        raise AssertionError("authenticate_request is preferred")
+
+    async def authenticate_request(self, credentials):
+        self.seen.append(credentials)
+        if credentials.proof == "bad":
+            raise AuthenticationFailed("bad proof", reason="invalid_dpop_proof")
+        return Principal(subject="u1", issuer="https://idp")
+
+
+def _proof_client(authenticator, **kw) -> httpx.AsyncClient:
+    from resource_engine_fastapi import forwarded_client_certificate
+
+    app = FastAPI()
+    install_exception_handlers(app)
+    actor = bearer_actor(authenticator, client_certificate=forwarded_client_certificate(), **kw)
+
+    @app.post("/invoices/{id}")
+    async def act(id: int, principal: Principal = Depends(actor)):
+        return {"id": principal.id}
+
+    return httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://api:8000")
+
+
+async def test_dpop_credentials_reach_a_request_authenticator():
+    import base64
+    from urllib.parse import quote
+
+    der = b"0\x82certificate"
+    pem = (
+        "-----BEGIN CERTIFICATE-----\n"
+        + base64.b64encode(der).decode()
+        + "\n-----END CERTIFICATE-----\n"
+    )
+    authenticator = RecordingAuthenticator()
+    api = _proof_client(authenticator)
+    ok = await api.post(
+        "/invoices/7?x=1",
+        headers={"Authorization": "DPoP tok", "DPoP": "proof", "X-Client-Cert": quote(pem)},
+    )
+    assert ok.status_code == 200
+    seen = authenticator.seen[-1]
+    assert (seen.token, seen.scheme, seen.proof) == ("tok", "dpop", "proof")
+    assert (seen.method, seen.url) == ("POST", "http://api:8000/invoices/7")
+    assert seen.client_certificate == der
+
+    bad = await api.post("/invoices/7", headers={"Authorization": "DPoP tok", "DPoP": "bad"})
+    assert bad.status_code == 401
+    assert bad.headers["www-authenticate"].startswith('DPoP error="invalid_dpop_proof"')
+    twice = await api.post(
+        "/invoices/7",
+        headers=[("Authorization", "DPoP tok"), ("DPoP", "a"), ("DPoP", "b")],
+    )
+    assert twice.status_code == 401
+
+    behind_proxy = _proof_client(authenticator, public_url="https://api.example.com/")
+    await behind_proxy.post("/invoices/7", headers={"Authorization": "Bearer tok"})
+    assert authenticator.seen[-1].url == "https://api.example.com/invoices/7"
+
+
+async def test_plain_authenticators_refuse_dpop_tokens():
+    api = client()
+    refused = await api.get("/me", headers={"Authorization": "DPoP good", "DPoP": "proof"})
+    assert refused.status_code == 401
+    assert refused.json()["error"]["details"]["reason"] == "unsupported_scheme"

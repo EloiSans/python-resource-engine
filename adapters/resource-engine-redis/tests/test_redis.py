@@ -57,3 +57,5 @@ async def test_the_cache_is_shared_signed_and_expires(client):
     assert await one.get("rec:customers:1") is None
     with pytest.raises(ValueError):
         RedisCache(client, secret="")
+    assert await one.add("jti:1", True, ttl=30) is True
+    assert await other.add("jti:1", True, ttl=30) is False  # one winner across instances

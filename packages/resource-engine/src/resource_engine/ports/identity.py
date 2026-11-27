@@ -63,3 +63,35 @@ class Authenticator(Protocol):
     """
 
     async def authenticate(self, token: str) -> Principal: ...
+
+
+@dataclass(frozen=True)
+class Credentials:
+    """A token with what the request proves about its sender, for
+    sender-constrained tokens (DPoP, RFC 9449; mTLS, RFC 8705).
+
+    Attributes:
+        token: The access token.
+        scheme: ``bearer`` or ``dpop`` (the ``Authorization`` scheme, lower case).
+        method / url: The request's method and URL without query or fragment,
+            as the client sent them (what a DPoP proof's ``htm``/``htu`` name).
+        proof: The ``DPoP`` header (a signed proof JWT), if any.
+        client_certificate: The TLS client certificate (DER), if any.
+    """
+
+    token: str
+    scheme: str = "bearer"
+    method: str | None = None
+    url: str | None = None
+    proof: str | None = None
+    client_certificate: bytes | None = field(default=None, repr=False)
+
+
+class RequestAuthenticator(Authenticator, Protocol):
+    """An ``Authenticator`` that also checks the request's proof of possession.
+
+    Entry adapters call ``authenticate_request`` when it exists, and refuse
+    the ``DPoP`` scheme otherwise (see ``resource_engine.identity``).
+    """
+
+    async def authenticate_request(self, credentials: Credentials) -> Principal: ...

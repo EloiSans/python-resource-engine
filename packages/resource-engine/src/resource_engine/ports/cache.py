@@ -22,3 +22,12 @@ class Cache(Protocol):
     async def delete(self, *keys: str) -> None:
         """Forget ``keys`` (missing ones are ignored)."""
         ...
+
+
+class AtomicCache(Cache, Protocol):
+    """A cache that can store a key only when it is absent, atomically
+    (``InMemoryCache``, ``RedisCache``). Used to refuse replays (DPoP ``jti``)."""
+
+    async def add(self, key: str, value: Any, ttl: float) -> bool:
+        """Store ``value`` unless ``key`` is present; ``True`` when stored."""
+        ...

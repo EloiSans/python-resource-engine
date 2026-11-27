@@ -60,6 +60,12 @@ class InMemoryCache:
         for key in keys:
             self._items.pop(key, None)
 
+    async def add(self, key: str, value: Any, ttl: float) -> bool:
+        if await self.get(key) is not None:
+            return False
+        await self.set(key, value, ttl)
+        return True
+
 
 def snapshot(entity: Any) -> dict[str, Any]:
     """An entity as plain data: its class and public attributes."""

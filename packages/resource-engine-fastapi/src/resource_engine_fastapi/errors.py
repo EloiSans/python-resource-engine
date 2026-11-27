@@ -43,6 +43,16 @@ STATUS_BY_ERROR: list[tuple[type[ResourceEngineError], int]] = [
 ]
 
 
+def authenticate_challenge(reason: str) -> str:
+    """``WWW-Authenticate`` for a refused credential: a ``DPoP`` challenge for
+    proof errors (RFC 9449), ``Bearer`` otherwise (RFC 6750)."""
+    if reason == "invalid_dpop_proof":
+        return f'DPoP error="invalid_dpop_proof", error_description="{reason}"'
+    if reason == "missing":
+        return "Bearer"
+    return f'Bearer error="invalid_token", error_description="{reason}"'
+
+
 def status_for(exc: ResourceEngineError) -> int:
     for cls, status in STATUS_BY_ERROR:
         if isinstance(exc, cls):
@@ -63,11 +73,7 @@ def install_exception_handlers(app: FastAPI) -> None:
             await _report(request, exc, status)
         headers = None
         if isinstance(exc, e.AuthenticationFailed):
-            reason = exc.reason if exc.reason != "missing" else None
-            headers = {
-                "WWW-Authenticate": "Bearer"
-                + (f' error="invalid_token", error_description="{reason}"' if reason else "")
-            }
+            headers = {"WWW-Authenticate": authenticate_challenge(exc.reason)}
         elif isinstance(exc, e.RateLimited):
             details = exc.details if isinstance(exc.details, dict) else {}
             retry = int(details.get("retry_after") or 1)
