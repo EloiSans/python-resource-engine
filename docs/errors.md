@@ -14,6 +14,8 @@ them as `{"error": {...}}`.
 | <a id="re-e007"></a>RE-E007 | `TransactionDoomed` | 500 | An operation failed inside `manager.transaction()`; it can only roll back. `details` has the original `code` and `message`. See [lifecycle](lifecycle.md#grouping-operations). |
 | <a id="re-e008"></a>RE-E008 | `IdempotencyNotSupported` | 500 | An idempotency key was sent but the unit of work has no idempotency store (`idempotency_table=`). See [idempotency](idempotency.md). |
 | <a id="re-e009"></a>RE-E009 | `HistoryNotAvailable` | 500 | `history` was called for a resource without a state machine or with `audit = False`, or the manager has no audit trail stored as a resource (`audit=True`). See [audit](audit.md#history). |
+| <a id="re-e010"></a>RE-E010 | `TemplateNotFound` | 500 | No template with that name for the locale or its fallbacks; `details` has `name`, `locale` and the names `tried`. See [email](email.md#templates). |
+| <a id="re-e011"></a>RE-E011 | `TemplateFailed` | 500 | A template failed to render: a missing variable or a syntax error; `details` has `name` and `error`. |
 | <a id="re-e101"></a>RE-E101 | `ValidationFailed` | 422 | Input does not match the schema; `details` holds Pydantic errors. |
 | <a id="re-e102"></a>RE-E102 | `EntityNotFound` | 404 | No entity with that id. |
 | <a id="re-e103"></a>RE-E103 | `InvalidQuery` | 400 | Filter/order field not allowed, or paging out of bounds. |
@@ -33,6 +35,7 @@ them as `{"error": {...}}`.
 | <a id="re-e405"></a>RE-E405 | `UndecodableMessage` | 422 (push) | An inbound body is neither an envelope nor a CloudEvent; the message is dead-lettered. |
 | <a id="re-e406"></a>RE-E406 | `MessageRejected` | 422 (push) | Raised by a handler to dead-letter a message without retries. |
 | <a id="re-e501"></a>RE-E501 | `RemoteCallFailed` | 502 | An external service (REST, SOAP) returned an error or could not be reached; `details` has `service`, `operation`, `status`. |
+| <a id="re-e502"></a>RE-E502 | `EmailRejected` | – | The mail service refused a message for good (invalid address, blocked sender); the request is dead-lettered. See [email](email.md). |
 | <a id="re-e601"></a>RE-E601 | `DocumentSlotNotFound` | 404 | The resource has no document slot with that name. |
 | <a id="re-e602"></a>RE-E602 | `ContentTypeNotAllowed` | 415 | The slot does not accept the file's content type. |
 | <a id="re-e603"></a>RE-E603 | `DocumentTooLarge` | 413 | The file exceeds the slot's `max_bytes`. |
@@ -65,6 +68,7 @@ carries your own `code`.
 | RE-C004 | `check` | An enabled operation that only a catch-all system role (`admin`) can perform: no other system role and no seed policy grants it. Needs `policies` in `[tool.resource-engine]`. |
 | RE-C005 | `check` | The registry could not be loaded because the engine refused a declaration (for example RE-E004); reported at the line of your code. |
 | RE-C006 | `check` | A hook or action records a domain event the resource does not declare in `events`; it is still published, but missing from the docs and the AsyncAPI document. |
+| RE-C007 | `check` | A hook or action requests an email (`EmailRequested(template=...)`) whose subject or body template the renderer (`[tool.resource-engine] templates`) lacks. See [email](email.md#checks). |
 | RE-D001…D009 | `docs validate` | Documentation coverage rules (resource, CRUD ops, state machine, states, transitions, actions, postconditions, hooks, document slots). |
 | RE-D010 | `docs validate` | A description is still a `TODO` placeholder (left by `scaffold`); warning, fails with `--strict`. |
 | RE-D011 | `docs validate` | A declared domain event (`Resource.events`) has no docstring; warning. |

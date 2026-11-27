@@ -70,6 +70,16 @@ class EventRouter:
         self._handlers.setdefault(name, []).append((handler, payload is not None))
         return handler
 
+    def include(self, other: EventRouter) -> EventRouter:
+        """Add ``other``'s handlers (and payload types) to this router, so one
+        consumer or one outbox feed serves both: ``processes.include(mailer.router())``.
+        Returns ``self``."""
+        for event_type, handlers in other._handlers.items():
+            for handler, typed in handlers:
+                payload = other._payloads.get(event_type) if typed else None
+                self.register(event_type, handler, payload=payload)
+        return self
+
     def on(
         self, event_type: str | type[DomainEvent], *, payload: Any = None
     ) -> Callable[[MessageHandler], MessageHandler]:

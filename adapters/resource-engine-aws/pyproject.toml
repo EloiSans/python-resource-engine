@@ -1,7 +1,7 @@
 [project]
 name = "resource-engine-aws"
 version = "0.1.0.dev0"
-description = "AWS adapters for Resource Engine: SQS publisher and consumer source, SNS publisher."
+description = "AWS adapters for Resource Engine: SQS publisher and consumer source, SNS publisher, SES email sender."
 readme = "README.md"
 requires-python = ">=3.12"
 license = "Apache-2.0"
@@ -23,6 +23,7 @@ dependencies = ["resource-engine>=0.1.0.dev0,<0.2"]
 [project.optional-dependencies]
 sqs = ["aiobotocore>=2.13"]
 sns = ["aiobotocore>=2.13"]
+ses = ["aiobotocore>=2.13"]
 all = ["aiobotocore>=2.13"]
 
 [project.urls]

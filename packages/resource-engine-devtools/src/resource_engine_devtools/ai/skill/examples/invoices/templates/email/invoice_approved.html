@@ -1,0 +1,5 @@
+{% extends "email/base.html" %}
+{% block body %}
+<p>Hello {{ customer }},</p>
+<p>Invoice <strong>{{ number }}</strong> for <strong>{{ amount }} EUR</strong> has been approved.</p>
+{% endblock %}

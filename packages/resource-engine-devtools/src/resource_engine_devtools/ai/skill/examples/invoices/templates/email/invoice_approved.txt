@@ -1,0 +1,5 @@
+Hello {{ customer }},
+
+Invoice {{ number }} for {{ amount }} EUR has been approved.
+
+{{ app_name }}

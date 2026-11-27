@@ -18,9 +18,12 @@ from typing import TYPE_CHECKING, Any
 from resource_engine.domain.exceptions import DomainError
 from resource_engine.errors import (
     ConfigurationError,
+    EmailRejected,
     InboxNotSupported,
     MessageRejected,
     NoHandler,
+    TemplateFailed,
+    TemplateNotFound,
     TransactionDoomed,
     ValidationFailed,
 )
@@ -46,6 +49,9 @@ PERMANENT_ERRORS: tuple[type[BaseException], ...] = (
     MessageRejected,
     DomainError,
     ValidationFailed,
+    EmailRejected,
+    TemplateNotFound,
+    TemplateFailed,
 )
 
 

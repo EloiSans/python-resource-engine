@@ -68,6 +68,11 @@ keycloak(KEYCLOAK_URL, "invoices", audience="invoices-api", tenant_claim="organi
 - **Audience:** the `invoices-web` client puts `invoices-api` in `aud`, which
   the app requires.
 
+Approving an invoice whose registered customer has an email address sends
+it an email in Catalan, through the worker and Mailpit
+(`docker compose -f compose.emulators.yaml up -d mailpit`, UI at
+http://127.0.0.1:8026); see [email](email.md).
+
 Initech's users (`sara`, `tom`) sign in through SAML at a partner realm
 federated into `invoices`; see [SAML sign-in](saml.md).
 

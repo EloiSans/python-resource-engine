@@ -12,6 +12,8 @@ and a `doc` link. Read the hint first.
 | RE-E005 | `VersioningNotSupported` | `version_field` on a repository without compare-and-set (REST, SOAP): drop it |
 | RE-E008 | `IdempotencyNotSupported` | Pass `idempotency_table=` to the unit of work factory (`engine_tables(metadata, idempotency=True)`) |
 | RE-E009 | `HistoryNotAvailable` | `history` needs a state machine, `audit` on the resource and `audit=True` (a `RepositoryAuditSink`) on the manager |
+| RE-E010 | `TemplateNotFound` | No template for that name, locale or fallback |
+| RE-E011 | `TemplateFailed` | A template failed to render (a missing variable) |
 | RE-E104 | `ExternalEffectInTransaction` | Move the `@external_effect` hook to `after_commit` or record an event |
 
 ## Raised by operations
@@ -39,6 +41,7 @@ and a `doc` link. Read the hint first.
 | RE-E405 | `UndecodableMessage` | 422 | Inbound body is not an envelope or CloudEvent |
 | RE-E406 | `MessageRejected` | 422 | Raised by a handler: dead-letter without retries |
 | RE-E501 | `RemoteCallFailed` | 502 | A REST or SOAP service failed |
+| RE-E502 | `EmailRejected` | – | The mail service refused the message for good |
 | RE-E601 | `DocumentSlotNotFound` | 404 | No such document slot |
 | RE-E602 | `ContentTypeNotAllowed` | 415 | The slot does not accept the type |
 | RE-E603 | `DocumentTooLarge` | 413 | Over `max_bytes` |

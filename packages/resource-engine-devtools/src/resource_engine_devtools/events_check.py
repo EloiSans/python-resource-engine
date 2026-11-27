@@ -37,6 +37,7 @@ from resource_engine_devtools.hooks_check import (
 _ENGINE_EVENT_MODULES = (
     "resource_engine.application.events",
     "resource_engine.documents.events",
+    "resource_engine.email",
 )
 
 

@@ -549,7 +549,17 @@ def cmd_check(args: argparse.Namespace) -> int:
     if registry is not None:
         violations += check_hooks(registry)
         violations += check_events(registry)
-        seed = args.policies or find_config(Path.cwd()).get("policies")
+        config = find_config(Path.cwd())
+        if config.get("templates"):
+            from resource_engine_devtools.loader import load_object
+            from resource_engine_devtools.templates_check import check_templates
+
+            violations += check_templates(
+                registry,
+                load_object(config["templates"]),
+                prefix=config.get("email_prefix", "email/"),
+            )
+        seed = args.policies or config.get("policies")
         if seed:
             violations += gates_check.check_gates(
                 registry, load_authz(Path.cwd()), gates_check.load_policies(seed)

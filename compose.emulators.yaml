@@ -82,6 +82,18 @@ services:
       interval: 2s
       retries: 30
 
+  mailpit:
+    # Catches every email: UI and API at http://127.0.0.1:8026, SMTP on :1026
+    # (not the usual 1025/8025, which a Mailpit of another project may hold).
+    image: axllent/mailpit:v1.27.0
+    ports:
+      - "127.0.0.1:1026:1025"
+      - "127.0.0.1:8026:8025"
+    healthcheck:
+      test: ["CMD", "/mailpit", "readyz"]
+      interval: 2s
+      retries: 30
+
   keycloak:
     # Admin console: http://127.0.0.1:8180 (admin / admin). Realms "resource-engine",
     # "invoices" (the example app) and "partner" (a SAML IdP federated into "invoices").

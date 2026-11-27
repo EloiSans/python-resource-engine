@@ -1,5 +1,6 @@
 """In-memory adapters for tests and prototypes."""
 
+from resource_engine.testing.email import RecordingEmailSender
 from resource_engine.testing.engine import ConditionEngine
 from resource_engine.testing.memory import (
     InMemoryInbox,
@@ -24,6 +25,7 @@ __all__ = [
     "InMemoryStore",
     "InMemoryUnitOfWork",
     "RecordedSpan",
+    "RecordingEmailSender",
     "RecordingEventPublisher",
     "RecordingMessagePublisher",
     "RecordingTracer",

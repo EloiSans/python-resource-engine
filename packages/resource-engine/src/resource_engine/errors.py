@@ -160,6 +160,20 @@ class ReferenceNotFound(ResourceEngineError):
     code = "RE-E108"
 
 
+class TemplateNotFound(ResourceEngineError):
+    """No template with that name for the locale or any fallback.
+    ``details``: ``name``, ``locale``, ``tried``."""
+
+    code = "RE-E010"
+
+
+class TemplateFailed(ResourceEngineError):
+    """A template failed to render (a missing variable, a syntax error).
+    ``details``: ``name`` and the renderer's ``error``."""
+
+    code = "RE-E011"
+
+
 class ReferenceInUse(ResourceEngineError):
     """The record cannot be deleted: other records reference it
     (``on_delete="restrict"``). ``details``: ``resource``, ``field``, ``id``."""
@@ -230,6 +244,14 @@ class MessageRejected(ResourceEngineError):
 
 
 # --- External services (RE-E5xx) ---
+
+
+class EmailRejected(ResourceEngineError):
+    """The mail service refused a message for good (an invalid address, a
+    blocked sender); retrying won't help. ``details``: ``recipients``,
+    ``reason``."""
+
+    code = "RE-E502"
 
 
 class RemoteCallFailed(ResourceEngineError):

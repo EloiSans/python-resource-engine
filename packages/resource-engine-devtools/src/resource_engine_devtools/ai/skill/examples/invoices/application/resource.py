@@ -81,6 +81,7 @@ class InvoiceResource(Resource):
         "before_update": [hooks.ensure_editable],
         "after_update": [hooks.validate_amount],
         "before_delete": [hooks.ensure_editable],
+        "after_transition:approve": [hooks.request_approval_email],
         "after_commit": [hooks.notify_approval],
     }
     # the registered customer; deleting a customer with invoices is refused (409)

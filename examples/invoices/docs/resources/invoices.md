@@ -208,6 +208,7 @@ L'import d'una factura s'ha recalculat aplicant un descompte.
 | `before_update` | `ensure_editable` | no | Només es poden modificar o eliminar factures en esborrany. |
 | `after_update` | `validate_amount` | no | Rebutja factures amb import negatiu. |
 | `before_delete` | `ensure_editable` | no | Només es poden modificar o eliminar factures en esborrany. |
+| `after_transition:approve` | `request_approval_email` | no | Demana el correu d'aprovació per al client registrat, si té adreça. |
 | `after_commit` | `notify_approval` | sí | Notifica el client que la factura ha estat aprovada. |
 
 ## Schemas

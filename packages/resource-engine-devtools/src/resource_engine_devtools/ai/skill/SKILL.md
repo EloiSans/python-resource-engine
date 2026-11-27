@@ -48,7 +48,12 @@ prints a compact catalogue; the installed copy is `project.md` next to this file
    - A process with states → a state machine with transitions
      ([references/state-machines.md](references/state-machines.md)).
    - A business operation that is not CRUD or a transition → an `Action`.
-   - Something to do after the change is saved (e-mail, call another system)
+   - An email → record `EmailRequested(template=..., to=..., context=...)` in
+     a hook or action inside the transaction; the worker sends it after the
+     commit (`Mailer.router()`). Templates live in `templates/email/`
+     (`<name>.subject.txt`, `.txt`, `.html`, per locale); `check` reports
+     missing ones (RE-C007).
+   - Something else to do after the change is saved (call another system)
      → record a domain event and handle it in a consumer, or an `after_commit`
      hook marked `@external_effect`.
    - Who may do it → permissions, not hooks: a policy in the seed or a

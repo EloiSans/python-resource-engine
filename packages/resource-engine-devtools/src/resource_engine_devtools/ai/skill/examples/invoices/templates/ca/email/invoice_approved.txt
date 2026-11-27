@@ -1,0 +1,5 @@
+Hola, {{ customer }}:
+
+La factura {{ number }}, de {{ amount }} €, ha estat aprovada.
+
+{{ app_name }}

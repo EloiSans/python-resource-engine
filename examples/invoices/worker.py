@@ -2,7 +2,7 @@
 worker``).
 
 - ``processes``: feeds the outbox to the process managers (the invoice payment
-  process), exactly once through the inbox.
+  process) and to the mailer (requested emails), exactly once through the inbox.
 - ``timers``: due timed transitions (pending invoices after 30 days, overdue
   payments after 15).
 
@@ -24,6 +24,7 @@ from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from invoices.app import _blob_store, build_manager
 from invoices.infrastructure.persistence import engine as engine_tables
 from invoices.infrastructure.persistence import map_entities
+from invoices.notifications import build_mailer
 
 
 def build(database_url: str | None = None) -> JobRunner:
@@ -33,9 +34,8 @@ def build(database_url: str | None = None) -> JobRunner:
     )
     sessions = async_sessionmaker(engine, expire_on_commit=False)
     manager = build_manager(sessions, blob_store=_blob_store()[0])
-    processor = MessageProcessor(
-        ProcessRunner(manager).router(), name="invoice-processes", manager=manager
-    )
+    router = ProcessRunner(manager).router().include(build_mailer().router())
+    processor = MessageProcessor(router, name="invoice-processes", manager=manager)
     runner = JobRunner(locks=SqlAlchemyLocks(sessions, engine_tables.locks))
     runner.add("processes", ProcessFeed(manager.uow_factory, processor), every=1, single=True)
     runner.add("timers", TimerJob(manager), every=timedelta(minutes=1), single=True)

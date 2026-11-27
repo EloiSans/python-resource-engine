@@ -224,6 +224,14 @@
   declares the action too. References add the id field to the entity,
   schemas and table; seed policies take the resource's actions from the
   registered resource.
+- Email and templates: `EmailRequested` recorded in the transaction and sent
+  from the outbox after the commit by `Mailer.router()` (inbox, retries,
+  permanent refusals settled, stable `Message-ID`); `EmailSender` and
+  `TemplateRenderer` ports; `resource-engine-smtp`, SES in
+  `resource-engine-aws[ses]`, `resource-engine-jinja` (locale fallback,
+  sandbox, autoescaping); `EventRouter.include`; `check` RE-C007; Mailpit in
+  the compose stack; the example emails the customer when an invoice is
+  approved.
 
 ## Next
 
@@ -233,17 +241,24 @@ what follows builds on it.
 
 ### Soon
 
-Nothing scheduled: the next items come from Later.
-
-### Later
-
-- Versioning: versions of resource schemas, actions and events published side
-  by side (`/v2/...`, `schema_version` per event type), deprecation notices in
-  OpenAPI, AsyncAPI and GraphQL, and the contract checks comparing versions.
+- Message translations: gettext catalogues (Babel) for templates, generated
+  documents, the functional docs and human-readable error messages; locale
+  from `Accept-Language` or the principal; `extract` / `update` / `compile`
+  in the CLI; a message catalogue exported for front ends (the API stays
+  code-based). Translatable data fields stay in Later.
 - Visual explorer (read-only): a local web UI with the resources, their state
   diagrams, relations, the permission matrix and a try-it console against a
   running app, for functional reviews; code stays the source of truth.
 
+### Later
+
+- Email: provider HTTP APIs (Postmark, SendGrid, Microsoft Graph), bounce and
+  complaint handling, emails listed in the generated docs.
+- Translatable data fields (a product name per language): storage,
+  filtering, sorting and the language a read returns.
+- Versioning: versions of resource schemas, actions and events published side
+  by side (`/v2/...`, `schema_version` per event type), deprecation notices in
+  OpenAPI, AsyncAPI and GraphQL, and the contract checks comparing versions.
 - SOAP server adapter (WSDL from the schemas), only for a concrete integration
   that needs it; the SOAP client side already exists.
 - Policy engines: OpenFGA conditions on input values, OPA bundles, Cedar schemas

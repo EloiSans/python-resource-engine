@@ -211,6 +211,18 @@ See [rate limits](rate-limits.md).
 
 See [caching](caching.md).
 
+## Email — `EmailSender`, `TemplateRenderer`
+
+| Backend | Package | Class | Tested against | Status |
+|---|---|---|---|---|
+| SMTP | `resource-engine-smtp` | `SmtpEmailSender` | Mailpit (compose) | experimental |
+| Amazon SES v2 | `resource-engine-aws[ses]` | `SesEmailSender` | AWS Emulator (refusals), recording client | experimental |
+| In-memory | `resource-engine` (`resource_engine.testing`) | `RecordingEmailSender` | unit tests | experimental |
+| Jinja2 | `resource-engine-jinja` | `JinjaTemplates` | unit tests | experimental |
+| `string.Template` | `resource-engine` (`resource_engine.templates`) | `StringTemplates` | unit tests | experimental |
+
+See [email](email.md).
+
 ## Tracing — `Tracer`
 
 | Backend | Package | Class | Tested against | Status |
@@ -301,6 +313,7 @@ uv run pytest -m emulator
 | Garage (S3) | `dxflrs/garage:v2.4.1` | no official UI; S3 on :3910 | Run `uv run python docker/garage/init.py` once (layout, bucket `resource-engine`, dev key); the S3 tests run it too. AGPL, used only as a dev tool. |
 | RabbitMQ | `rabbitmq:4-management` | http://127.0.0.1:15672 (guest/guest) | AMQP on :5672. |
 | Valkey | `valkey/valkey:8-alpine` | no UI; Redis protocol on :6380 | Rate-limit counters (`resource-engine-redis`). |
+| Mailpit | `axllent/mailpit:v1.27.0` | http://127.0.0.1:8026; SMTP on :1026 | Catches every email (`resource-engine-smtp`, the example's worker). Not the usual 1025/8025, so it can run next to another project's Mailpit. |
 | Keycloak | `quay.io/keycloak/keycloak:26.4` | http://127.0.0.1:8180 (admin/admin) | Realm imported from `docker/keycloak/`. |
 | OPA | `openpolicyagent/opa:1.22.4` | REST on :8181 | Serves `docker/opa/*.rego` and reloads on change. |
 | OpenFGA | `openfga/openfga:v1.22.0` | playground http://127.0.0.1:3000; API on :8080 | In-memory datastore: tests create a store per test. |

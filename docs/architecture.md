@@ -40,6 +40,8 @@ so the same class is used by the domain, the in-memory adapter and SQLAlchemy.
 - `PolicyEngine`: `evaluate(AuthzRequest)` → allowed, denied or a residual condition; OPA, Cedar and OpenFGA adapters implement it, and `EngineAuthorizer` turns it into an `Authorizer` ([authorizers](authorizers.md)).
 - `Tracer`: spans around operations, outbox publishing, messages and jobs, and the trace context put on envelopes (`NoopTracer` by default, `OtelTracer` in `resource-engine-opentelemetry`; [observability](observability.md)).
 - `LockProvider`: named leases so a `single` job runs on one worker at a time (`SqlAlchemyLocks`, `InMemoryLocks`; [jobs](jobs.md)).
+- `EmailSender`: delivers a composed `EmailMessage` (`SmtpEmailSender` in `resource-engine-smtp`, `SesEmailSender` in `resource-engine-aws`, `RecordingEmailSender` for tests; [email](email.md)).
+- `TemplateRenderer`: renders named templates per locale for emails and documents (`StringTemplates` in the core, `JinjaTemplates` in `resource-engine-jinja`).
 - `AuditSink`: where audit entries go (`RepositoryAuditSink` writes the `audit_log` resource in the operation's transaction).
 
 ## Infrastructure services and the lifecycle
