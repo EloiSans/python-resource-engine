@@ -29,7 +29,7 @@ moved to its own repository without code changes.
 | `resource-engine-s3` | `resource_engine_s3` | core, aiobotocore | Document storage on S3-compatible stores (AWS S3, Garage, MinIO, R2) |
 | `resource-engine-rabbitmq` | `resource_engine_rabbitmq` | core, aio-pika | RabbitMQ publisher (confirms) and quorum-queue consumer source |
 | `resource-engine-redis` | `resource_engine_redis` | core, redis | Redis/Valkey: shared rate-limit counters (`RedisRateLimitStore`) and record cache (`RedisCache`) |
-| `resource-engine-oidc` | `resource_engine_oidc` | core, PyJWT, httpx | Bearer-token authentication: Keycloak, Cognito, Entra ID, Google; opaque tokens by introspection (Keycloak, Okta, RFC 7662) |
+| `resource-engine-oidc` | `resource_engine_oidc` | core, PyJWT, httpx | Bearer-token authentication: Keycloak, Cognito, Entra ID, Google; opaque tokens by introspection (Keycloak, Okta, RFC 7662); DPoP and mTLS-bound tokens |
 | `resource-engine-opa` | `resource_engine_opa` | core, httpx | Open Policy Agent decisions and row filters (`OpaEngine`) |
 | `resource-engine-cedar` | `resource_engine_cedar` | core, cedarpy | Cedar policies in process (`CedarEngine`) |
 | `resource-engine-openfga` | `resource_engine_openfga` | core, openfga-sdk | OpenFGA relationships (`OpenFgaEngine`, `TupleSync`) |
@@ -155,6 +155,7 @@ uv run uvicorn invoices.app:app --app-dir examples --reload   # then open /docs 
 - [Adapter catalogue](docs/adapters.md) — cloud adapters, contract tests, emulators.
 - [Documents](docs/documents.md) — slots, uploads, processing, clean-up.
 - [Identity](docs/identity.md) — bearer tokens, providers, `Principal`.
+- [SAML sign-in](docs/saml.md) — SAML identity providers through a broker; the example's partner realm.
 - [Permissions](docs/permissions.md) — system roles, ABAC policies managed from a front end.
 - [External policy engines](docs/authorizers.md) — OPA, Cedar and OpenFGA behind the same port.
 - [GraphQL](docs/graphql.md) — a generated schema with relations, mutations and the same permissions.

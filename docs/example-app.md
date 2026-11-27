@@ -10,7 +10,7 @@
 ## Run it
 
 ```bash
-docker compose -f compose.emulators.yaml up -d keycloak        # imports docker/keycloak/invoices-realm.json
+docker compose -f compose.emulators.yaml up -d keycloak        # imports the invoices and partner realms
 uv run uvicorn invoices.app:app --app-dir examples --reload    # http://127.0.0.1:8000/docs
 ```
 
@@ -67,6 +67,9 @@ keycloak(KEYCLOAK_URL, "invoices", audience="invoices-api", tenant_claim="organi
   with a client per organization or a token exchange.
 - **Audience:** the `invoices-web` client puts `invoices-api` in `aud`, which
   the app requires.
+
+Initech's users (`sara`, `tom`) sign in through SAML at a partner realm
+federated into `invoices`; see [SAML sign-in](saml.md).
 
 To add an organization or a user, use the admin console at
 `http://127.0.0.1:8180` (admin / admin): add the user to an organization and

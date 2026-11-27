@@ -206,6 +206,18 @@
 - `ai install --mcp`: the development MCP server registered in `.mcp.json`,
   `.cursor/mcp.json` and `.vscode/mcp.json` (only its own entry managed),
   kept by `ai sync` and checked by `ai sync --check`.
+- Sender-constrained tokens (`SenderConstrained`): DPoP proofs (RFC 9449:
+  key thumbprint, method, URL, age, token hash, one use through an atomic
+  `replay_cache`) and certificate-bound tokens (RFC 8705, the client
+  certificate forwarded by the proxy); no downgrade to bearer; `Credentials`
+  and `RequestAuthenticator` in the core, `bearer_actor(client_certificate=,
+  public_url=)`, `WWW-Authenticate: DPoP` challenges.
+- SAML sign-in through an identity broker (`docs/saml.md`): the broker
+  federates the SAML IdP and issues the OIDC tokens the API verifies. The
+  example stack gains a `partner` realm as Initech's SAML IdP (signed
+  assertions, `Role` attribute mapped to realm roles, users joined to the
+  Initech organization), tested end to end through the browser flow,
+  including a tampered assertion.
 
 ## Next
 
@@ -219,11 +231,6 @@ Nothing scheduled: the next items come from Later.
 
 ### Later
 
-- Sender-constrained tokens: DPoP (RFC 9449) proof checks and mTLS-bound
-  tokens (RFC 8705), so stolen access tokens cannot be replayed.
-- SAML sign-in documented through an identity broker (Keycloak, Entra ID,
-  Cognito federate the SAML IdP and issue OIDC tokens; the example realm shows
-  it); a SAML service provider only for a server-rendered app without a broker.
 - Versioning: versions of resource schemas, actions and events published side
   by side (`/v2/...`, `schema_version` per event type), deprecation notices in
   OpenAPI, AsyncAPI and GraphQL, and the contract checks comparing versions.

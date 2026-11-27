@@ -1,0 +1,143 @@
+{
+  "realm": "partner",
+  "displayName": "Initech (a partner's SAML identity provider, DEVELOPMENT ONLY)",
+  "enabled": true,
+  "components": {
+    "org.keycloak.keys.KeyProvider": [
+      {
+        "name": "partner-dev-signing-key",
+        "providerId": "rsa",
+        "config": {
+          "priority": [
+            "200"
+          ],
+          "algorithm": [
+            "RS256"
+          ],
+          "privateKey": [
+            "MIIEoQIBAAKCAQEAyL4Cp0X90mD29j8PwWXlX0YSiRGYgotRsiDg0QRaiJt0AMGLnLJMqrlmLqBjjZeqPrVnT4LBnx7C5bmu97Q5y3cG42NFv2kNYfzXhgx1XXEYT6hXfQGCllKYIjUT2DcBFPDaEx6GZN9MsfhE1w7EVzwXLxArVv/bQ32ly+8FjcjBijMq+F6f6Zp0XfHdJwx43Qaydn4fEnLLwlWK5Swkp1JF6aPT64ggUtFc86Tv9MlZuc3qZMwO4SXI8s5AChXSUvwHC2mtC6hPKH2BsFD11Q6060U/t4qs0XOgtGZ7J2YMvs8XYp7Ijx3F4xM+wqhzR8wm0E2wa6WaTbb8c/fXPwIDAQABAoIBAAwDQYxksK+baYagjR771oc7iGtsbU3OltkhL42X2Zptgbpz2pjKG11nZ9koHvJVCPU6DNB3bi0eqEzFWQDuEjv98ksUNeh3mbtAkrMtDARHUCGgMiVtvDSmWlVIYNjM/dhqILAJNm395jc2OK8NQqxHu8lvXxs/Mg4EDF0Q/3+VpcgIwR1MZqBRk4opr/ARaP9cxJz/p0lVwzfb6UjrbdAWrEqR1Y31+54Xmv2l6gN7Q0aC8a93o+l6MDRGjdrSOh5v7Nv+XNwa+AluzOuSKHRQyOUp/bXxYZqUo/DrUmsi4z2C9LrEfPT8DRTfrY/nBiMfXfGSZmI3Gl5YvjVO9zkCgYEA/pr6xR6eWcghLDZ2YRPwLASsdqm4dMmayJEWaWUcxGQI95G1bTAPjg3Na2EwHRpxxkLu1pEJuCet6OlH80ETlASNBmUr9X0jKYupa5i+g8Lkx6IE1FJ2r8VQ1JM6XpVXfN7wlmU4RQ7cc2o8rFIz3ly6uzWPsIaFokavEdzBUScCgYEAydeATNMoQIN7k2P3lrka/YoMRjzKFdZ0vFayCgXfOFh9r8i67GL3OQAUqN8FGtN4WXAtXNf93fqNZ3yF+dbEBJTGq4kJmqF+bNWu6RqUm+G2s6PntRAKLB0UrLedid3KCqSIHh2I0rb3ajy8LBfASbYQYeo/R+LwY2uD8oHmaCkCgYB9e4yUkl6hCU2wKLd3aQg56aPGaCeNB7/NkhRlpXvkHxl8SsgMJF/GN29CuQepkFr6yApGnf0YUhYYcMERVsV7cjK/MCXWO/KUi0zYxtM+xVNUQLn4mxv7zVflLRrbeuc/l/EjboepIYXtLDLzCyCdOz6c/ezvp509OXEXcKGmiQJ/K10hM2AqRbH52rCfgMJECjSebnig8hAhBFWb6otYacKZPirh/edFNfnOdnlzn0/Pi2eOV2QQJqCtwI4AOqzpcBKGnFPUvGP1xWwjJ/GN+++CURXlsgDALroQtwq7zeLYhXDTzaSKwLqObUSfKNnxdeSnoGGzNr6K5tEyh+dgmQKBgQCpJGiPR8l7G5BJ9qAh6EQAYpebu1a9GTuyDPUR5x2Yu/ztbci81R3x1VabBjlsGNLPN2fkUylYkhIL+EsCbBsJWNfcbTtHE1wd5r54aDi+e6/osUcH3WCLslw1K1o9P7FQzCMDxCgDos8P2GTaX0wDNyevA3U+PORqAmZHPla1BQ=="
+          ],
+          "certificate": [
+            "MIICzjCCAbagAwIBAgIUYEVpqjJLxV9RLdd8vSUJpZZyF/EwDQYJKoZIhvcNAQELBQAwIDEeMBwGA1UEAwwVcGFydG5lci1zYW1sLWRldi1vbmx5MCAXDTI2MDEwMTAwMDAwMFoYDzIwNTUxMjI1MDAwMDAwWjAgMR4wHAYDVQQDDBVwYXJ0bmVyLXNhbWwtZGV2LW9ubHkwggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQDIvgKnRf3SYPb2Pw/BZeVfRhKJEZiCi1GyIODRBFqIm3QAwYucskyquWYuoGONl6o+tWdPgsGfHsLlua73tDnLdwbjY0W/aQ1h/NeGDHVdcRhPqFd9AYKWUpgiNRPYNwEU8NoTHoZk30yx+ETXDsRXPBcvECtW/9tDfaXL7wWNyMGKMyr4Xp/pmnRd8d0nDHjdBrJ2fh8ScsvCVYrlLCSnUkXpo9PriCBS0VzzpO/0yVm5zepkzA7hJcjyzkAKFdJS/AcLaa0LqE8ofYGwUPXVDrTrRT+3iqzRc6C0ZnsnZgy+zxdinsiPHcXjEz7CqHNHzCbQTbBrpZpNtvxz99c/AgMBAAEwDQYJKoZIhvcNAQELBQADggEBABG+GTAnTHjKuxuh8qsjH41gjbxDymMb7dLm8wda/EUqWJPuKXrPt8o2MZ9WODPvGDbIDq5VHIjbSEVp4Q+0umLVShOuD+8amp835iEkuwp42FFkftPTyeye+hL59U7NLItvkfxvJWXKJ9/KDLHzxRFiKGFQL3bIMomTwUzdfxh6rddYD/miRc1GAJejtsgA8qwZI04R35wTYVVvOX5TdWD2ypO4FpF5CyviA3PCDDa4qR+dJNOzhy3z4IhbTC1Q3qCR+riuMjn3/4NR2oP+j9ZlSHFMEIIhsEp8emU2ojZ+a6hrOJSGBmJw9bJqJaudtPvhuuLdDJew6Hyluz+YB/0="
+          ]
+        }
+      }
+    ]
+  },
+  "roles": {
+    "realm": [
+      {
+        "name": "approver",
+        "description": "Sent to the invoices realm as Role=approver"
+      },
+      {
+        "name": "accountant",
+        "description": "Sent to the invoices realm as Role=accountant"
+      }
+    ]
+  },
+  "clients": [
+    {
+      "clientId": "http://127.0.0.1:8180/realms/invoices",
+      "name": "Invoices (Keycloak broker)",
+      "description": "The invoices realm as a SAML service provider: its entity id and assertion consumer URL",
+      "protocol": "saml",
+      "enabled": true,
+      "redirectUris": [
+        "http://127.0.0.1:8180/realms/invoices/broker/partner-saml/endpoint"
+      ],
+      "frontchannelLogout": true,
+      "attributes": {
+        "saml_assertion_consumer_url_post": "http://127.0.0.1:8180/realms/invoices/broker/partner-saml/endpoint",
+        "saml_single_logout_service_url_post": "http://127.0.0.1:8180/realms/invoices/broker/partner-saml/endpoint",
+        "saml.server.signature": "true",
+        "saml.assertion.signature": "true",
+        "saml.client.signature": "false",
+        "saml.signature.algorithm": "RSA_SHA256",
+        "saml_name_id_format": "username",
+        "saml.force.name.id.format": "true",
+        "saml.authnstatement": "true"
+      },
+      "protocolMappers": [
+        {
+          "name": "roles",
+          "protocol": "saml",
+          "protocolMapper": "saml-role-list-mapper",
+          "config": {
+            "single": "false",
+            "attribute.name": "Role",
+            "attribute.nameformat": "Basic"
+          }
+        },
+        {
+          "name": "email",
+          "protocol": "saml",
+          "protocolMapper": "saml-user-property-mapper",
+          "config": {
+            "user.attribute": "email",
+            "attribute.name": "email",
+            "attribute.nameformat": "Basic"
+          }
+        },
+        {
+          "name": "firstName",
+          "protocol": "saml",
+          "protocolMapper": "saml-user-property-mapper",
+          "config": {
+            "user.attribute": "firstName",
+            "attribute.name": "firstName",
+            "attribute.nameformat": "Basic"
+          }
+        },
+        {
+          "name": "lastName",
+          "protocol": "saml",
+          "protocolMapper": "saml-user-property-mapper",
+          "config": {
+            "user.attribute": "lastName",
+            "attribute.name": "lastName",
+            "attribute.nameformat": "Basic"
+          }
+        }
+      ]
+    }
+  ],
+  "users": [
+    {
+      "username": "sara",
+      "email": "sara@initech.example",
+      "firstName": "Sara",
+      "lastName": "Partner",
+      "enabled": true,
+      "emailVerified": true,
+      "realmRoles": [
+        "approver"
+      ],
+      "credentials": [
+        {
+          "type": "password",
+          "value": "dev",
+          "temporary": false
+        }
+      ]
+    },
+    {
+      "username": "tom",
+      "email": "tom@initech.example",
+      "firstName": "Tom",
+      "lastName": "Partner",
+      "enabled": true,
+      "emailVerified": true,
+      "realmRoles": [
+        "accountant"
+      ],
+      "credentials": [
+        {
+          "type": "password",
+          "value": "dev",
+          "temporary": false
+        }
+      ]
+    }
+  ]
+}

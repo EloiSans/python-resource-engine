@@ -230,6 +230,106 @@
           "username": "gina"
         }
       ]
+    },
+    {
+      "name": "Initech",
+      "alias": "initech",
+      "enabled": true,
+      "domains": [
+        {
+          "name": "initech.example",
+          "verified": true
+        }
+      ],
+      "identityProviders": [
+        {
+          "alias": "partner-saml"
+        }
+      ],
+      "members": []
+    }
+  ],
+  "identityProviders": [
+    {
+      "alias": "partner-saml",
+      "displayName": "Initech (SAML)",
+      "providerId": "saml",
+      "enabled": true,
+      "trustEmail": true,
+      "storeToken": false,
+      "firstBrokerLoginFlowAlias": "first broker login",
+      "config": {
+        "entityId": "http://127.0.0.1:8180/realms/invoices",
+        "idpEntityId": "http://127.0.0.1:8180/realms/partner",
+        "singleSignOnServiceUrl": "http://127.0.0.1:8180/realms/partner/protocol/saml",
+        "singleLogoutServiceUrl": "http://127.0.0.1:8180/realms/partner/protocol/saml",
+        "nameIDPolicyFormat": "urn:oasis:names:tc:SAML:1.1:nameid-format:unspecified",
+        "principalType": "SUBJECT",
+        "postBindingResponse": "true",
+        "postBindingAuthnRequest": "true",
+        "postBindingLogout": "true",
+        "validateSignature": "true",
+        "signingCertificate": "MIICzjCCAbagAwIBAgIUYEVpqjJLxV9RLdd8vSUJpZZyF/EwDQYJKoZIhvcNAQELBQAwIDEeMBwGA1UEAwwVcGFydG5lci1zYW1sLWRldi1vbmx5MCAXDTI2MDEwMTAwMDAwMFoYDzIwNTUxMjI1MDAwMDAwWjAgMR4wHAYDVQQDDBVwYXJ0bmVyLXNhbWwtZGV2LW9ubHkwggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQDIvgKnRf3SYPb2Pw/BZeVfRhKJEZiCi1GyIODRBFqIm3QAwYucskyquWYuoGONl6o+tWdPgsGfHsLlua73tDnLdwbjY0W/aQ1h/NeGDHVdcRhPqFd9AYKWUpgiNRPYNwEU8NoTHoZk30yx+ETXDsRXPBcvECtW/9tDfaXL7wWNyMGKMyr4Xp/pmnRd8d0nDHjdBrJ2fh8ScsvCVYrlLCSnUkXpo9PriCBS0VzzpO/0yVm5zepkzA7hJcjyzkAKFdJS/AcLaa0LqE8ofYGwUPXVDrTrRT+3iqzRc6C0ZnsnZgy+zxdinsiPHcXjEz7CqHNHzCbQTbBrpZpNtvxz99c/AgMBAAEwDQYJKoZIhvcNAQELBQADggEBABG+GTAnTHjKuxuh8qsjH41gjbxDymMb7dLm8wda/EUqWJPuKXrPt8o2MZ9WODPvGDbIDq5VHIjbSEVp4Q+0umLVShOuD+8amp835iEkuwp42FFkftPTyeye+hL59U7NLItvkfxvJWXKJ9/KDLHzxRFiKGFQL3bIMomTwUzdfxh6rddYD/miRc1GAJejtsgA8qwZI04R35wTYVVvOX5TdWD2ypO4FpF5CyviA3PCDDa4qR+dJNOzhy3z4IhbTC1Q3qCR+riuMjn3/4NR2oP+j9ZlSHFMEIIhsEp8emU2ojZ+a6hrOJSGBmJw9bJqJaudtPvhuuLdDJew6Hyluz+YB/0=",
+        "wantAssertionsSigned": "true",
+        "wantAuthnRequestsSigned": "false",
+        "syncMode": "FORCE",
+        "kc.org.domain": "initech.example",
+        "kc.org.broker.redirect.mode.email-matches": "true"
+      }
+    }
+  ],
+  "identityProviderMappers": [
+    {
+      "name": "Role approver",
+      "identityProviderAlias": "partner-saml",
+      "identityProviderMapper": "saml-role-idp-mapper",
+      "config": {
+        "syncMode": "FORCE",
+        "attribute.name": "Role",
+        "attribute.value": "approver",
+        "role": "approver"
+      }
+    },
+    {
+      "name": "Role accountant",
+      "identityProviderAlias": "partner-saml",
+      "identityProviderMapper": "saml-role-idp-mapper",
+      "config": {
+        "syncMode": "FORCE",
+        "attribute.name": "Role",
+        "attribute.value": "accountant",
+        "role": "accountant"
+      }
+    },
+    {
+      "name": "email",
+      "identityProviderAlias": "partner-saml",
+      "identityProviderMapper": "saml-user-attribute-idp-mapper",
+      "config": {
+        "syncMode": "FORCE",
+        "attribute.name": "email",
+        "user.attribute": "email"
+      }
+    },
+    {
+      "name": "firstName",
+      "identityProviderAlias": "partner-saml",
+      "identityProviderMapper": "saml-user-attribute-idp-mapper",
+      "config": {
+        "syncMode": "FORCE",
+        "attribute.name": "firstName",
+        "user.attribute": "firstName"
+      }
+    },
+    {
+      "name": "lastName",
+      "identityProviderAlias": "partner-saml",
+      "identityProviderMapper": "saml-user-attribute-idp-mapper",
+      "config": {
+        "syncMode": "FORCE",
+        "attribute.name": "lastName",
+        "user.attribute": "lastName"
+      }
     }
   ]
 }
