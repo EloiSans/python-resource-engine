@@ -221,6 +221,22 @@ All three adapters run it.
 
 ## Not yet
 
-- Managing Rego or Cedar policies from the front end.
 - Serving OPA bundles.
+- Cedar schemas generated from the registry, to validate policies in CI.
 - OpenFGA conditions (CEL) on input values.
+
+## Not planned
+
+Editing Rego or Cedar policies from the application's front end. Teams that
+run OPA or Cedar keep their policies as code: in a repository, reviewed,
+tested (`opa test`, Cedar's validator) and shipped through their pipeline
+(OPA bundles, the Verified Permissions API), usually for several
+applications at once. An editor inside one application would go around
+that review. It also couldn't check a change the way the built-in editor
+checks data policies: Rego is a full language, so privilege escalation and
+row-filter compatibility can't be verified there.
+
+For permissions that business users change from a front end, use the
+built-in policies stored as data (`authz_policies`, see
+[permissions](permissions.md)). The items above help the policy-as-code
+side instead.

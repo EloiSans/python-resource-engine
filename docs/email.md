@@ -181,6 +181,6 @@ The example's worker sends through it by default (`SMTP_HOST`, `SMTP_PORT`,
 real server). Approving an invoice whose registered customer has an email
 address sends `invoice_approved` in Catalan.
 
-Not included yet: provider HTTP APIs (Postmark, SendGrid, Microsoft Graph),
-bounce and complaint handling, and translation catalogues for the template
-texts (planned with message translations).
+Not included yet: provider HTTP APIs (Postmark, SendGrid, Microsoft Graph)
+and bounce and complaint handling. Template texts are translated with the
+application's catalogues; see [translations](i18n.md#templates).
