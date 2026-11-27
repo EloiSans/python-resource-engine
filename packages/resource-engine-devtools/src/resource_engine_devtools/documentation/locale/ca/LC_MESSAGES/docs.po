@@ -602,13 +602,6 @@ msgstr "Documentació funcional"
 msgid "Published events"
 msgstr "Esdeveniments publicats"
 
-msgid ""
-"Messages the application publishes after each committed change. The complete AsyncAPI document is"
-" `asyncapi.json`."
-msgstr ""
-"Missatges que l'aplicació publica després de cada canvi confirmat. El document AsyncAPI complet "
-"és a `asyncapi.json`."
-
 msgid "Data"
 msgstr "Dades"
 
@@ -635,4 +628,55 @@ msgstr "Excepcions"
 
 msgid "Examples"
 msgstr "Exemples"
+
+#, python-brace-format
+msgid "Restricted fields: {fields} — only roles with an explicit grant see or change them."
+msgstr "Camps restringits: {fields} — només els veuen o modifiquen els rols amb una concessió explícita."
+
+#, python-brace-format
+msgid "Resource [{name}](resources/{name}.md)"
+msgstr "Recurs [{name}](resources/{name}.md)"
+
+msgid "HTTP API"
+msgstr "API HTTP"
+
+msgid "GraphQL"
+msgstr "GraphQL"
+
+msgid "Messages the application publishes after each committed change."
+msgstr "Missatges que l'aplicació publica després de cada canvi confirmat."
+
+#, python-brace-format
+msgid "{title} {version}, from the OpenAPI document of the application: [`openapi.json`](openapi.json)."
+msgstr "{title} {version}, a partir del document OpenAPI de l'aplicació: [`openapi.json`](openapi.json)."
+
+msgid "Other"
+msgstr "Altres"
+
+msgid "Method"
+msgstr "Mètode"
+
+msgid "Path"
+msgstr "Ruta"
+
+msgid "Summary"
+msgstr "Resum"
+
+msgid "Body"
+msgstr "Cos"
+
+msgid "Responses"
+msgstr "Respostes"
+
+msgid "Payloads"
+msgstr "Dades dels missatges"
+
+msgid "The JSON schema of each message, from [`asyncapi.json`](asyncapi.json)."
+msgstr "L'esquema JSON de cada missatge, a partir de [`asyncapi.json`](asyncapi.json)."
+
+msgid "GraphQL schema"
+msgstr "Esquema GraphQL"
+
+msgid "The schema the application serves: [`schema.graphql`](schema.graphql)."
+msgstr "L'esquema que serveix l'aplicació: [`schema.graphql`](schema.graphql)."
 

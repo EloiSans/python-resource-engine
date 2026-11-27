@@ -9,6 +9,7 @@ from __future__ import annotations
 import re
 from typing import Any
 
+from resource_engine_devtools.documentation.audience import technical
 from resource_engine_devtools.documentation.docstrings import FUNCTIONAL_SECTIONS, DocText
 from resource_engine_devtools.documentation.generators.mermaid import render_state_machine
 from resource_engine_devtools.documentation.i18n import t
@@ -53,23 +54,35 @@ def _codes(names: Any) -> str:
 
 
 def render_resource(r: ResourceDoc, audit_resource: str | None = None) -> str:
-    entity = t("`{qualname}` — entity `{model}`", qualname=r.qualname, model=r.model)
-    out = [f"# {r.name}", "", entity, ""]
+    out = [f"# {r.name}", ""]
+    if technical():
+        out += [t("`{qualname}` — entity `{model}`", qualname=r.qualname, model=r.model), ""]
     out += _text(r.doc, heading="##")
 
-    out += [
-        "",
-        f"## {t('Operations')}",
-        "",
-        f"| {t('Operation')} | {t('Kind')} | {t('Endpoint')} | {t('Input')} | {t('Output')} "
-        f"| {t('Description')} |",
-        "|---|---|---|---|---|---|",
-    ]
-    for op in r.operations:
-        out.append(
-            f"| `{op.name}` | {op.kind} | `{op.method} {op.path}` | {op.input_schema or ''} "
-            f"| {op.output_schema or ''} | {_cell(op.doc.summary) or '—'} |"
-        )
+    if technical():
+        out += [
+            "",
+            f"## {t('Operations')}",
+            "",
+            f"| {t('Operation')} | {t('Kind')} | {t('Endpoint')} | {t('Input')} | {t('Output')} "
+            f"| {t('Description')} |",
+            "|---|---|---|---|---|---|",
+        ]
+        for op in r.operations:
+            out.append(
+                f"| `{op.name}` | {op.kind} | `{op.method} {op.path}` | {op.input_schema or ''} "
+                f"| {op.output_schema or ''} | {_cell(op.doc.summary) or '—'} |"
+            )
+    else:
+        out += [
+            "",
+            f"## {t('Operations')}",
+            "",
+            f"| {t('Operation')} | {t('Kind')} | {t('Description')} |",
+            "|---|---|---|",
+        ]
+        for op in r.operations:
+            out.append(f"| `{op.name}` | {op.kind} | {_cell(op.doc.summary) or '—'} |")
     if r.view == "custom":
         out += ["", t("Read-only view: the records are computed by a query.")]
     elif r.view:
@@ -106,7 +119,7 @@ def render_resource(r: ResourceDoc, audit_resource: str | None = None) -> str:
                 identity=r.identity,
             ),
         ]
-    if r.filterable or r.sortable:
+    if technical() and (r.filterable or r.sortable):
         out += [
             "",
             t(
@@ -124,7 +137,7 @@ def render_resource(r: ResourceDoc, audit_resource: str | None = None) -> str:
                 field=r.tenant_field,
             ),
         ]
-    if r.version_field:
+    if r.version_field and technical():
         out += [
             "",
             t(
@@ -134,7 +147,16 @@ def render_resource(r: ResourceDoc, audit_resource: str | None = None) -> str:
             )
             + (" " + t("Writes without a version are refused (428).") if r.require_version else ""),
         ]
-    if r.restricted_fields:
+    if r.restricted_fields and not technical():
+        out += [
+            "",
+            t(
+                "Restricted fields: {fields} — only roles with an explicit grant see or "
+                "change them.",
+                fields=_codes(r.restricted_fields),
+            ),
+        ]
+    elif r.restricted_fields:
         out += [
             "",
             t(
@@ -164,7 +186,7 @@ def render_resource(r: ResourceDoc, audit_resource: str | None = None) -> str:
     for sm in r.state_machines:
         title = t("State machine `{name}`", name=sm.machine) if several else t("State machine")
         where = t("`{qualname}` — field `{field}`", qualname=sm.qualname, field=sm.state_field)
-        out += ["", f"## {title}", "", where, ""]
+        out += ["", f"## {title}", ""] + ([where, ""] if technical() else [])
         out += _text(sm.doc)
         out += [
             "",
@@ -214,7 +236,7 @@ def render_resource(r: ResourceDoc, audit_resource: str | None = None) -> str:
     if r.actions:
         out += ["", f"## {t('Actions')}"]
         for a in r.actions:
-            out += ["", f"### `{a.name}`", "", f"`{a.qualname}`", ""]
+            out += ["", f"### `{a.name}`", ""] + ([f"`{a.qualname}`", ""] if technical() else [])
             out += _text(a.doc, heading="####")
 
     if r.reacts:
@@ -251,13 +273,15 @@ def render_resource(r: ResourceDoc, audit_resource: str | None = None) -> str:
                 f"| `{ref.name}` | `{ref.field}` | [{ref.resource}]({ref.resource}.md) "
                 f"| {_on_delete(ref.on_delete)} | {_cell(ref.description) or '—'} |"
             )
-        out += [
-            "",
-            t(
-                "With `expand` (`?expand=` over HTTP) the answer includes the related record; "
-                "`<relation>.<field>` filters use the related resource's filterable fields."
-            ),
-        ]
+        if technical():
+            out += [
+                "",
+                t(
+                    "With `expand` (`?expand=` over HTTP) the answer includes the related "
+                    "record; `<relation>.<field>` filters use the related resource's "
+                    "filterable fields."
+                ),
+            ]
     if r.referenced_by:
         refs = ", ".join(
             f"[{ref.field}]({ref.resource}.md) ({_on_delete(ref.on_delete)})"
@@ -265,7 +289,7 @@ def render_resource(r: ResourceDoc, audit_resource: str | None = None) -> str:
         )
         out += ["", t("Referenced by: {refs}.", refs=refs)]
         reverse = [ref for ref in r.referenced_by if ref.related_name]
-        if reverse:
+        if reverse and technical():
             out += [
                 "",
                 f"| {t('Reverse relation')} | {t('Records')} | {t('Route')} | `expand` |",
@@ -282,17 +306,19 @@ def render_resource(r: ResourceDoc, audit_resource: str | None = None) -> str:
                 )
 
     if r.links:
+        route = f" {t('Route')} |" if technical() else ""
         out += [
             "",
             f"## {t('Many-to-many relations')}",
             "",
-            f"| {t('Relation')} | {t('Records')} | {t('Through')} | {t('Route')} |",
-            "|---|---|---|---|",
+            f"| {t('Relation')} | {t('Records')} | {t('Through')} |{route}",
+            "|---|---|---|" + ("---|" if technical() else ""),
         ]
         for link in r.links:
+            path = f" `GET /{r.name}/{{id}}/{link.name}` |" if technical() else ""
             out.append(
                 f"| `{link.name}` | [{link.resource}]({link.resource}.md) "
-                f"| [{link.field}]({link.field}.md) | `GET /{r.name}/{{id}}/{link.name}` |"
+                f"| [{link.field}]({link.field}.md) |{path}"
             )
         out += [
             "",
@@ -305,7 +331,7 @@ def render_resource(r: ResourceDoc, audit_resource: str | None = None) -> str:
     if r.events:
         out += ["", f"## {t('Domain events')}"]
         for e in r.events:
-            out += ["", f"### `{e.name}`", "", f"`{e.qualname}`", ""]
+            out += ["", f"### `{e.name}`", ""] + ([f"`{e.qualname}`", ""] if technical() else [])
             out += _text(e.doc, heading="####")
             out += [
                 "",
@@ -345,10 +371,8 @@ def render_resource(r: ResourceDoc, audit_resource: str | None = None) -> str:
                 if e.template
                 else t("_computed at runtime_")
             )
-            out.append(
-                f"| {name} | {_point_label(e.point)} (`{e.function}`) | `{_cell(e.to)}` "
-                f"| {e.locale or '—'} |"
-            )
+            when = _point_label(e.point) + (f" (`{e.function}`)" if technical() else "")
+            out.append(f"| {name} | {when} | `{_cell(e.to)}` | {e.locale or '—'} |")
         out += [
             "",
             t(
@@ -359,6 +383,8 @@ def render_resource(r: ResourceDoc, audit_resource: str | None = None) -> str:
 
     out += _lifecycle(r)
 
+    if not technical():
+        return "\n".join(out) + "\n"
     out += ["", f"## {t('Schemas')}"]
     for s in r.schemas:
         out += [
@@ -482,7 +508,7 @@ def _lifecycle(r: ResourceDoc) -> list[str]:
         if validates:
             text = (
                 t("The input is validated (`{schema}`)", schema=schema)
-                if schema
+                if schema and technical()
                 else t("The input is validated")
             )
             steps.append(
@@ -493,9 +519,11 @@ def _lifecycle(r: ResourceDoc) -> list[str]:
                 t("A document must be available in {slots}.", slots=_codes(required)),
                 t("Document {slots}", slots=", ".join(required)),
             ))  # fmt: skip
-        steps += [(t("Before saving: {hook}", hook=_hook_text(h)), h.name) for h in before]
+        steps += [(t("Before saving: {hook}", hook=_hook_text(h)), _hook_label(h)) for h in before]
         steps.append(_mutation(kind))
-        steps += [(t("Before the commit: {hook}", hook=_hook_text(h)), h.name) for h in after]
+        steps += [
+            (t("Before the commit: {hook}", hook=_hook_text(h)), _hook_label(h)) for h in after
+        ]
         committed = t("The change is committed, with the audit entry and the events.")
         steps.append((committed, _commit()))
         for e in mails:
@@ -509,6 +537,8 @@ def _lifecycle(r: ResourceDoc) -> list[str]:
     if commit:
         out += ["", t("After any committed change of this resource:"), ""]
         out += [f"- {_hook_text(h)}" for h in commit]
+    if not technical():
+        return out
     out += [
         "",
         f"| {t('Point')} | {t('Hook')} | {t('External effects')} | {t('Description')} |",
@@ -522,9 +552,21 @@ def _lifecycle(r: ResourceDoc) -> list[str]:
     return out
 
 
+def _hook_label(h: Any) -> str:
+    """The hook in a diagram: its function, or for the functional audience
+    the start of what it does."""
+    if technical():
+        return h.name
+    summary = (h.doc.summary or h.name).rstrip(".")
+    return summary if len(summary) <= 40 else summary[:39].rstrip() + "…"
+
+
 def _hook_text(h: Any) -> str:
     effect = f" ({t('external effect')})" if h.external_effect else ""
-    return f"`{h.name}`{effect} — {_cell(h.doc.summary) or t('no description')}"
+    summary = _cell(h.doc.summary) or t("no description")
+    if not technical():  # what it does, not the function's name
+        return f"{summary}{effect}"
+    return f"`{h.name}`{effect} — {summary}"
 
 
 def _flow(labels: list[str]) -> str:
@@ -663,18 +705,17 @@ def render_state_machines(model: DocumentationModel) -> str:
     ]
     for r in model.resources:
         for sm in r.state_machines:
-            out += [
-                "",
-                f"## {r.name}: {sm.machine or sm.state_field}",
-                "",
+            where = (
                 t(
                     "Resource [{name}](resources/{name}.md) — field `{field}` — `{qualname}`",
                     name=r.name,
                     field=sm.state_field,
                     qualname=sm.qualname,
-                ),
-                "",
-            ]
+                )
+                if technical()
+                else t("Resource [{name}](resources/{name}.md)", name=r.name)
+            )
+            out += ["", f"## {r.name}: {sm.machine or sm.state_field}", "", where, ""]
             if sm.doc.summary:
                 out += [sm.doc.summary, ""]
             out += ["```mermaid", render_state_machine(sm), "```"]

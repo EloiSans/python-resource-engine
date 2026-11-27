@@ -255,10 +255,43 @@ def _docs_locale(args: argparse.Namespace) -> str | None:
     return args.locale or (config.source_locale if config else None)
 
 
+def _audience(args: argparse.Namespace) -> str:
+    """``--audience``, else ``[tool.resource-engine] docs_audience``, else technical."""
+    return args.audience or str(find_config(Path.cwd()).get("docs_audience") or "technical")
+
+
+def _technical_documents(audience: str) -> dict[str, object]:
+    """The application's OpenAPI (``[tool.resource-engine] app``: a FastAPI app or
+    a factory) and GraphQL SDL (``graphql``: a ``GraphQLSchema`` or a factory),
+    for the technical audience. Building the app runs nothing (no lifespan)."""
+    if audience != "technical":
+        return {}
+    from resource_engine_devtools.loader import load_object
+
+    config = find_config(Path.cwd())
+    out: dict[str, object] = {}
+    if config.get("app"):
+        app = load_object(str(config["app"]))
+        if callable(app) and not hasattr(app, "openapi"):
+            app = app()
+        out["openapi"] = app.openapi()  # type: ignore[union-attr]
+    if config.get("graphql"):
+        from graphql import GraphQLSchema, print_schema
+
+        schema = load_object(str(config["graphql"]))
+        if not isinstance(schema, GraphQLSchema) and callable(schema):
+            schema = schema()
+        out["graphql"] = print_schema(schema)  # type: ignore[arg-type]
+    return out
+
+
 def cmd_docs_generate(args: argparse.Namespace) -> int:
+    from resource_engine_devtools.documentation.audience import docs_audience
+    from resource_engine_devtools.documentation.generators.api import api_pages
     from resource_engine_devtools.documentation.i18n import docs_locale, translate_model
     from resource_engine_devtools.i18n import po_gettext
 
+    audience = _audience(args)
     registry = _registry(args)
     model = introspect(registry, load_authz(Path.cwd()), **_templates())
     locale = _docs_locale(args)
@@ -266,14 +299,16 @@ def cmd_docs_generate(args: argparse.Namespace) -> int:
     if locale and config:
         model = translate_model(model, po_gettext(config, locale))
     out = Path(args.out)
-    if args.format == "json":
-        files = {"documentation.json": render_json(model)}
-    else:
-        with docs_locale(locale):
-            files = render_markdown(model)
     asyncapi = _asyncapi(args, registry)
-    if asyncapi["channels"]:
-        files["asyncapi.json"] = json.dumps(asyncapi, indent=2, ensure_ascii=False) + "\n"
+    with docs_audience(audience), docs_locale(locale):
+        if args.format == "json":
+            files = {"documentation.json": render_json(model)}
+        else:
+            files = render_markdown(model)
+        pages, documents = api_pages(asyncapi, **_technical_documents(audience))  # type: ignore[arg-type]
+    if args.format != "json":
+        files.update(pages)
+    files.update(documents)
     for rel, content in files.items():
         target = out / rel
         target.parent.mkdir(parents=True, exist_ok=True)
@@ -290,6 +325,7 @@ def cmd_docs_site(args: argparse.Namespace) -> int:
     from resource_engine_devtools.documentation.generators.site import render_site
     from resource_engine_devtools.i18n import iter_docs_locales, po_gettext
 
+    audience = _audience(args)
     registry = _registry(args)
     model = introspect(registry, load_authz(Path.cwd()), **_templates())
     asyncapi = _asyncapi(args, registry)
@@ -302,9 +338,9 @@ def cmd_docs_site(args: argparse.Namespace) -> int:
         mermaid_url=args.mermaid_url,
         locales=locales or None,
         translate=(lambda locale: po_gettext(config, locale)) if config else None,
+        audience=audience,
+        **_technical_documents(audience),  # type: ignore[arg-type]
     )
-    if asyncapi["channels"]:
-        files["asyncapi.json"] = json.dumps(asyncapi, indent=2, ensure_ascii=False) + "\n"
     out = Path(args.out)
     for rel, content in files.items():
         target = out / rel
@@ -700,6 +736,13 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument(
         "--locale", help="language of the docs (default: the i18n source_locale, else English)"
     )
+    p.add_argument(
+        "--audience",
+        choices=["technical", "functional"],
+        help="technical: class paths, endpoints, schemas and the API pages (OpenAPI, "
+        "AsyncAPI, GraphQL); functional: none of them (default: pyproject docs_audience, "
+        "else technical)",
+    )
     p.set_defaults(func=cmd_docs_generate)
     p = docs.add_parser(
         "asyncapi", parents=[common], help="AsyncAPI 3.0 document of published and consumed events"
@@ -728,6 +771,13 @@ def build_parser() -> argparse.ArgumentParser:
         action="append",
         help="a language of the site (repeatable; default: every i18n locale). With several, "
         "each gets its own folder and a language switcher",
+    )
+    p.add_argument(
+        "--audience",
+        choices=["technical", "functional"],
+        help="technical: class paths, endpoints, schemas and the API pages (OpenAPI, "
+        "AsyncAPI, GraphQL); functional: none of them (default: pyproject docs_audience, "
+        "else technical)",
     )
     p.add_argument(
         "--mermaid-url",

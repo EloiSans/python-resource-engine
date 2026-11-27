@@ -166,7 +166,7 @@ uv run uvicorn invoices.app:app --app-dir examples --reload   # then open /docs 
 - [Contracts](docs/contracts.md) — consumers scaffolded from a provider's AsyncAPI, contract tests on both sides.
 - [AsyncAPI](docs/asyncapi.md) — the events the app publishes and consumes, generated and served next to OpenAPI.
 - [MCP server](docs/mcp.md) — operations as tools for AI agents, permissions per caller.
-- [Documentation site](docs/docs-site.md) — the functional docs as a static website: diagrams, permission matrix, events, search. The example's is published at <https://eloisans.github.io/python-resource-engine/>.
+- [Documentation site](docs/docs-site.md) — the docs as a static website, for a technical or a functional audience: diagrams, permission matrix, events, emails, the HTTP API, search, several languages. The example's is published at <https://eloisans.github.io/python-resource-engine/>.
 - [Translations](docs/i18n.md) — gettext catalogues for error titles, templates, your messages and the documentation site; locale per request.
 - [Email and templates](docs/email.md) — emails requested in the transaction and sent after the commit, Jinja templates per locale, SMTP and SES.
 - [Scaffolding](docs/scaffold.md) — generate a module or any part of one.

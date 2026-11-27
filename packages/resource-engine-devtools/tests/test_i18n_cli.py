@@ -115,7 +115,7 @@ def test_the_engines_compiled_catalogues_match_their_sources():
 def test_every_generator_text_is_translated():
     base = REPO / "packages/resource-engine-devtools/src/resource_engine_devtools/documentation"
     texts = set()
-    for name in ("markdown.py", "site.py"):
+    for name in ("markdown.py", "site.py", "api.py"):
         for _, message, _, _ in extract_from_file(
             "python", str(base / "generators" / name), keywords={"t": None}
         ):

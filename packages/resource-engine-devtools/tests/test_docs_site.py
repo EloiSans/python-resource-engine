@@ -104,7 +104,9 @@ def test_cli_writes_the_site(tmp_path, capsys):
     assert 'href="../../ca/resources/invoices.html" hreflang="ca"' in english  # the switcher
     spanish = (out / "es" / "resources" / "invoices.html").read_text()
     assert "Gestión de las facturas de la organización." in spanish and "Operaciones" in spanish
-    assert json.loads((out / "asyncapi.json").read_text())["asyncapi"].startswith("3.")
+    asyncapi = json.loads((out / "ca" / "asyncapi.json").read_text())  # next to its pages
+    assert asyncapi["asyncapi"].startswith("3.")
+    assert (out / "en" / "api.html").is_file() and (out / "en" / "openapi.json").is_file()
     assert json.loads(capsys.readouterr().out)["index"].endswith("index.html")
 
 
@@ -171,3 +173,67 @@ def test_hooks_are_described_per_operation_in_lifecycle_order():
     assert "Abans de confirmar: `validate_amount`" in update
     assert "### Transició `submit`" not in section  # nothing of its own to show
     assert "Després de qualsevol canvi confirmat" in section and "`notify_approval`" in section
+
+
+def test_the_audience_decides_the_technical_content():
+    from graphql import GraphQLField, GraphQLObjectType, GraphQLSchema, GraphQLString, print_schema
+
+    openapi = {
+        "openapi": "3.1.0",
+        "info": {"title": "Factures", "version": "1.0"},
+        "paths": {
+            "/invoices": {
+                "post": {
+                    "tags": ["invoices"],
+                    "summary": "Crea una factura.",
+                    "requestBody": {
+                        "content": {
+                            "application/json": {
+                                "schema": {"$ref": "#/components/schemas/InvoiceCreate"}
+                            }
+                        }
+                    },
+                    "responses": {"201": {"content": {"application/json": {"schema": {
+                        "$ref": "#/components/schemas/InvoiceRead"}}}}},
+                }
+            }
+        },
+        "components": {"schemas": {"InvoiceCreate": {
+            "properties": {"amount": {"type": "string", "description": "Import"}},
+            "required": ["amount"],
+        }}},
+    }  # fmt: skip
+    sdl = print_schema(
+        GraphQLSchema(GraphQLObjectType("Query", {"hello": GraphQLField(GraphQLString)}))
+    )
+    technical = _site(openapi=openapi, graphql=sdl)
+    assert {"api.html", "graphql.html", "openapi.json", "asyncapi.json", "schema.graphql"} <= set(
+        technical
+    )
+    api = technical["api.html"]
+    assert "<code>/invoices</code>" in api and "<code>InvoiceCreate</code>" in api
+    assert "Import" in api and 'href="openapi.json"' in api
+    assert "Dades dels missatges" in technical["events.html"]  # payload schemas
+    assert (
+        'href="api.html"' in technical["index.html"] and "type Query" in technical["graphql.html"]
+    )
+    assert "invoices.application.resource.InvoiceResource" in technical["resources/invoices.html"]
+
+    functional = _site(openapi=openapi, graphql=sdl, audience="functional")
+    assert not {"api.html", "graphql.html", "openapi.json", "asyncapi.json"} & set(functional)
+    page = functional["resources/invoices.html"]
+    assert "InvoiceResource" not in page and "/invoices/{id}" not in page
+    assert "InvoiceCreate" not in page and "Esquemes" not in page  # no schemas
+    assert "Rebutja factures amb import negatiu." in page  # what the hooks do stays
+    assert "validate_amount" not in page  # their function names don't
+    assert "events.html" in functional and "Dades dels missatges" not in functional["events.html"]
+
+
+def test_cli_audience_from_the_option_and_the_config(tmp_path):
+    out = tmp_path / "f"
+    assert main(["docs", "generate", "--out", str(out), "--audience", "functional"]) == 0
+    assert not (out / "asyncapi.json").exists() and not (out / "api.md").exists()
+    technical = tmp_path / "t"
+    assert main(["docs", "generate", "--out", str(technical)]) == 0  # the default
+    assert (technical / "api.md").is_file() and (technical / "openapi.json").is_file()
+    assert json.loads((technical / "openapi.json").read_text())["paths"]

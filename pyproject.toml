@@ -91,6 +91,7 @@ worker = "invoices.worker:build"
 authz = "invoices.bootstrap:authz"
 policies = "invoices.authz:SEED_POLICIES"
 templates = "invoices.notifications:templates"
+app = "invoices.app:create_app"   # its OpenAPI in the technical docs
 metadata = "invoices.infrastructure.persistence:metadata"
 paths = ["examples"]
 

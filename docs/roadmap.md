@@ -245,6 +245,13 @@
   every configured language, with a switcher (generator texts shipped in
   English, Catalan and Spanish). The example runs in Catalan, English and
   Spanish.
+- Documentation audiences: `--audience technical|functional` for `docs site`
+  and `docs generate` (`docs_audience` in pyproject). Technical adds class
+  paths, endpoints, schemas, the HTTP API page from the app's OpenAPI, the
+  events' payload schemas and the GraphQL schema, with `openapi.json`,
+  `asyncapi.json` and `schema.graphql`; functional keeps the plain-words
+  pages only. The site workflow takes the audience as an input (or the
+  `DOCS_AUDIENCE` variable).
 
 ## Next
 

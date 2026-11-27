@@ -18,6 +18,7 @@ from typing import Any
 
 from markdown_it import MarkdownIt
 
+from resource_engine_devtools.documentation.audience import docs_audience
 from resource_engine_devtools.documentation.generators.markdown import render_markdown
 from resource_engine_devtools.documentation.i18n import docs_locale, t, translate_model
 from resource_engine_devtools.documentation.model import DocumentationModel
@@ -38,6 +39,8 @@ def labels() -> dict[str, str]:
         "no_results": t("No results"),
         "generated": t("Generated from the code with Resource Engine"),
         "language": t("Language"),
+        "api": t("HTTP API"),
+        "graphql": t("GraphQL"),
     }
 
 
@@ -49,6 +52,9 @@ def render_site(
     mermaid_url: str = MERMAID_URL,
     locales: Sequence[str] | None = None,
     translate: Callable[[str], Callable[[str], str]] | None = None,
+    audience: str = "technical",
+    openapi: Mapping[str, Any] | None = None,
+    graphql: str | None = None,
 ) -> dict[str, str]:
     """Return ``{relative_path: content}`` of the site.
 
@@ -57,14 +63,41 @@ def render_site(
     ``index.html`` that sends visitors to the first one. ``translate(locale)``
     gives the application's gettext for a locale (its docstrings and
     descriptions); the generator's own texts come with devtools.
+
+    ``audience``: ``technical`` adds class paths, endpoints, schemas, the HTTP
+    API (``openapi``), the events' payloads and the GraphQL schema (``graphql``,
+    SDL), with their documents; ``functional`` leaves them all out.
     """
+    with docs_audience(audience):
+        return _render_sites(
+            model, asyncapi, title, mermaid_url, locales, translate, openapi, graphql
+        )
+
+
+def _render_sites(
+    model: DocumentationModel,
+    asyncapi: Mapping[str, Any] | None,
+    title: str | None,
+    mermaid_url: str,
+    locales: Sequence[str] | None,
+    translate: Callable[[str], Callable[[str], str]] | None,
+    openapi: Mapping[str, Any] | None,
+    graphql: str | None,
+) -> dict[str, str]:
     if locales and len(locales) > 1:
         files: dict[str, str] = {}
         for locale in locales:
             localised = translate_model(model, translate(locale)) if translate else model
             with docs_locale(locale):
                 part = _render_site(
-                    localised, asyncapi, title, mermaid_url, locale=locale, others=locales
+                    localised,
+                    asyncapi,
+                    title,
+                    mermaid_url,
+                    locale=locale,
+                    others=locales,
+                    openapi=openapi,
+                    graphql=graphql,
                 )
             files.update({f"{locale}/{path}": text for path, text in part.items()})
         files["index.html"] = _redirect(list(locales))
@@ -73,7 +106,16 @@ def render_site(
     if locale and translate:
         model = translate_model(model, translate(locale))
     with docs_locale(locale):
-        return _render_site(model, asyncapi, title, mermaid_url, locale=locale, others=())
+        return _render_site(
+            model,
+            asyncapi,
+            title,
+            mermaid_url,
+            locale=locale,
+            others=(),
+            openapi=openapi,
+            graphql=graphql,
+        )
 
 
 def _render_site(
@@ -84,21 +126,19 @@ def _render_site(
     *,
     locale: str | None,
     others: Sequence[str],
+    openapi: Mapping[str, Any] | None = None,
+    graphql: str | None = None,
 ) -> dict[str, str]:
     LABELS = labels()
+    from resource_engine_devtools.documentation.generators.api import api_pages
+
     pages = render_markdown(model)
-    if asyncapi and asyncapi.get("channels"):
-        pages["events.md"] = render_events(asyncapi)
+    extra, documents = api_pages(asyncapi, openapi, graphql)
+    pages.update(extra)
     title = title or (asyncapi or {}).get("info", {}).get("title") or t("Functional documentation")
     md = _markdown()
-    nav = _navigation(
-        model,
-        "permissions.md" in pages,
-        "events.md" in pages,
-        "state-machines.md" in pages,
-        "emails.md" in pages,
-    )
-    files: dict[str, str] = {}
+    nav = _navigation(model, set(pages))
+    files: dict[str, str] = dict(documents)
     search: list[dict[str, str]] = []
     for path, text in sorted(pages.items()):
         target = path.removesuffix(".md") + ".html"
@@ -132,10 +172,7 @@ def render_events(asyncapi: Mapping[str, Any]) -> str:
     out = [
         f"# {t('Published events')}",
         "",
-        t(
-            "Messages the application publishes after each committed change. The complete "
-            "AsyncAPI document is `asyncapi.json`."
-        ),
+        t("Messages the application publishes after each committed change."),
     ]
     for name, channel in asyncapi.get("channels", {}).items():
         out += ["", f"## {name}", ""]
@@ -225,19 +262,19 @@ def _describe(schema: Mapping[str, Any]) -> str:
     return ""
 
 
-def _navigation(
-    model: DocumentationModel, permissions: bool, events: bool, machines: bool, emails: bool
-) -> list[tuple]:
+def _navigation(model: DocumentationModel, pages: set[str]) -> list[tuple]:
     LABELS = labels()
     items: list[tuple] = [("index.html", LABELS["home"], None)]
-    if machines:
-        items.append(("state-machines.html", LABELS["machines"], None))
-    if emails:
-        items.append(("emails.html", LABELS["emails"], None))
-    if permissions:
-        items.append(("permissions.html", LABELS["permissions"], None))
-    if events:
-        items.append(("events.html", LABELS["events"], None))
+    for page, label in (
+        ("state-machines.md", "machines"),
+        ("emails.md", "emails"),
+        ("permissions.md", "permissions"),
+        ("events.md", "events"),
+        ("api.md", "api"),
+        ("graphql.md", "graphql"),
+    ):
+        if page in pages:
+            items.append((page.removesuffix(".md") + ".html", LABELS[label], None))
     resources = [(f"resources/{r.name}.html", r.name, r.doc.summary or "") for r in model.resources]
     return [*items, ("", LABELS["resources"], resources)]
 

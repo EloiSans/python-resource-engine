@@ -18,7 +18,8 @@ resource and state-machine docstrings, schemas, permissions and events.
 | `resources/<name>.html` | Description, business area and actors; operations and endpoints; filters, tenancy, versions, restricted fields; references and relations; state machines with their diagram, states, transitions and timers; documents; the emails it sends; what happens in each operation; schemas. |
 | `emails.html` | Every email template set, with a preview per locale (with `[tool.resource-engine] templates`). |
 | `permissions.html` | The system roles and the matrix of actions each one grants (with an authorization config). |
-| `events.html` | The published events per channel, with their data (from the AsyncAPI document, written next to it as `asyncapi.json`). |
+| `events.html` | The published events per channel, with their data; for the technical audience also each message's JSON schema and `asyncapi.json`. |
+| `api.html`, `graphql.html` | Technical audience: the HTTP API from the app's OpenAPI (`openapi.json`) and the GraphQL schema (`schema.graphql`). |
 
 Every page has the menu and a search box (press `/`) over the text of every
 page. It works offline. Diagrams are drawn in the browser by Mermaid, loaded
@@ -52,6 +53,40 @@ the trigger and the recipients as written in the code.
 
 Documentation text is Markdown. Raw HTML in a docstring is shown as text,
 never run.
+
+## Audience
+
+The same code gives two sites, chosen with `--audience` (or
+`[tool.resource-engine] docs_audience`):
+
+| | `technical` (default) | `functional` |
+|---|---|---|
+| For | Developers, integrators, the teams consuming the API or the events | Product owners, testers, support, business reviewers |
+| Resources | Class paths, endpoints, input and output schemas, filters, concurrency, `expand`, routes, hook functions | What each resource is, its operations, states, rules, documents, emails and what happens in each operation, in plain words |
+| API pages | **HTTP API** (from the app's OpenAPI: endpoints per tag, bodies, responses, schemas), the events' **payloads**, the **GraphQL schema** | — |
+| Documents | `openapi.json`, `asyncapi.json`, `schema.graphql`, next to the pages | none |
+
+The HTTP API page needs the application: `[tool.resource-engine] app =
+"invoices.app:create_app"` (a FastAPI app, or a function returning one).
+Building the app runs nothing: no lifespan, no database. The GraphQL page
+needs `graphql = "pkg.module:schema"` (a `GraphQLSchema`, or a function
+returning one). Without them, those pages are left out.
+
+`docs generate` takes the same option for the Markdown pages.
+
+In CI, the example's site workflow builds the audience from the manual
+run's choice. On a push it uses the repository variable `DOCS_AUDIENCE`,
+else `technical`:
+
+```yaml
+- name: Build the site
+  env:
+    AUDIENCE: ${{ inputs.audience || vars.DOCS_AUDIENCE || 'technical' }}
+  run: uv run resource-engine docs site --out site --audience "$AUDIENCE"
+```
+
+To publish both, build each into its own folder (`site/` and
+`site/functional/`) and deploy the parent.
 
 ## Languages
 
