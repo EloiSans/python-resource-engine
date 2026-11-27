@@ -299,6 +299,12 @@
   `default_locale`, any), written per language or all at once
   (`<field>_translations`), filtered and sorted in that language in memory and
   in SQL (`COALESCE` over JSON paths).
+- Composite stores (`docs/composite.md`): `CompositeStore` routes each
+  resource to its store, keeps the outbox, inbox and audit in the primary one,
+  and wraps non-transactional repositories so their writes record a
+  compensation (delete, restore, re-create, or your own), run in reverse when
+  the operation or the primary commit fails; failing compensations are
+  reported and the others still run.
 
 ## Next
 
@@ -317,7 +323,5 @@ Nothing scheduled: the next items come from Later.
   OpenAPI, AsyncAPI and GraphQL, and the contract checks comparing versions.
 - SAP: OData v2/v4 repository for S/4HANA APIs on top of the REST repository,
   BTP destination service lookup.
-- Composite unit of work (SQL resources and remote resources in one operation) and
-  compensation hooks for remote writes.
 - Reference document processors (ClamAV scan, text extraction).
 - NoSQL repositories (DynamoDB, Cosmos DB, Firestore) after adding capability flags.
