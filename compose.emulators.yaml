@@ -1,5 +1,6 @@
 # Cloud emulators for integration tests:  docker compose -f compose.emulators.yaml up -d --build
 # Then: uv run pytest -m emulator
+# Firestore (:8086) and Cosmos DB vNext (:8081) back the NoSQL repository tests.
 # Open-source services with UIs: Garage (S3), RabbitMQ (:15672), Keycloak (:8180)
 # and the OpenFGA playground (:3000). OPA (:8181) serves docker/opa/*.rego.
 # PostgreSQL (:5439) runs the migration and SQL contract tests.
@@ -117,6 +118,20 @@ services:
     command: ["-scheme", "http", "-port", "4443", "-public-host", "127.0.0.1:4443"]
     ports:
       - "127.0.0.1:4443:4443"
+
+  firestore:
+    # Firestore emulator (REST) on :8086, from the Google Cloud CLI emulators image.
+    image: gcr.io/google.com/cloudsdktool/google-cloud-cli:emulators
+    command: ["gcloud", "emulators", "firestore", "start", "--host-port=0.0.0.0:8086"]
+    ports:
+      - "127.0.0.1:8086:8086"
+
+  cosmos:
+    # Azure Cosmos DB emulator (vNext, NoSQL API) on :8081 over HTTP, the well-known key.
+    image: mcr.microsoft.com/cosmosdb/linux/azure-cosmos-emulator:vnext-preview
+    command: ["--protocol", "http"]
+    ports:
+      - "127.0.0.1:8081:8081"
 
   trino:
     # Query engine for data-lake view resources: REST on :8088, the memory catalog.

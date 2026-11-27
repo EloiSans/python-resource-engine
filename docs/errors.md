@@ -18,9 +18,10 @@ and in English.
 | <a id="re-e009"></a>RE-E009 | `HistoryNotAvailable` | 500 | `history` was called for a resource without a state machine or with `audit = False`, or the manager has no audit trail stored as a resource (`audit=True`). See [audit](audit.md#history). |
 | <a id="re-e010"></a>RE-E010 | `TemplateNotFound` | 500 | No template with that name for the locale or its fallbacks; `details` has `name`, `locale` and the names `tried`. See [email](email.md#templates). |
 | <a id="re-e011"></a>RE-E011 | `TemplateFailed` | 500 | A template failed to render: a missing variable or a syntax error; `details` has `name` and `error`. |
+| <a id="re-e012"></a>RE-E012 | `TransactionTooLarge` | 500 | One commit holds more writes than the store's transactions take (`max_writes`); `details` has `writes` and `max_writes`. Split the operation, or use a store with larger transactions ([NoSQL](nosql.md)). |
 | <a id="re-e101"></a>RE-E101 | `ValidationFailed` | 422 | Input does not match the schema; `details` holds Pydantic errors. |
 | <a id="re-e102"></a>RE-E102 | `EntityNotFound` | 404 | No entity with that id. |
-| <a id="re-e103"></a>RE-E103 | `InvalidQuery` | 400 | Filter/order field not allowed, or paging out of bounds. |
+| <a id="re-e103"></a>RE-E103 | `InvalidQuery`, `QueryNotSupported` | 400 | Filter/order field not allowed, or paging out of bounds. `QueryNotSupported`: the resource allows it but its store can't run it (no index, offset too deep); `details` lists what was refused and what the store supports ([capabilities](nosql.md#capabilities)). |
 | <a id="re-e104"></a>RE-E104 | `ExternalEffectInTransaction` | 500 | An `@external_effect` hook is registered before `after_commit`. |
 | <a id="re-e105"></a>RE-E105 | `VersionConflict` | 409 | The record changed since the client read it; `details.expected` and `details.current`. Reload and retry. |
 | <a id="re-e106"></a>RE-E106 | `VersionRequired` | 428 | The resource has `require_version`; send `If-Match` (or `expected_version=`). |

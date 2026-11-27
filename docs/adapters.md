@@ -118,7 +118,9 @@ first and the broker is the safety net.
 | REST API | `resource-engine-http` | `RestRepository` / `rest_unit_of_work_factory`. Not transactional (see below). | experimental |
 | SOAP service | `resource-engine-http[soap]` | `SoapRepository` over `SoapService` (zeep). Not transactional. | experimental |
 | SAP OData (S/4HANA APIs) | `resource-engine-sap[odata]` | On top of `RestRepository`. | planned |
-| DynamoDB, Cosmos DB, Firestore | – | Deferred: need capability flags in the repository port (transactions scope, total counts, index-bound filters). | planned |
+| DynamoDB | `resource-engine-aws[dynamodb]` | `DynamoDbStore`: one `TransactWriteItems` per commit (100 items); lists by key, index or bounded scan ([NoSQL](nosql.md)). | experimental |
+| Firestore | `resource-engine-gcp[firestore]` | `FirestoreStore` (REST): one commit per unit of work (500 writes); native queries with a `count()` total. | experimental |
+| Cosmos DB | `resource-engine-azure[cosmos]` | `CosmosStore`: a transactional batch per partition key (100 operations); SQL queries across partitions. | experimental |
 
 ### Remote repositories (REST, SOAP)
 

@@ -14,6 +14,7 @@ and a `doc` link. Read the hint first.
 | RE-E009 | `HistoryNotAvailable` | `history` needs a state machine, `audit` on the resource and `audit=True` (a `RepositoryAuditSink`) on the manager |
 | RE-E010 | `TemplateNotFound` | No template for that name, locale or fallback |
 | RE-E011 | `TemplateFailed` | A template failed to render (a missing variable) |
+| RE-E012 | `TransactionTooLarge` | One commit holds more writes than the store's transactions take (100 in DynamoDB and Cosmos DB, 500 in Firestore): split the operation |
 | RE-E104 | `ExternalEffectInTransaction` | Move the `@external_effect` hook to `after_commit` or record an event |
 
 ## Raised by operations
@@ -25,7 +26,7 @@ and a `doc` link. Read the hint first.
 | RE-E007 | `TransactionDoomed` | 500 | An operation failed inside `manager.transaction()` |
 | RE-E101 | `ValidationFailed` | 422 | Input does not match the schema (`details`: Pydantic errors) |
 | RE-E102 | `EntityNotFound` | 404 | No record with that id (or not visible) |
-| RE-E103 | `InvalidQuery` | 400 | Filter or order field not in `filterable` / `sortable` |
+| RE-E103 | `InvalidQuery`, `QueryNotSupported` | 400 | Filter or order field not in `filterable` / `sortable`; `QueryNotSupported`: the store has no index for it (NoSQL capability flags) |
 | RE-E105 | `VersionConflict` | 409 | Stale version: reload and retry |
 | RE-E106 | `VersionRequired` | 428 | `require_version`: send `If-Match` / `expected_version` |
 | RE-E107 | `IdempotencyKeyReused` | 422 | The idempotency key was used for a different request |

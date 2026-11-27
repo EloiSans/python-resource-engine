@@ -21,7 +21,7 @@ so the same class is used by the domain, the in-memory adapter and SQLAlchemy.
 
 ## Ports
 
-- `Repository[E]`: `get`, `list(ListQuery) -> Page`, `add`, `update`, `delete`; optional `supports_conditions` (row filters) and `supports_versions` (`expected_version` compare-and-set, see [concurrency](concurrency.md)).
+- `Repository[E]`: `get`, `list(ListQuery) -> Page`, `add`, `update`, `delete`; optional `supports_conditions` (row filters) and `supports_versions` (`expected_version` compare-and-set, see [concurrency](concurrency.md)), and the capability flags `filterable`, `sortable`, `max_offset` (repository) and `transaction_scope`, `max_writes` (unit of work); queries beyond them are refused before they reach the store ([capabilities](nosql.md#capabilities)).
 - `UnitOfWork`: async context manager handing out repositories; `commit`/`rollback`.
 - `EventPublisher`: `publish(events)`, called only after commit.
 - `MessagePublisher`: `publish(envelopes)` to a broker (cloud adapters implement it).

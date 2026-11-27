@@ -1,5 +1,5 @@
-"""AWS adapters for Resource Engine: SQS/SNS publishers, the SQS consumer source
-and the SES email sender.
+"""AWS adapters for Resource Engine: SQS/SNS publishers, the SQS consumer source,
+the SES email sender, EventBridge, Athena and DynamoDB repositories.
 
 Install the extras for the services you use: ``resource-engine-aws[sqs,sns,ses]``.
 """
@@ -12,6 +12,8 @@ from resource_engine_aws.sqs_source import SqsMessageSource, decode_sqs_body
 __all__ = [
     "AthenaEngine",
     "decode_sqs_body",
+    "DynamoDbStore",
+    "DynamoTable",
     "EventBridgePublisher",
     "parse_ses",
     "SesEmailSender",
@@ -23,6 +25,8 @@ __all__ = [
 #: Imported on first use, so each needs only its own extra.
 _LAZY = {
     "AthenaEngine": "resource_engine_aws.athena",
+    "DynamoDbStore": "resource_engine_aws.dynamodb",
+    "DynamoTable": "resource_engine_aws.dynamodb",
     "EventBridgePublisher": "resource_engine_aws.eventbridge",
 }
 

@@ -305,6 +305,13 @@
   compensation (delete, restore, re-create, or your own), run in reverse when
   the operation or the primary commit fails; failing compensations are
   reported and the others still run.
+- NoSQL repositories (`docs/nosql.md`): capability flags in the repository
+  port (`filterable`, `sortable`, `max_offset`, `transaction_scope`,
+  `max_writes`) checked by the manager (`QueryNotSupported`) and reported by
+  `capability_problems`; `resource_engine.nosql` buffers writes and applies
+  them at commit in one store transaction (`TransactionTooLarge`, RE-E012);
+  `DynamoDbStore`, `FirestoreStore` and `CosmosStore` pass the repository,
+  condition and new version contracts against their emulators.
 
 ## Next
 
@@ -324,4 +331,3 @@ Nothing scheduled: the next items come from Later.
 - SAP: OData v2/v4 repository for S/4HANA APIs on top of the REST repository,
   BTP destination service lookup.
 - Reference document processors (ClamAV scan, text extraction).
-- NoSQL repositories (DynamoDB, Cosmos DB, Firestore) after adding capability flags.

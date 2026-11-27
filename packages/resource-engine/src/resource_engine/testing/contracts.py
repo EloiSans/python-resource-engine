@@ -462,6 +462,94 @@ class ConditionContract(RepositoryContract):
             assert [i.name for i in page.items] == ["c"]
 
 
+CONTRACT_VERSIONED = "contract_versioned"
+
+
+@dataclass
+class ContractVersioned:
+    """Entity of ``VersionContract``: a resource with ``version_field = "version"``."""
+
+    name: str
+    version: int = 1
+    id: int | None = None
+
+
+def contract_registry() -> Any:
+    """A registry with the contract resources (``CONTRACT_RESOURCE`` and
+    ``CONTRACT_VERSIONED``), for adapters that read models from it."""
+    from pydantic import BaseModel
+
+    from resource_engine.application.registry import ResourceRegistry
+    from resource_engine.application.resource import Resource
+
+    class _In(BaseModel):
+        name: str
+
+    class ItemResource(Resource):
+        name = CONTRACT_RESOURCE
+        model = ContractItem
+        schemas = {"create": _In}
+
+    class VersionedResource(Resource):
+        name = CONTRACT_VERSIONED
+        model = ContractVersioned
+        schemas = {"create": _In}
+        version_field = "version"
+
+    registry = ResourceRegistry()
+    registry.register(ItemResource)
+    registry.register(VersionedResource)
+    return registry
+
+
+class VersionContract:
+    """Compare-and-set writes (``supports_versions = True``): of two units of
+    work updating the same version, one commits and the other fails with
+    ``VersionConflict``, at the write or at commit. Serve ``CONTRACT_VERSIONED``."""
+
+    @pytest.fixture
+    def contract_uow_factory(self) -> Callable[[], Any]:
+        raise NotImplementedError("Provide a unit of work factory serving CONTRACT_VERSIONED")
+
+    async def _seed(self, factory: Callable[[], Any]) -> ContractVersioned:
+        async with factory() as uow:
+            item = await uow.repository(CONTRACT_VERSIONED).add(ContractVersioned("a"))
+            await uow.commit()
+        return item
+
+    async def test_racing_updates_one_wins(self, contract_uow_factory):
+        from resource_engine.errors import VersionConflict
+
+        item = await self._seed(contract_uow_factory)
+        async with contract_uow_factory() as first, contract_uow_factory() as second:
+            mine = await first.repository(CONTRACT_VERSIONED).get(item.id)
+            theirs = await second.repository(CONTRACT_VERSIONED).get(item.id)
+            mine.name, theirs.name = "mine", "theirs"
+            await first.repository(CONTRACT_VERSIONED).update(mine, expected_version=1)
+            await first.commit()
+            with pytest.raises(VersionConflict):
+                await second.repository(CONTRACT_VERSIONED).update(theirs, expected_version=1)
+                await second.commit()
+        async with contract_uow_factory() as uow:
+            stored = await uow.repository(CONTRACT_VERSIONED).get(item.id)
+            assert stored.name == "mine" and stored.version == 2
+
+    async def test_stale_delete_fails(self, contract_uow_factory):
+        from resource_engine.errors import VersionConflict
+
+        item = await self._seed(contract_uow_factory)
+        async with contract_uow_factory() as uow:
+            loaded = await uow.repository(CONTRACT_VERSIONED).get(item.id)
+            await uow.repository(CONTRACT_VERSIONED).update(loaded, expected_version=1)
+            await uow.commit()
+        with pytest.raises(VersionConflict):
+            async with contract_uow_factory() as uow:
+                await uow.repository(CONTRACT_VERSIONED).delete(loaded, expected_version=1)
+                await uow.commit()
+        async with contract_uow_factory() as uow:
+            assert await uow.repository(CONTRACT_VERSIONED).get(item.id) is not None
+
+
 # ------------------------------------------------------------- authorizers
 
 CONTRACT_DOCS = "contract_docs"

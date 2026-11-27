@@ -917,6 +917,9 @@ class ResourceManager:
                     translatable=frozenset(definition.resource_cls.translatable),
                     locales=tuple(locale_chain(definition.resource_cls.default_locale)),
                 )
+            from resource_engine.capabilities import check_query
+
+            check_query(definition.name, ctx.repository(), scoped)
             page = await ctx.repository().list(scoped)
             result = page.map(lambda e: self._to_read(ctx, e, rules))
             if expand:

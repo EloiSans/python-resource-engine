@@ -341,6 +341,19 @@ aio = [
 ]
 
 [[package]]
+name = "azure-cosmos"
+version = "4.17.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "azure-core" },
+    { name = "typing-extensions" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/d0/6d/5604820fa3417d98e61c57d07447500fce600d10695bed02f396c2d548b7/azure_cosmos-4.17.1.tar.gz", hash = "sha256:d692928a54d88163e96d41d8f899229ca2f6a6bf21973ece2bfc1f72d4b4edd8", size = 2494950, upload-time = "2026-09-16T22:21:15.154Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/ca/04/d99d0b32c9265d0890b071fc062ae76c0dedc94a8071b9c36c8b0962d6a2/azure_cosmos-4.17.1-py3-none-any.whl", hash = "sha256:a33b796d055d1923b6dc7b6195aa1cfb5ae786dbc38771bb4ad702b0e5ec18db", size = 505766, upload-time = "2026-09-16T22:21:17.575Z" },
+]
+
+[[package]]
 name = "azure-servicebus"
 version = "7.15.0"
 source = { registry = "https://pypi.org/simple" }
@@ -2335,6 +2348,9 @@ all = [
 athena = [
     { name = "aiobotocore" },
 ]
+dynamodb = [
+    { name = "aiobotocore" },
+]
 eventbridge = [
     { name = "aiobotocore" },
 ]
@@ -2352,13 +2368,14 @@ sqs = [
 requires-dist = [
     { name = "aiobotocore", marker = "extra == 'all'", specifier = ">=2.13" },
     { name = "aiobotocore", marker = "extra == 'athena'", specifier = ">=2.13" },
+    { name = "aiobotocore", marker = "extra == 'dynamodb'", specifier = ">=2.13" },
     { name = "aiobotocore", marker = "extra == 'eventbridge'", specifier = ">=2.13" },
     { name = "aiobotocore", marker = "extra == 'ses'", specifier = ">=2.13" },
     { name = "aiobotocore", marker = "extra == 'sns'", specifier = ">=2.13" },
     { name = "aiobotocore", marker = "extra == 'sqs'", specifier = ">=2.13" },
     { name = "resource-engine", editable = "packages/resource-engine" },
 ]
-provides-extras = ["sqs", "sns", "ses", "eventbridge", "athena", "all"]
+provides-extras = ["sqs", "sns", "ses", "eventbridge", "athena", "dynamodb", "all"]
 
 [[package]]
 name = "resource-engine-azure"
@@ -2370,12 +2387,18 @@ dependencies = [
 
 [package.optional-dependencies]
 all = [
+    { name = "aiohttp" },
+    { name = "azure-cosmos" },
     { name = "azure-servicebus" },
     { name = "azure-storage-blob", extra = ["aio"] },
     { name = "httpx" },
 ]
 blob = [
     { name = "azure-storage-blob", extra = ["aio"] },
+]
+cosmos = [
+    { name = "aiohttp" },
+    { name = "azure-cosmos" },
 ]
 eventgrid = [
     { name = "httpx" },
@@ -2386,6 +2409,10 @@ servicebus = [
 
 [package.metadata]
 requires-dist = [
+    { name = "aiohttp", marker = "extra == 'all'", specifier = ">=3.9" },
+    { name = "aiohttp", marker = "extra == 'cosmos'", specifier = ">=3.9" },
+    { name = "azure-cosmos", marker = "extra == 'all'", specifier = ">=4.7" },
+    { name = "azure-cosmos", marker = "extra == 'cosmos'", specifier = ">=4.7" },
     { name = "azure-servicebus", marker = "extra == 'all'", specifier = ">=7.12" },
     { name = "azure-servicebus", marker = "extra == 'servicebus'", specifier = ">=7.12" },
     { name = "azure-storage-blob", extras = ["aio"], marker = "extra == 'all'", specifier = ">=12.20" },
@@ -2394,7 +2421,7 @@ requires-dist = [
     { name = "httpx", marker = "extra == 'eventgrid'", specifier = ">=0.27" },
     { name = "resource-engine", editable = "packages/resource-engine" },
 ]
-provides-extras = ["servicebus", "blob", "eventgrid", "all"]
+provides-extras = ["servicebus", "blob", "eventgrid", "cosmos", "all"]
 
 [[package]]
 name = "resource-engine-cedar"
@@ -2468,6 +2495,10 @@ all = [
     { name = "google-cloud-pubsub" },
     { name = "httpx" },
 ]
+firestore = [
+    { name = "google-auth" },
+    { name = "httpx" },
+]
 pubsub = [
     { name = "google-cloud-pubsub" },
 ]
@@ -2479,14 +2510,16 @@ storage = [
 [package.metadata]
 requires-dist = [
     { name = "google-auth", marker = "extra == 'all'", specifier = ">=2.29" },
+    { name = "google-auth", marker = "extra == 'firestore'", specifier = ">=2.29" },
     { name = "google-auth", marker = "extra == 'storage'", specifier = ">=2.29" },
     { name = "google-cloud-pubsub", marker = "extra == 'all'", specifier = ">=2.21" },
     { name = "google-cloud-pubsub", marker = "extra == 'pubsub'", specifier = ">=2.21" },
     { name = "httpx", marker = "extra == 'all'", specifier = ">=0.27" },
+    { name = "httpx", marker = "extra == 'firestore'", specifier = ">=0.27" },
     { name = "httpx", marker = "extra == 'storage'", specifier = ">=0.27" },
     { name = "resource-engine", editable = "packages/resource-engine" },
 ]
-provides-extras = ["pubsub", "storage", "all"]
+provides-extras = ["pubsub", "storage", "firestore", "all"]
 
 [[package]]
 name = "resource-engine-graphql"

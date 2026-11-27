@@ -49,6 +49,10 @@ msgctxt "RE-E011"
 msgid "A message template could not be filled in."
 msgstr "No s'ha pogut omplir una plantilla de missatge."
 
+msgctxt "RE-E012"
+msgid "There are too many changes to save together."
+msgstr "Hi ha massa canvis per desar-los junts."
+
 msgctxt "RE-E101"
 msgid "Some fields are not valid."
 msgstr "Alguns camps no són vàlids."

@@ -77,6 +77,7 @@ TITLES: dict[str, str] = {
     "RE-E009": "The history is not available.",
     "RE-E010": "A message template is missing.",
     "RE-E011": "A message template could not be filled in.",
+    "RE-E012": "There are too many changes to save together.",
     "RE-E101": "Some fields are not valid.",
     "RE-E102": "The record does not exist.",
     "RE-E103": "The search cannot be done this way.",
@@ -188,6 +189,20 @@ class EntityNotFound(ResourceEngineError):
 
 class InvalidQuery(ResourceEngineError):
     code = "RE-E103"
+
+
+class QueryNotSupported(InvalidQuery):
+    """The resource allows the query, but its store can't run it (a filter or
+    sort without an index, a deep offset). ``details`` lists the ``filters``,
+    ``order_by`` or ``offset`` refused and what the store supports."""
+
+
+class TransactionTooLarge(ResourceEngineError):
+    """One commit holds more writes than the store's transactions take
+    (``max_writes``: 100 in DynamoDB and Cosmos DB, 500 in Firestore).
+    ``details``: ``writes``, ``max_writes``."""
+
+    code = "RE-E012"
 
 
 # --- State machines (RE-E2xx) ---

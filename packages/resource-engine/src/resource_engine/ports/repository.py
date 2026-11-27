@@ -19,6 +19,13 @@ class Repository[E](Protocol):
       ``expected_version`` and raise ``VersionConflict`` when the stored version
       differs at write time (atomically: compare and set). Needed by resources
       with a ``version_field``.
+    - ``filterable`` / ``sortable``: the fields ``list`` can filter and sort
+      by (``None``: any), and ``max_offset``: the deepest offset it pages to.
+      The engine refuses other queries with ``QueryNotSupported`` (RE-E103).
+
+    Units of work declare ``transaction_scope`` (``"unit_of_work"``,
+    ``"partition"`` or ``"none"``) and ``max_writes``. See
+    ``resource_engine.capabilities``.
     """
 
     async def get(self, entity_id: Any) -> E | None: ...
