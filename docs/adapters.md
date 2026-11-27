@@ -324,6 +324,7 @@ uv run pytest -m emulator
 | RabbitMQ | `rabbitmq:4-management` | http://127.0.0.1:15672 (guest/guest) | AMQP on :5672. |
 | Valkey | `valkey/valkey:8-alpine` | no UI; Redis protocol on :6380 | Rate-limit counters (`resource-engine-redis`). |
 | Mailpit | `axllent/mailpit:v1.27.0` | http://127.0.0.1:8026; SMTP on :1026 | Catches every email (`resource-engine-smtp`, the example's worker). Not the usual 1025/8025, so it can run next to another project's Mailpit. |
+| Gotenberg | `gotenberg/gotenberg:8.17.3` | API on :3010 | HTML to PDF for generated documents (`GotenbergPdfConverter`). |
 | Keycloak | `quay.io/keycloak/keycloak:26.4` | http://127.0.0.1:8180 (admin/admin) | Realm imported from `docker/keycloak/`. |
 | OPA | `openpolicyagent/opa:1.22.4` | REST on :8181 | Serves `docker/opa/*.rego` and reloads on change. |
 | OpenFGA | `openfga/openfga:v1.22.0` | playground http://127.0.0.1:3000; API on :8080 | In-memory datastore: tests create a store per test. |

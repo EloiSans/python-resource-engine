@@ -186,3 +186,44 @@ documents and deletes orphan blobs older than `grace` (1 hour).
   used in keys and are sanitised for display.
 - Content types are checked against the declared type, not sniffed. Use a
   processor (antivirus, type detection) for untrusted uploads.
+
+## Generated documents
+
+Documents can be rendered from templates and attached to the record, for
+example a printed invoice, a delivery note or a certificate:
+
+```python
+from resource_engine.generation import DocumentGenerator
+from resource_engine_http import GotenbergPdfConverter
+
+generator = DocumentGenerator(templates, pdf=GotenbergPdfConverter(http, "http://gotenberg:3000"))
+
+
+class PrintInvoice(Action):
+    """Prints the invoice and keeps the PDF in the ``printed`` slot."""
+
+    async def execute(self, ctx: OperationContext) -> None:
+        await generator.attach(ctx, "printed", "invoice", format="pdf", locale="ca")
+```
+
+- **Templates:** they come from the application's `TemplateRenderer`
+  ([email](email.md#templates)) under `documents/`:
+  `documents/invoice.html` for HTML and PDF, and `documents/invoice.md` or
+  `.txt` for text. A template gets `record` (the entity's fields), `resource`
+  and the `context` you pass, in `locale`, translated like emails.
+- **PDF:** the HTML template is printed by a `PdfConverter`.
+  `GotenbergPdfConverter` (`resource-engine-http`) calls
+  [Gotenberg](https://gotenberg.dev), headless Chromium behind an HTTP API,
+  which is in the compose stack on port 3010. Keep styles and images inline
+  (data URLs), so printing needs no network.
+- **Attaching:** the result is attached inside the operation, like an
+  upload. It is part of the change and removed if the change rolls back.
+  The slot's rules apply: content types, size, and `multiple`, which
+  otherwise replaces the previous copy.
+- **Without attaching:** `generator.generate(template, context,
+  format=...)` returns the bytes and their content type, for example to
+  send by email or as a download.
+- **Failures:** a missing template is RE-E010, and PDF without a converter
+  is RE-E001. An unreachable Gotenberg is RE-E501, and the operation fails
+  without attaching anything.
+

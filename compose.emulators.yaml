@@ -94,6 +94,16 @@ services:
       interval: 2s
       retries: 30
 
+  gotenberg:
+    # HTML to PDF with headless Chromium (generated documents): API on :3010.
+    image: gotenberg/gotenberg:8.17.3
+    ports:
+      - "127.0.0.1:3010:3000"
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://127.0.0.1:3000/health"]
+      interval: 3s
+      retries: 40
+
   keycloak:
     # Admin console: http://127.0.0.1:8180 (admin / admin). Realms "resource-engine",
     # "invoices" (the example app) and "partner" (a SAML IdP federated into "invoices").

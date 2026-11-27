@@ -411,6 +411,137 @@
         }
       }
     },
+    "/customers/export": {
+      "get": {
+        "tags": [
+          "customers"
+        ],
+        "summary": "Export customers as CSV or XLSX",
+        "description": "The list with the same filters, sorting and permissions, as a file (at most 10 000 rows).",
+        "operationId": "export_customers_customers_export_get",
+        "parameters": [
+          {
+            "name": "format",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "csv",
+                "xlsx"
+              ],
+              "type": "string",
+              "description": "csv (UTF-8, with a BOM for Excel) or xlsx",
+              "default": "csv",
+              "title": "Format"
+            },
+            "description": "csv (UTF-8, with a BOM for Excel) or xlsx"
+          },
+          {
+            "name": "order_by",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Comma-separated fields; prefix '-' for descending",
+              "title": "Order By"
+            },
+            "description": "Comma-separated fields; prefix '-' for descending"
+          },
+          {
+            "name": "country",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Country"
+            }
+          },
+          {
+            "name": "name",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Name"
+            }
+          },
+          {
+            "name": "tax_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Tax Id"
+            }
+          },
+          {
+            "name": "tenant",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Tenant to act on (cross-tenant callers)",
+              "title": "Tenant"
+            },
+            "description": "Tenant to act on (cross-tenant callers)"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The list as a file, with the caller's permissions",
+            "content": {
+              "text/csv": {},
+              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {}
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/customers/{entity_id}": {
       "get": {
         "tags": [
@@ -1223,6 +1354,207 @@
                   "$ref": "#/components/schemas/InvoiceRead"
                 }
               }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/invoices/export": {
+      "get": {
+        "tags": [
+          "invoices"
+        ],
+        "summary": "Export invoices as CSV or XLSX",
+        "description": "The list with the same filters, sorting and permissions, as a file (at most 10 000 rows).",
+        "operationId": "export_invoices_invoices_export_get",
+        "parameters": [
+          {
+            "name": "format",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "csv",
+                "xlsx"
+              ],
+              "type": "string",
+              "description": "csv (UTF-8, with a BOM for Excel) or xlsx",
+              "default": "csv",
+              "title": "Format"
+            },
+            "description": "csv (UTF-8, with a BOM for Excel) or xlsx"
+          },
+          {
+            "name": "order_by",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Comma-separated fields; prefix '-' for descending",
+              "title": "Order By"
+            },
+            "description": "Comma-separated fields; prefix '-' for descending"
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          },
+          {
+            "name": "delivery_status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Delivery Status"
+            }
+          },
+          {
+            "name": "customer",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Customer"
+            }
+          },
+          {
+            "name": "customer_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Customer Id"
+            }
+          },
+          {
+            "name": "customer_record.country",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by the related customers record's country",
+              "title": "Customer Record.Country"
+            },
+            "description": "Filter by the related customers record's country"
+          },
+          {
+            "name": "customer_record.name",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by the related customers record's name",
+              "title": "Customer Record.Name"
+            },
+            "description": "Filter by the related customers record's name"
+          },
+          {
+            "name": "customer_record.tax_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by the related customers record's tax_id",
+              "title": "Customer Record.Tax Id"
+            },
+            "description": "Filter by the related customers record's tax_id"
+          },
+          {
+            "name": "tenant",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Tenant to act on (cross-tenant callers)",
+              "title": "Tenant"
+            },
+            "description": "Tenant to act on (cross-tenant callers)"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The list as a file, with the caller's permissions",
+            "content": {
+              "text/csv": {},
+              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {}
             }
           },
           "422": {
@@ -3350,6 +3682,105 @@
         }
       }
     },
+    "/tags/export": {
+      "get": {
+        "tags": [
+          "tags"
+        ],
+        "summary": "Export tags as CSV or XLSX",
+        "description": "The list with the same filters, sorting and permissions, as a file (at most 10 000 rows).",
+        "operationId": "export_tags_tags_export_get",
+        "parameters": [
+          {
+            "name": "format",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "csv",
+                "xlsx"
+              ],
+              "type": "string",
+              "description": "csv (UTF-8, with a BOM for Excel) or xlsx",
+              "default": "csv",
+              "title": "Format"
+            },
+            "description": "csv (UTF-8, with a BOM for Excel) or xlsx"
+          },
+          {
+            "name": "order_by",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Comma-separated fields; prefix '-' for descending",
+              "title": "Order By"
+            },
+            "description": "Comma-separated fields; prefix '-' for descending"
+          },
+          {
+            "name": "name",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Name"
+            }
+          },
+          {
+            "name": "tenant",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Tenant to act on (cross-tenant callers)",
+              "title": "Tenant"
+            },
+            "description": "Tenant to act on (cross-tenant callers)"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The list as a file, with the caller's permissions",
+            "content": {
+              "text/csv": {},
+              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {}
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/tags/{entity_id}": {
       "get": {
         "tags": [
@@ -4079,6 +4510,211 @@
         }
       }
     },
+    "/invoice_tags/export": {
+      "get": {
+        "tags": [
+          "invoice_tags"
+        ],
+        "summary": "Export invoice_tags as CSV or XLSX",
+        "description": "The list with the same filters, sorting and permissions, as a file (at most 10 000 rows).",
+        "operationId": "export_invoice_tags_invoice_tags_export_get",
+        "parameters": [
+          {
+            "name": "format",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "csv",
+                "xlsx"
+              ],
+              "type": "string",
+              "description": "csv (UTF-8, with a BOM for Excel) or xlsx",
+              "default": "csv",
+              "title": "Format"
+            },
+            "description": "csv (UTF-8, with a BOM for Excel) or xlsx"
+          },
+          {
+            "name": "order_by",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Comma-separated fields; prefix '-' for descending",
+              "title": "Order By"
+            },
+            "description": "Comma-separated fields; prefix '-' for descending"
+          },
+          {
+            "name": "invoice_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Invoice Id"
+            }
+          },
+          {
+            "name": "tag_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Tag Id"
+            }
+          },
+          {
+            "name": "invoice.status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by the related invoices record's status",
+              "title": "Invoice.Status"
+            },
+            "description": "Filter by the related invoices record's status"
+          },
+          {
+            "name": "invoice.delivery_status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by the related invoices record's delivery_status",
+              "title": "Invoice.Delivery Status"
+            },
+            "description": "Filter by the related invoices record's delivery_status"
+          },
+          {
+            "name": "invoice.customer",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by the related invoices record's customer",
+              "title": "Invoice.Customer"
+            },
+            "description": "Filter by the related invoices record's customer"
+          },
+          {
+            "name": "invoice.customer_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by the related invoices record's customer_id",
+              "title": "Invoice.Customer Id"
+            },
+            "description": "Filter by the related invoices record's customer_id"
+          },
+          {
+            "name": "tag.name",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by the related tags record's name",
+              "title": "Tag.Name"
+            },
+            "description": "Filter by the related tags record's name"
+          },
+          {
+            "name": "tenant",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Tenant to act on (cross-tenant callers)",
+              "title": "Tenant"
+            },
+            "description": "Tenant to act on (cross-tenant callers)"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The list as a file, with the caller's permissions",
+            "content": {
+              "text/csv": {},
+              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {}
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/invoice_tags/{entity_id}": {
       "get": {
         "tags": [
@@ -4443,6 +5079,193 @@
         }
       }
     },
+    "/invoice_payments/export": {
+      "get": {
+        "tags": [
+          "invoice_payments"
+        ],
+        "summary": "Export invoice_payments as CSV or XLSX",
+        "description": "The list with the same filters, sorting and permissions, as a file (at most 10 000 rows).",
+        "operationId": "export_invoice_payments_invoice_payments_export_get",
+        "parameters": [
+          {
+            "name": "format",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "csv",
+                "xlsx"
+              ],
+              "type": "string",
+              "description": "csv (UTF-8, with a BOM for Excel) or xlsx",
+              "default": "csv",
+              "title": "Format"
+            },
+            "description": "csv (UTF-8, with a BOM for Excel) or xlsx"
+          },
+          {
+            "name": "order_by",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Comma-separated fields; prefix '-' for descending",
+              "title": "Order By"
+            },
+            "description": "Comma-separated fields; prefix '-' for descending"
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          },
+          {
+            "name": "invoice_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Invoice Id"
+            }
+          },
+          {
+            "name": "invoice.status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by the related invoices record's status",
+              "title": "Invoice.Status"
+            },
+            "description": "Filter by the related invoices record's status"
+          },
+          {
+            "name": "invoice.delivery_status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by the related invoices record's delivery_status",
+              "title": "Invoice.Delivery Status"
+            },
+            "description": "Filter by the related invoices record's delivery_status"
+          },
+          {
+            "name": "invoice.customer",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by the related invoices record's customer",
+              "title": "Invoice.Customer"
+            },
+            "description": "Filter by the related invoices record's customer"
+          },
+          {
+            "name": "invoice.customer_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by the related invoices record's customer_id",
+              "title": "Invoice.Customer Id"
+            },
+            "description": "Filter by the related invoices record's customer_id"
+          },
+          {
+            "name": "tenant",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Tenant to act on (cross-tenant callers)",
+              "title": "Tenant"
+            },
+            "description": "Tenant to act on (cross-tenant callers)"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The list as a file, with the caller's permissions",
+            "content": {
+              "text/csv": {},
+              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {}
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/invoice_payments/{entity_id}": {
       "get": {
         "tags": [
@@ -4703,6 +5526,159 @@
         }
       }
     },
+    "/customer_balances/export": {
+      "get": {
+        "tags": [
+          "customer_balances"
+        ],
+        "summary": "Export customer_balances as CSV or XLSX",
+        "description": "The list with the same filters, sorting and permissions, as a file (at most 10 000 rows).",
+        "operationId": "export_customer_balances_customer_balances_export_get",
+        "parameters": [
+          {
+            "name": "format",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "csv",
+                "xlsx"
+              ],
+              "type": "string",
+              "description": "csv (UTF-8, with a BOM for Excel) or xlsx",
+              "default": "csv",
+              "title": "Format"
+            },
+            "description": "csv (UTF-8, with a BOM for Excel) or xlsx"
+          },
+          {
+            "name": "order_by",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Comma-separated fields; prefix '-' for descending",
+              "title": "Order By"
+            },
+            "description": "Comma-separated fields; prefix '-' for descending"
+          },
+          {
+            "name": "customer_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Customer Id"
+            }
+          },
+          {
+            "name": "customer.country",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by the related customers record's country",
+              "title": "Customer.Country"
+            },
+            "description": "Filter by the related customers record's country"
+          },
+          {
+            "name": "customer.name",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by the related customers record's name",
+              "title": "Customer.Name"
+            },
+            "description": "Filter by the related customers record's name"
+          },
+          {
+            "name": "customer.tax_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by the related customers record's tax_id",
+              "title": "Customer.Tax Id"
+            },
+            "description": "Filter by the related customers record's tax_id"
+          },
+          {
+            "name": "tenant",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Tenant to act on (cross-tenant callers)",
+              "title": "Tenant"
+            },
+            "description": "Tenant to act on (cross-tenant callers)"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The list as a file, with the caller's permissions",
+            "content": {
+              "text/csv": {},
+              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {}
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/customer_balances/{entity_id}": {
       "get": {
         "tags": [
@@ -4906,6 +5882,135 @@
                   "$ref": "#/components/schemas/DocumentReadPage"
                 }
               }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/documents/export": {
+      "get": {
+        "tags": [
+          "documents"
+        ],
+        "summary": "Export documents as CSV or XLSX",
+        "description": "The list with the same filters, sorting and permissions, as a file (at most 10 000 rows).",
+        "operationId": "export_documents_documents_export_get",
+        "parameters": [
+          {
+            "name": "format",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "csv",
+                "xlsx"
+              ],
+              "type": "string",
+              "description": "csv (UTF-8, with a BOM for Excel) or xlsx",
+              "default": "csv",
+              "title": "Format"
+            },
+            "description": "csv (UTF-8, with a BOM for Excel) or xlsx"
+          },
+          {
+            "name": "order_by",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Comma-separated fields; prefix '-' for descending",
+              "title": "Order By"
+            },
+            "description": "Comma-separated fields; prefix '-' for descending"
+          },
+          {
+            "name": "owner_resource",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Owner Resource"
+            }
+          },
+          {
+            "name": "owner_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Owner Id"
+            }
+          },
+          {
+            "name": "slot",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Slot"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The list as a file, with the caller's permissions",
+            "content": {
+              "text/csv": {},
+              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {}
             }
           },
           "422": {
@@ -5132,6 +6237,119 @@
                   "$ref": "#/components/schemas/PolicyRead"
                 }
               }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/authz_policies/export": {
+      "get": {
+        "tags": [
+          "authz_policies"
+        ],
+        "summary": "Export authz_policies as CSV or XLSX",
+        "description": "The list with the same filters, sorting and permissions, as a file (at most 10 000 rows).",
+        "operationId": "export_authz_policies_authz_policies_export_get",
+        "parameters": [
+          {
+            "name": "format",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "csv",
+                "xlsx"
+              ],
+              "type": "string",
+              "description": "csv (UTF-8, with a BOM for Excel) or xlsx",
+              "default": "csv",
+              "title": "Format"
+            },
+            "description": "csv (UTF-8, with a BOM for Excel) or xlsx"
+          },
+          {
+            "name": "order_by",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Comma-separated fields; prefix '-' for descending",
+              "title": "Order By"
+            },
+            "description": "Comma-separated fields; prefix '-' for descending"
+          },
+          {
+            "name": "effect",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Effect"
+            }
+          },
+          {
+            "name": "enabled",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Enabled"
+            }
+          },
+          {
+            "name": "name",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Name"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The list as a file, with the caller's permissions",
+            "content": {
+              "text/csv": {},
+              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {}
             }
           },
           "422": {
@@ -5431,6 +6649,71 @@
                   "$ref": "#/components/schemas/RoleRead"
                 }
               }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/authz_roles/export": {
+      "get": {
+        "tags": [
+          "authz_roles"
+        ],
+        "summary": "Export authz_roles as CSV or XLSX",
+        "description": "The list with the same filters, sorting and permissions, as a file (at most 10 000 rows).",
+        "operationId": "export_authz_roles_authz_roles_export_get",
+        "parameters": [
+          {
+            "name": "format",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "csv",
+                "xlsx"
+              ],
+              "type": "string",
+              "description": "csv (UTF-8, with a BOM for Excel) or xlsx",
+              "default": "csv",
+              "title": "Format"
+            },
+            "description": "csv (UTF-8, with a BOM for Excel) or xlsx"
+          },
+          {
+            "name": "order_by",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Comma-separated fields; prefix '-' for descending",
+              "title": "Order By"
+            },
+            "description": "Comma-separated fields; prefix '-' for descending"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The list as a file, with the caller's permissions",
+            "content": {
+              "text/csv": {},
+              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {}
             }
           },
           "422": {
@@ -5793,6 +7076,119 @@
         }
       }
     },
+    "/authz_role_assignments/export": {
+      "get": {
+        "tags": [
+          "authz_role_assignments"
+        ],
+        "summary": "Export authz_role_assignments as CSV or XLSX",
+        "description": "The list with the same filters, sorting and permissions, as a file (at most 10 000 rows).",
+        "operationId": "export_authz_role_assignments_authz_role_assignments_export_get",
+        "parameters": [
+          {
+            "name": "format",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "csv",
+                "xlsx"
+              ],
+              "type": "string",
+              "description": "csv (UTF-8, with a BOM for Excel) or xlsx",
+              "default": "csv",
+              "title": "Format"
+            },
+            "description": "csv (UTF-8, with a BOM for Excel) or xlsx"
+          },
+          {
+            "name": "order_by",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Comma-separated fields; prefix '-' for descending",
+              "title": "Order By"
+            },
+            "description": "Comma-separated fields; prefix '-' for descending"
+          },
+          {
+            "name": "role",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Role"
+            }
+          },
+          {
+            "name": "principal",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Principal"
+            }
+          },
+          {
+            "name": "group",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Group"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The list as a file, with the caller's permissions",
+            "content": {
+              "text/csv": {},
+              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {}
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/authz_role_assignments/{entity_id}": {
       "get": {
         "tags": [
@@ -6056,6 +7452,119 @@
                   "$ref": "#/components/schemas/ApiKeyRead"
                 }
               }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/authz_api_keys/export": {
+      "get": {
+        "tags": [
+          "authz_api_keys"
+        ],
+        "summary": "Export authz_api_keys as CSV or XLSX",
+        "description": "The list with the same filters, sorting and permissions, as a file (at most 10 000 rows).",
+        "operationId": "export_authz_api_keys_authz_api_keys_export_get",
+        "parameters": [
+          {
+            "name": "format",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "csv",
+                "xlsx"
+              ],
+              "type": "string",
+              "description": "csv (UTF-8, with a BOM for Excel) or xlsx",
+              "default": "csv",
+              "title": "Format"
+            },
+            "description": "csv (UTF-8, with a BOM for Excel) or xlsx"
+          },
+          {
+            "name": "order_by",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Comma-separated fields; prefix '-' for descending",
+              "title": "Order By"
+            },
+            "description": "Comma-separated fields; prefix '-' for descending"
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          },
+          {
+            "name": "tenant",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Tenant"
+            }
+          },
+          {
+            "name": "created_by",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Created By"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The list as a file, with the caller's permissions",
+            "content": {
+              "text/csv": {},
+              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {}
             }
           },
           "422": {
@@ -6525,6 +8034,199 @@
                   "$ref": "#/components/schemas/AuditEntryReadPage"
                 }
               }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/audit_log/export": {
+      "get": {
+        "tags": [
+          "audit_log"
+        ],
+        "summary": "Export audit_log as CSV or XLSX",
+        "description": "The list with the same filters, sorting and permissions, as a file (at most 10 000 rows).",
+        "operationId": "export_audit_log_audit_log_export_get",
+        "parameters": [
+          {
+            "name": "format",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "csv",
+                "xlsx"
+              ],
+              "type": "string",
+              "description": "csv (UTF-8, with a BOM for Excel) or xlsx",
+              "default": "csv",
+              "title": "Format"
+            },
+            "description": "csv (UTF-8, with a BOM for Excel) or xlsx"
+          },
+          {
+            "name": "order_by",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Comma-separated fields; prefix '-' for descending",
+              "title": "Order By"
+            },
+            "description": "Comma-separated fields; prefix '-' for descending"
+          },
+          {
+            "name": "resource",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Resource"
+            }
+          },
+          {
+            "name": "entity_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Entity Id"
+            }
+          },
+          {
+            "name": "tenant",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Tenant"
+            }
+          },
+          {
+            "name": "actor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Actor"
+            }
+          },
+          {
+            "name": "outcome",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Outcome"
+            }
+          },
+          {
+            "name": "operation",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Operation"
+            }
+          },
+          {
+            "name": "correlation_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Correlation Id"
+            }
+          },
+          {
+            "name": "seal",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Seal"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The list as a file, with the caller's permissions",
+            "content": {
+              "text/csv": {},
+              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {}
             }
           },
           "422": {

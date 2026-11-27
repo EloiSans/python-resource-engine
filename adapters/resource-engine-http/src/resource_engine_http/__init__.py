@@ -9,6 +9,7 @@
 
 from resource_engine_http.audit import HttpAuditExporter
 from resource_engine_http.auth import OAuth2ClientCredentials
+from resource_engine_http.pdf import GotenbergPdfConverter
 from resource_engine_http.rest import (
     RemoteUnitOfWork,
     RestEndpoint,
@@ -20,6 +21,7 @@ from resource_engine_http.rest import (
 from resource_engine_http.webhook import WebhookMessagePublisher
 
 __all__ = [
+    "GotenbergPdfConverter",
     "HttpAuditExporter",
     "OAuth2ClientCredentials",
     "RemoteUnitOfWork",

@@ -298,6 +298,75 @@ def build_resource_router(
             description=docs.get("list"),
         )
 
+        async def export_endpoint(**kw: Any) -> Any:
+            from resource_engine.exports import export_table
+
+            filters = {
+                k.removeprefix("filter__"): v
+                for k, v in kw.items()
+                if k.startswith("filter__") and v is not None
+            }
+            for k, v in kw.items():
+                if k.startswith("related__") and v is not None:
+                    relation, _, fld = k.removeprefix("related__").partition("__")
+                    filters[f"{relation}.{fld}"] = v
+            query = ListQuery(
+                order_by=[o for o in (kw.get("order_by") or "").split(",") if o],
+                filters=filters,
+            )
+            content, media_type, filename = await export_table(
+                manager,
+                name,
+                query,
+                format=kw["format"],
+                actor=kw.get("actor"),
+                tenant=kw.get("tenant"),
+            )
+            return Response(
+                content,
+                media_type=media_type,
+                headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+            )
+
+        router.add_api_route(
+            "/export",
+            _endpoint(
+                export_endpoint,
+                [
+                    _param(
+                        "format",
+                        Literal["csv", "xlsx"],
+                        Query("csv", description="csv (UTF-8, with a BOM for Excel) or xlsx"),
+                    ),
+                    _param(
+                        "order_by",
+                        str | None,
+                        Query(
+                            None, description="Comma-separated fields; prefix '-' for descending"
+                        ),
+                    ),
+                    *filter_params,
+                    *tenant_params,
+                    actor_param,
+                ],
+                f"export_{name}",
+            ),
+            methods=["GET"],
+            response_class=Response,
+            responses={
+                200: {
+                    "content": {
+                        "text/csv": {},
+                        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {},
+                    },
+                    "description": "The list as a file, with the caller's permissions",
+                }
+            },
+            summary=f"Export {name} as CSV or XLSX",
+            description="The list with the same filters, sorting and permissions, as a file "
+            "(at most 10 000 rows).",
+        )
+
     if definition.exposed("get"):
 
         async def get_endpoint(**kw: Any) -> Any:

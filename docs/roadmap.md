@@ -272,6 +272,12 @@
   bundle with the Rego files and the catalogue as data; OpenFGA conditions
   (`conditions=True`) get the input and the record as CEL parameters, deciding
   at step 5b.
+- Table export and generated documents: `GET /<resource>/export?format=csv|xlsx`
+  (`export_table`) with the list's filters, sorting, row filter, tenant and
+  hidden fields, up to 10 000 rows; `DocumentGenerator` renders `documents/`
+  templates per locale to HTML, Markdown, text or PDF (`PdfConverter`,
+  `GotenbergPdfConverter` in `resource-engine-http`, Gotenberg in compose) and
+  attaches them to a slot inside the operation.
 
 ## Next
 
@@ -285,11 +291,6 @@ Nothing scheduled: the next items come from Later.
 
 ### Later
 
-- Document generation and table export: documents rendered from templates per
-  record (PDF, DOCX or HTML through the `TemplateRenderer` port, stored in a
-  document slot or downloaded), and list exports as CSV or XLSX with the
-  caller's filters, sorting, permissions, hidden fields and tenant, streamed
-  or as a background job for large tables.
 - Email: provider HTTP APIs (Postmark, SendGrid, Microsoft Graph), bounce and
   complaint handling, emails listed in the generated docs.
 - Translatable data fields (a product name per language): storage,

@@ -7,6 +7,7 @@ Invoices (Resource Engine example) 0.1.0, a partir del document OpenAPI de l'apl
 | Mètode | Ruta | Resum | Cos | Respostes |
 |---|---|---|---|---|
 | GET | `/audit_log` | Lists audit entries; filter by resource and entity_id for a record's history. | — | 200 `AuditEntryReadPage`, 422 `HTTPValidationError` |
+| GET | `/audit_log/export` | Export audit_log as CSV or XLSX | — | 200, 422 `HTTPValidationError` |
 | GET | `/audit_log/{entity_id}` | Returns an audit entry. | — | 200 `AuditEntryRead`, 422 `HTTPValidationError` |
 
 ## authz
@@ -23,6 +24,7 @@ Invoices (Resource Engine example) 0.1.0, a partir del document OpenAPI de l'apl
 |---|---|---|---|---|
 | GET | `/authz_api_keys` | Lists the API keys (never their secrets). | — | 200 `ApiKeyReadPage`, 422 `HTTPValidationError` |
 | POST | `/authz_api_keys` | Creates an API key; the response carries the full key, once. | `ApiKeyCreate` | 201 `ApiKeyRead`, 422 `HTTPValidationError` |
+| GET | `/authz_api_keys/export` | Export authz_api_keys as CSV or XLSX | — | 200, 422 `HTTPValidationError` |
 | GET | `/authz_api_keys/{entity_id}` | Returns an API key (never its secret). | — | 200 `ApiKeyRead`, 422 `HTTPValidationError` |
 | PATCH | `/authz_api_keys/{entity_id}` | Renames a key or changes its expiry. | `ApiKeyUpdate` | 200 `ApiKeyRead`, 422 `HTTPValidationError` |
 | GET | `/authz_api_keys/{entity_id}/transitions` | Transitions allowed from the current state | — | 200 list[`string`], 422 `HTTPValidationError` |
@@ -35,6 +37,7 @@ Invoices (Resource Engine example) 0.1.0, a partir del document OpenAPI de l'apl
 |---|---|---|---|---|
 | GET | `/authz_policies` | Lists the access policies. | — | 200 `PolicyReadPage`, 422 `HTTPValidationError` |
 | POST | `/authz_policies` | Creates an access policy (validated against the catalogue). | `PolicyCreate` | 201 `PolicyRead`, 422 `HTTPValidationError` |
+| GET | `/authz_policies/export` | Export authz_policies as CSV or XLSX | — | 200, 422 `HTTPValidationError` |
 | GET | `/authz_policies/{entity_id}` | Returns an access policy. | — | 200 `PolicyRead`, 422 `HTTPValidationError` |
 | PATCH | `/authz_policies/{entity_id}` | Changes an access policy. | `PolicyUpdate` | 200 `PolicyRead`, 422 `HTTPValidationError` |
 | DELETE | `/authz_policies/{entity_id}` | Deletes an access policy. | — | 204, 422 `HTTPValidationError` |
@@ -45,6 +48,7 @@ Invoices (Resource Engine example) 0.1.0, a partir del document OpenAPI de l'apl
 |---|---|---|---|---|
 | GET | `/authz_role_assignments` | Lists role assignments, filterable by role, principal or group. | — | 200 `AssignmentReadPage`, 422 `HTTPValidationError` |
 | POST | `/authz_role_assignments` | Gives a role to a principal or a group. | `AssignmentCreate` | 201 `AssignmentRead`, 422 `HTTPValidationError` |
+| GET | `/authz_role_assignments/export` | Export authz_role_assignments as CSV or XLSX | — | 200, 422 `HTTPValidationError` |
 | GET | `/authz_role_assignments/{entity_id}` | Returns a role assignment. | — | 200 `AssignmentRead`, 422 `HTTPValidationError` |
 | DELETE | `/authz_role_assignments/{entity_id}` | Removes a role assignment. | — | 204, 422 `HTTPValidationError` |
 
@@ -54,6 +58,7 @@ Invoices (Resource Engine example) 0.1.0, a partir del document OpenAPI de l'apl
 |---|---|---|---|---|
 | GET | `/authz_roles` | Lists the custom roles. | — | 200 `RoleReadPage`, 422 `HTTPValidationError` |
 | POST | `/authz_roles` | Creates a custom role. | `RoleCreate` | 201 `RoleRead`, 422 `HTTPValidationError` |
+| GET | `/authz_roles/export` | Export authz_roles as CSV or XLSX | — | 200, 422 `HTTPValidationError` |
 | GET | `/authz_roles/{entity_id}` | Returns a custom role. | — | 200 `RoleRead`, 422 `HTTPValidationError` |
 | PATCH | `/authz_roles/{entity_id}` | Changes a custom role's description. | `RoleUpdate` | 200 `RoleRead`, 422 `HTTPValidationError` |
 | DELETE | `/authz_roles/{entity_id}` | Deletes a custom role. | — | 204, 422 `HTTPValidationError` |
@@ -63,6 +68,7 @@ Invoices (Resource Engine example) 0.1.0, a partir del document OpenAPI de l'apl
 | Mètode | Ruta | Resum | Cos | Respostes |
 |---|---|---|---|---|
 | GET | `/customer_balances` | Llista els saldos dels clients amb factures, ordenables per import. | — | 200 `CustomerBalanceReadPage`, 422 `HTTPValidationError` |
+| GET | `/customer_balances/export` | Export customer_balances as CSV or XLSX | — | 200, 422 `HTTPValidationError` |
 | GET | `/customer_balances/{entity_id}` | Consulta el saldo d'un client. | — | 200 `CustomerBalanceRead`, 422 `HTTPValidationError` |
 
 ## customers
@@ -71,6 +77,7 @@ Invoices (Resource Engine example) 0.1.0, a partir del document OpenAPI de l'apl
 |---|---|---|---|---|
 | GET | `/customers` | Llista els clients, filtrables per país i nom. | — | 200 `CustomerReadPage`, 422 `HTTPValidationError` |
 | POST | `/customers` | Dona d'alta un client. | `CustomerCreate` | 201 `CustomerRead`, 422 `HTTPValidationError` |
+| GET | `/customers/export` | Export customers as CSV or XLSX | — | 200, 422 `HTTPValidationError` |
 | GET | `/customers/{entity_id}` | Consulta un client. | — | 200 `CustomerRead`, 422 `HTTPValidationError` |
 | PATCH | `/customers/{entity_id}` | Modifica les dades d'un client. | `CustomerUpdate` | 200 `CustomerRead`, 422 `HTTPValidationError` |
 | DELETE | `/customers/{entity_id}` | Elimina un client que no té factures. | — | 204, 422 `HTTPValidationError` |
@@ -84,6 +91,7 @@ Invoices (Resource Engine example) 0.1.0, a partir del document OpenAPI de l'apl
 | GET | `/documents/{document_id}/content` | Download a document | — | 200, 307, 422 `HTTPValidationError` |
 | POST | `/documents/{document_id}/confirm` | Confirm a presigned upload | — | 200 `DocumentRead`, 422 `HTTPValidationError` |
 | GET | `/documents` | Lists documents, filterable by owner, slot and status. | — | 200 `DocumentReadPage`, 422 `HTTPValidationError` |
+| GET | `/documents/export` | Export documents as CSV or XLSX | — | 200, 422 `HTTPValidationError` |
 | GET | `/documents/{entity_id}` | Returns a document's metadata. | — | 200 `DocumentRead`, 422 `HTTPValidationError` |
 
 ## invoice_payments
@@ -91,6 +99,7 @@ Invoices (Resource Engine example) 0.1.0, a partir del document OpenAPI de l'apl
 | Mètode | Ruta | Resum | Cos | Respostes |
 |---|---|---|---|---|
 | GET | `/invoice_payments` | Llista els cobraments en curs i acabats. | — | 200 `PaymentReadPage`, 422 `HTTPValidationError` |
+| GET | `/invoice_payments/export` | Export invoice_payments as CSV or XLSX | — | 200, 422 `HTTPValidationError` |
 | GET | `/invoice_payments/{entity_id}` | Consulta el cobrament d'una factura. | — | 200 `PaymentRead`, 422 `HTTPValidationError` |
 
 ## invoice_tags
@@ -99,6 +108,7 @@ Invoices (Resource Engine example) 0.1.0, a partir del document OpenAPI de l'apl
 |---|---|---|---|---|
 | GET | `/invoice_tags` | Llista les assignacions d'etiquetes. | — | 200 `InvoiceTagReadPage`, 422 `HTTPValidationError` |
 | POST | `/invoice_tags` | Assigna una etiqueta a una factura. | `InvoiceTagCreate` | 201 `InvoiceTagRead`, 422 `HTTPValidationError` |
+| GET | `/invoice_tags/export` | Export invoice_tags as CSV or XLSX | — | 200, 422 `HTTPValidationError` |
 | GET | `/invoice_tags/{entity_id}` | Consulta una assignació. | — | 200 `InvoiceTagRead`, 422 `HTTPValidationError` |
 | DELETE | `/invoice_tags/{entity_id}` | Treu una etiqueta d'una factura. | — | 204, 422 `HTTPValidationError` |
 
@@ -108,6 +118,7 @@ Invoices (Resource Engine example) 0.1.0, a partir del document OpenAPI de l'apl
 |---|---|---|---|---|
 | GET | `/invoices` | Llista les factures, filtrables per estat i client. | — | 200 `InvoiceReadPage`, 422 `HTTPValidationError` |
 | POST | `/invoices` | Crea una factura en estat esborrany. | `InvoiceCreate` | 201 `InvoiceRead`, 422 `HTTPValidationError` |
+| GET | `/invoices/export` | Export invoices as CSV or XLSX | — | 200, 422 `HTTPValidationError` |
 | GET | `/invoices/{entity_id}` | Consulta una factura. | — | 200 `InvoiceRead`, 422 `HTTPValidationError` |
 | PATCH | `/invoices/{entity_id}` | Modifica una factura mentre és un esborrany. | `InvoiceUpdate` | 200 `InvoiceRead`, 422 `HTTPValidationError` |
 | DELETE | `/invoices/{entity_id}` | Elimina una factura en esborrany. | — | 204, 422 `HTTPValidationError` |
@@ -136,6 +147,7 @@ Invoices (Resource Engine example) 0.1.0, a partir del document OpenAPI de l'apl
 |---|---|---|---|---|
 | GET | `/tags` | Llista les etiquetes. | — | 200 `TagReadPage`, 422 `HTTPValidationError` |
 | POST | `/tags` | Crea una etiqueta. | `TagCreate` | 201 `TagRead`, 422 `HTTPValidationError` |
+| GET | `/tags/export` | Export tags as CSV or XLSX | — | 200, 422 `HTTPValidationError` |
 | GET | `/tags/{entity_id}` | Consulta una etiqueta. | — | 200 `TagRead`, 422 `HTTPValidationError` |
 | PATCH | `/tags/{entity_id}` | Canvia el nom o el color d'una etiqueta. | `TagCreate` | 200 `TagRead`, 422 `HTTPValidationError` |
 | DELETE | `/tags/{entity_id}` | Elimina una etiqueta i les seves assignacions. | — | 204, 422 `HTTPValidationError` |

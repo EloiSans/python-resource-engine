@@ -168,6 +168,7 @@ uv run uvicorn invoices.app:app --app-dir examples --reload   # then open /docs 
 - [MCP server](docs/mcp.md) — operations as tools for AI agents, permissions per caller.
 - [Documentation site](docs/docs-site.md) — the docs as a static website, for a technical or a functional audience: diagrams, permission matrix, events, emails, the HTTP API, search, several languages; served by the app as an explorer with a try-it console. The example's is published at <https://eloisans.github.io/python-resource-engine/>.
 - [Translations](docs/i18n.md) — gettext catalogues for error titles, templates, your messages and the documentation site; locale per request.
+- [Table export](docs/exports.md) — any list as CSV or XLSX, with the caller's filters and permissions.
 - [Email and templates](docs/email.md) — emails requested in the transaction and sent after the commit, Jinja templates per locale, SMTP and SES.
 - [Scaffolding](docs/scaffold.md) — generate a module or any part of one.
 - [AI assistance](docs/ai.md) — the skill for coding agents, `ai install`, `ai sync`; [evaluation](evals/README.md).
