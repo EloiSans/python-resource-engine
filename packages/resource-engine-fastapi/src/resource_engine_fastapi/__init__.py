@@ -10,10 +10,12 @@ from resource_engine_fastapi.auth import (
 )
 from resource_engine_fastapi.errors import install_exception_handlers, status_for
 from resource_engine_fastapi.events import build_event_receiver, default_decoder
+from resource_engine_fastapi.i18n import LocaleMiddleware, install_locale
 from resource_engine_fastapi.router import build_resource_router, build_router, mount_resources
 
 __all__ = [
     "AccessLogMiddleware",
+    "LocaleMiddleware",
     "bearer_actor",
     "bearer_token",
     "build_event_receiver",
@@ -23,6 +25,7 @@ __all__ = [
     "forwarded_client_certificate",
     "install_access_log",
     "install_exception_handlers",
+    "install_locale",
     "mount_asyncapi",
     "mount_resources",
     "request_credentials",

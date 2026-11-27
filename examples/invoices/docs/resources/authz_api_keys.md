@@ -4,7 +4,7 @@
 
 API keys for machine clients that cannot use OAuth.
 
-## Business area
+## Àmbit de negoci
 
 Permissions
 
@@ -46,13 +46,33 @@ stateDiagram-v2
 |---|---|---|---|
 | `revoke` | `active` | `revoked` | Withdraw the key at once. |
 
-## Hooks del cicle de vida
+## Què passa en cada operació
+
+Els passos **abans de confirmar** són dins la transacció: si un falla, el canvi es rebutja i no es desa res. Els passos **després de confirmar** s'executen amb el canvi ja desat: un error queda registrat, però no el desfà.
+
+### Crear (`create`)
+
+1. Es valida l'entrada (`ApiKeyCreate`).
+2. Abans de desar: `_check_new_key` — The roles exist and grant nothing the creator lacks; the tenant is the
+3. Es desa el registre nou.
+4. Es confirma el canvi, amb l'auditoria i els esdeveniments.
+
+```mermaid
+flowchart LR
+    s0["Validar"]
+    s1["_check_new_key"]
+    s0 --> s1
+    s2["Desar"]
+    s1 --> s2
+    s3{{"Confirmar"}}
+    s2 --> s3
+```
 
 | Punt | Hook | Efectes externs | Descripció |
 |---|---|---|---|
 | `before_create` | `_check_new_key` | no | The roles exist and grant nothing the creator lacks; the tenant is the |
 
-## Schemas
+## Esquemes
 
 ### ApiKeyCreate (create)
 

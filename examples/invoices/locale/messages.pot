@@ -1,0 +1,623 @@
+# Translations template for application.
+# Copyright (C) 2026 ORGANIZATION
+# This file is distributed under the same license as the application project.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2026.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: application VERSION\n"
+"Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
+"POT-Creation-Date: 2026-11-27 10:58+0100\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.19.0\n"
+
+#. docs:invoices
+msgid ""
+"- Administrador\n"
+"- Comptable\n"
+"- Responsable"
+msgstr ""
+
+#. docs:customers
+msgid ""
+"- Administrador\n"
+"- Emissor de factures"
+msgstr ""
+
+#. docs:tags
+msgid "- Emissor de factures"
+msgstr ""
+
+#. docs:invoice_payments
+msgid "- Servei de pagaments"
+msgstr ""
+
+#. docs:customers CustomerCreate email
+msgid "Adreça de facturació"
+msgstr ""
+
+#. docs:invoices recalculate_totals
+msgid "Aplica un descompte percentual a l'import d'una factura."
+msgstr ""
+
+#. docs:invoices approve
+msgid "Aprova una factura pendent."
+msgstr ""
+
+#. docs:invoices InvoiceStateMachine state approved
+msgid "Aprovada"
+msgstr ""
+
+#. docs:invoices InvoiceStateMachine
+msgid "Aprovada i pendent de cobrament."
+msgstr ""
+
+#. docs:invoice_tags create
+msgid "Assigna una etiqueta a una factura."
+msgstr ""
+
+#. docs:invoice_tags InvoiceTagRead
+msgid "Assignació d'una etiqueta a una factura."
+msgstr ""
+
+#. docs:customers CustomerUpdate
+msgid "Camps modificables d'un client."
+msgstr ""
+
+#. docs:invoices InvoiceUpdate
+msgid "Camps modificables d'una factura en esborrany."
+msgstr ""
+
+#. docs:tags update
+msgid "Canvia el nom o el color d'una etiqueta."
+msgstr ""
+
+#. docs:customer_balances CustomerBalanceRead customer_id
+msgid "Client (customers)"
+msgstr ""
+
+#. docs:invoices InvoiceCreate customer_id
+msgid "Client registrat (customers); el nom de `customer` es manté per compatibilitat"
+msgstr ""
+
+#. docs:customers customer_record
+msgid "Client registrat al qual s'emet la factura."
+msgstr ""
+
+#. docs:customers
+msgid "Clients als quals l'organització emet factures."
+msgstr ""
+
+#. docs:invoices InvoiceStateMachine state paid
+msgid "Cobrada"
+msgstr ""
+
+#. docs:invoices InvoiceStateMachine
+msgid "Cobrada. Estat final."
+msgstr ""
+
+#. docs:invoice_payments PaymentFlow
+msgid "Cobrament d'una factura aprovada."
+msgstr ""
+
+#. docs:invoice_payments
+msgid "Cobrament de les factures aprovades."
+msgstr ""
+
+#. docs:tags TagCreate color
+msgid "Color a la interfície"
+msgstr ""
+
+#. docs:invoice_payments
+msgid ""
+"Comença quan s'aprova una factura, espera l'esdeveniment ``PaymentReceived``\n"
+"del servei de pagaments i aleshores marca la factura com a cobrada. Si en 15\n"
+"dies no arriba, passa a endarrerida i ho anuncia; un cobrament posterior el\n"
+"tanca igualment."
+msgstr ""
+
+#. docs:invoice_payments get
+msgid "Consulta el cobrament d'una factura."
+msgstr ""
+
+#. docs:customer_balances get
+msgid "Consulta el saldo d'un client."
+msgstr ""
+
+#. docs:customers get
+msgid "Consulta un client."
+msgstr ""
+
+#. docs:invoice_tags get
+msgid "Consulta una assignació."
+msgstr ""
+
+#. docs:tags get
+msgid "Consulta una etiqueta."
+msgstr ""
+
+#. docs:invoices get
+msgid "Consulta una factura."
+msgstr ""
+
+#. docs:tags create
+msgid "Crea una etiqueta."
+msgstr ""
+
+#. docs:invoices create
+msgid "Crea una factura en estat esborrany."
+msgstr ""
+
+#. docs:invoice_payments PaymentStart
+msgid "Dades amb què comença el procés de cobrament."
+msgstr ""
+
+#. docs:tags TagCreate
+msgid "Dades d'una etiqueta nova."
+msgstr ""
+
+#. docs:invoices InvoiceCreate
+msgid "Dades per crear una factura."
+msgstr ""
+
+#. docs:customers CustomerCreate
+msgid "Dades per donar d'alta un client."
+msgstr ""
+
+#. docs:invoices InvoiceCreate issue_date
+msgid "Data d'emissió"
+msgstr ""
+
+#. docs:customer_balances CustomerBalanceRead last_issue_date
+msgid "Data d'emissió més recent"
+msgstr ""
+
+#. docs:invoices request_approval_email
+msgid "Demana el correu d'aprovació per al client registrat, si té adreça."
+msgstr ""
+
+#. docs:invoices render_summary
+msgid "Desa el document al magatzem de fitxers i emet ``DocumentAttached``."
+msgstr ""
+
+#. docs:invoice_tags ensure_not_tagged
+msgid "DomainError: la factura ja té l'etiqueta."
+msgstr ""
+
+#. docs:customers create
+msgid "Dona d'alta un client."
+msgstr ""
+
+#. docs:customers customer
+msgid "El client."
+msgstr ""
+
+#. docs:invoices bounce
+msgid "El correu d'enviament ha rebotat."
+msgstr ""
+
+#. docs:invoices request_approval_email
+msgid ""
+"El correu es desa amb el canvi (outbox) i el worker l'envia quan la\n"
+"transacció s'ha confirmat."
+msgstr ""
+
+#. docs:invoices InvoiceDelivery
+msgid "El correu ha rebotat; cal tornar-la a enviar."
+msgstr ""
+
+#. docs:invoice_payments create
+msgid "El crea el procés quan s'aprova una factura."
+msgstr ""
+
+#. docs:invoice_payments receive
+msgid "El servei de pagaments ha cobrat la factura."
+msgstr ""
+
+#. docs:customers delete
+msgid "Elimina un client que no té factures."
+msgstr ""
+
+#. docs:tags delete
+msgid "Elimina una etiqueta i les seves assignacions."
+msgstr ""
+
+#. docs:invoices delete
+msgid "Elimina una factura en esborrany."
+msgstr ""
+
+#. docs:invoice_payments announce_overdue
+msgid "Emet ``PaymentOverdue`` perquè altres serveis (recordatoris) en tinguin notícia."
+msgstr ""
+
+#. docs:invoices recalculate_totals
+msgid "Emet l'esdeveniment ``InvoiceTotalsRecalculated``."
+msgstr ""
+
+#. docs:invoices InvoiceDelivery
+msgid "Encara no s'ha enviat al client."
+msgstr ""
+
+#. docs:invoice_payments PaymentFlow state overdue
+msgid "Endarrerida"
+msgstr ""
+
+#. docs:invoices send
+msgid "Envia al client una factura aprovada o cobrada."
+msgstr ""
+
+#. docs:invoices submit
+msgid "Envia l'esborrany a aprovació."
+msgstr ""
+
+#. docs:invoices notify_approval
+msgid "Envia una notificació mitjançant el servei ``notifier``."
+msgstr ""
+
+#. docs:invoices InvoiceDelivery state sent
+msgid "Enviada"
+msgstr ""
+
+#. docs:invoices InvoiceStateMachine
+msgid "Enviada a aprovació; ja no es pot modificar."
+msgstr ""
+
+#. docs:invoices InvoiceDelivery
+msgid "Enviada al client."
+msgstr ""
+
+#. docs:invoices InvoiceDelivery
+msgid "Enviament d'una factura al client, independent de la seva aprovació."
+msgstr ""
+
+#. docs:invoices InvoiceStateMachine state draft
+msgid "Esborrany"
+msgstr ""
+
+#. docs:invoices InvoiceStateMachine
+msgid "Esborrany editable per l'emissor."
+msgstr ""
+
+#. docs:invoices InvoiceRead delivery_status
+msgid "Estat de l'enviament al client (màquina delivery)"
+msgstr ""
+
+#. docs:invoice_payments PaymentRead
+msgid "Estat del cobrament d'una factura."
+msgstr ""
+
+#. docs:invoice_tags InvoiceTagCreate tag_id
+msgid "Etiqueta"
+msgstr ""
+
+#. docs:invoice_tags InvoiceTagCreate
+msgid "Etiqueta assignada a una factura."
+msgstr ""
+
+#. docs:invoice_tags
+msgid "Etiquetes assignades a factures (molts a molts)."
+msgstr ""
+
+#. docs:tags
+msgid "Etiquetes per classificar factures."
+msgstr ""
+
+#. docs:invoice_tags InvoiceTagCreate invoice_id
+msgid "Factura"
+msgstr ""
+
+#: /home/eloi-sans/Code/python-resource-engine/examples/invoices/templates/email/invoice_approved.subject.txt:1
+#, python-format
+msgid "Factura %(number)s aprovada"
+msgstr ""
+
+#. docs:invoice_payments PaymentStart invoice_id
+msgid "Factura aprovada"
+msgstr ""
+
+#. docs:invoices signed_pdf
+msgid "Factura signada pel client; cal per aprovar-la."
+msgstr ""
+
+#. docs:customers
+msgid "Facturació"
+msgstr ""
+
+#. docs:role admin
+msgid "Full access, including permission management, across tenants"
+msgstr ""
+
+#. docs:invoices render_summary
+msgid "Genera un resum en Markdown de la factura i l'adjunta a la ranura ``summary``."
+msgstr ""
+
+#. docs:invoices
+msgid "Gestió de factures de l'organització."
+msgstr ""
+
+#. docs:invoice_payments expire
+msgid "Han passat 15 dies sense cobrament."
+msgstr ""
+
+#. docs:invoice_payments PaymentFlow
+msgid "Han passat 15 dies sense cobrament; encara es pot cobrar."
+msgstr ""
+
+#: /home/eloi-sans/Code/python-resource-engine/examples/invoices/templates/email/invoice_approved.html:3
+#: /home/eloi-sans/Code/python-resource-engine/examples/invoices/templates/email/invoice_approved.txt:1
+#, python-format
+msgid "Hola, %(customer)s:"
+msgstr ""
+
+#. docs:invoice_payments PaymentStart amount
+msgid "Import a cobrar"
+msgstr ""
+
+#. docs:customer_balances CustomerBalanceRead paid
+msgid "Import cobrat"
+msgstr ""
+
+#. docs:customer_balances CustomerBalanceRead outstanding
+msgid "Import pendent d'aprovar o de cobrar"
+msgstr ""
+
+#. docs:invoices InvoiceCreate amount
+msgid "Import total"
+msgstr ""
+
+#. docs:customer_balances CustomerBalanceRead total
+msgid "Import total de les factures"
+msgstr ""
+
+#. docs:invoices attachments
+msgid "Justificants i altra documentació de suport."
+msgstr ""
+
+#. docs:invoices InvoiceTotalsRecalculated
+msgid "L'import d'una factura s'ha recalculat aplicant un descompte."
+msgstr ""
+
+#. docs:invoices recalculate_totals
+msgid "L'import queda reduït pel percentatge indicat, arrodonit a cèntims."
+msgstr ""
+
+#: /home/eloi-sans/Code/python-resource-engine/examples/invoices/templates/email/invoice_approved.txt:3
+#, python-format
+msgid "La factura %(number)s, de %(amount)s €, ha estat aprovada."
+msgstr ""
+
+#: /home/eloi-sans/Code/python-resource-engine/examples/invoices/templates/email/invoice_approved.html:4
+#, python-format
+msgid "La factura <strong>%(number)s</strong>, de <strong>%(amount)s €</strong>, ha estat aprovada."
+msgstr ""
+
+#. docs:invoices render_summary
+msgid "La factura té un únic document ``summary`` amb les dades actuals."
+msgstr ""
+
+#. docs:invoices recalculate_totals
+msgid "La factura és un esborrany."
+msgstr ""
+
+#. docs:customers
+msgid ""
+"Les factures hi fan referència amb ``customer_id``; un client amb factures\n"
+"no es pot eliminar."
+msgstr ""
+
+#. docs:invoices InvoiceStateMachine
+msgid "Les factures pendents d'aprovar més de 30 dies es rebutgen soles."
+msgstr ""
+
+#. docs:invoice_tags
+msgid ""
+"Les factures tenen la relació ``tags`` i les etiquetes la relació\n"
+"``invoices``; assignar i treure etiquetes és crear i eliminar aquests\n"
+"registres."
+msgstr ""
+
+#. docs:customers list
+msgid "Llista els clients, filtrables per país i nom."
+msgstr ""
+
+#. docs:invoice_payments list
+msgid "Llista els cobraments en curs i acabats."
+msgstr ""
+
+#. docs:customer_balances list
+msgid "Llista els saldos dels clients amb factures, ordenables per import."
+msgstr ""
+
+#. docs:invoice_tags list
+msgid "Llista les assignacions d'etiquetes."
+msgstr ""
+
+#. docs:tags list
+msgid "Llista les etiquetes."
+msgstr ""
+
+#. docs:invoices list
+msgid "Llista les factures, filtrables per estat i client."
+msgstr ""
+
+#. docs:customers update
+msgid "Modifica les dades d'un client."
+msgstr ""
+
+#. docs:invoices update
+msgid "Modifica una factura mentre és un esborrany."
+msgstr ""
+
+#. docs:customers CustomerCreate tax_id
+msgid "NIF"
+msgstr ""
+
+#. docs:invoices InvoiceDelivery state unsent
+msgid "No enviada"
+msgstr ""
+
+#. docs:invoices InvoiceCreate customer
+msgid "Nom del client"
+msgstr ""
+
+#. docs:tags TagCreate name
+msgid "Nom visible"
+msgstr ""
+
+#. docs:customer_balances CustomerBalanceRead invoices
+msgid "Nombre de factures"
+msgstr ""
+
+#. docs:invoices ensure_editable
+msgid "Només es poden modificar o eliminar factures en esborrany."
+msgstr ""
+
+#. docs:invoices notify_approval
+msgid "Notifica el client que la factura ha estat aprovada."
+msgstr ""
+
+#. docs:customers CustomerRead organization
+msgid "Organització propietària (tenant); la posa el motor a partir del token"
+msgstr ""
+
+#. docs:customers CustomerCreate country
+msgid "País (ISO 3166)"
+msgstr ""
+
+#. docs:invoices InvoiceStateMachine state pending
+msgid "Pendent"
+msgstr ""
+
+#. docs:invoice_payments PaymentFlow state awaiting
+msgid "Pendent de cobrament"
+msgstr ""
+
+#. docs:invoices
+msgid ""
+"Permet crear, consultar i modificar factures, així com gestionar-ne el\n"
+"procés d'aprovació i cobrament."
+msgstr ""
+
+#. docs:invoices InvoiceStateMachine
+msgid "Procés d'aprovació i cobrament d'una factura."
+msgstr ""
+
+#. docs:invoice_payments
+msgid "Quan s'aprova una factura, comença a esperar-ne el cobrament."
+msgstr ""
+
+#. docs:invoices InvoiceRead status_changed_at
+msgid "Quan va entrar a l'estat actual (el posa el motor)"
+msgstr ""
+
+#. docs:customers CustomerCreate name
+msgid "Raó social"
+msgstr ""
+
+#. docs:role viewer
+msgid "Read-only access"
+msgstr ""
+
+#. docs:invoices validate_amount
+msgid "Rebutja factures amb import negatiu."
+msgstr ""
+
+#. docs:invoices reject
+msgid "Rebutja una factura pendent indicant-ne el motiu."
+msgstr ""
+
+#. docs:invoices InvoiceStateMachine state rejected
+msgid "Rebutjada"
+msgstr ""
+
+#. docs:invoices InvoiceStateMachine
+msgid "Rebutjada pel responsable."
+msgstr ""
+
+#. docs:invoice_tags ensure_not_tagged
+msgid "Refusa assignar a una factura una etiqueta que ja té."
+msgstr ""
+
+#. docs:invoices pay
+msgid "Registra el cobrament d'una factura aprovada."
+msgstr ""
+
+#. docs:customers CustomerRead
+msgid "Representació pública d'un client."
+msgstr ""
+
+#. docs:tags TagRead
+msgid "Representació pública d'una etiqueta."
+msgstr ""
+
+#. docs:invoices InvoiceRead
+msgid "Representació pública d'una factura."
+msgstr ""
+
+#. docs:invoices summary
+msgid "Resum generat per l'acció render_summary."
+msgstr ""
+
+#. docs:invoices InvoiceDelivery state returned
+msgid "Retornada"
+msgstr ""
+
+#. docs:invoice_payments PaymentFlow
+msgid "S'espera el cobrament del servei de pagaments."
+msgstr ""
+
+#. docs:customer_balances CustomerBalanceRead
+msgid "Saldo d'un client: les seves factures sumades per estat."
+msgstr ""
+
+#. docs:customer_balances
+msgid "Saldo de facturació de cada client, calculat a partir de les factures."
+msgstr ""
+
+#. docs:invoice_payments PaymentFlow
+msgid "Sense cobrament en 15 dies, el cobrament queda endarrerit."
+msgstr ""
+
+#. docs:invoices resend
+msgid "Torna a enviar una factura retornada."
+msgstr ""
+
+#. docs:invoices reopen
+msgid "Torna una factura rebutjada a esborrany."
+msgstr ""
+
+#. docs:invoice_tags delete
+msgid "Treu una etiqueta d'una factura."
+msgstr ""
+
+#. docs:invoice_payments
+msgid "Un cobrament del servei de pagaments tanca el procés i marca la factura com a cobrada."
+msgstr ""
+
+#. docs:invoice_payments PaymentOverdue
+msgid "Una factura aprovada fa 15 dies que espera el cobrament."
+msgstr ""
+
+#. docs:invoices InvoiceRead version
+msgid "Versió del registre (ETag); envia-la a If-Match"
+msgstr ""
+
+#. docs:invoice_payments PaymentRead status
+msgid "awaiting, overdue o settled"
+msgstr ""
+
+#. docs:customer_balances
+msgid ""
+"És una vista: només es consulta, i cada fila es recalcula amb les factures\n"
+"del client (no es desa enlloc)."
+msgstr ""
+
+#. docs:invoice_payments PaymentRead status_changed_at
+msgid "Últim canvi d'estat"
+msgstr ""
+

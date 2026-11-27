@@ -44,8 +44,16 @@ class ResourceEngineError(Exception):
             parts.append(f"See {self.doc}")
         return "\n".join(parts)
 
+    @property
+    def title(self) -> str:
+        """A short sentence for people (not developers), in the current locale:
+        what a user interface can show. ``message`` stays technical and English."""
+        from resource_engine.i18n import pgettext
+
+        return pgettext(self.code, TITLES.get(self.code, TITLES["RE-E000"]))
+
     def to_dict(self) -> dict[str, Any]:
-        data: dict[str, Any] = {"code": self.code, "message": self.message}
+        data: dict[str, Any] = {"code": self.code, "title": self.title, "message": self.message}
         if self.hint:
             data["hint"] = self.hint
         if self.doc:
@@ -53,6 +61,61 @@ class ResourceEngineError(Exception):
         if self.details is not None:
             data["details"] = self.details
         return data
+
+
+#: What each error means for a person using an application, in English; the
+#: engine's catalogue (``resource_engine/locale``) translates them, keyed by code.
+TITLES: dict[str, str] = {
+    "RE-E000": "Something went wrong.",
+    "RE-E001": "The application is misconfigured.",
+    "RE-E002": "This kind of record does not exist.",
+    "RE-E003": "This operation is not available.",
+    "RE-E004": "The application is misconfigured.",
+    "RE-E005": "The application is misconfigured.",
+    "RE-E007": "The changes could not be saved together.",
+    "RE-E008": "The application is misconfigured.",
+    "RE-E009": "The history is not available.",
+    "RE-E010": "A message template is missing.",
+    "RE-E011": "A message template could not be filled in.",
+    "RE-E101": "Some fields are not valid.",
+    "RE-E102": "The record does not exist.",
+    "RE-E103": "The search cannot be done this way.",
+    "RE-E104": "The application is misconfigured.",
+    "RE-E105": "Someone else changed this record. Reload it and try again.",
+    "RE-E106": "Reload the record before changing it.",
+    "RE-E107": "This request was already made with other data.",
+    "RE-E108": "A related record does not exist.",
+    "RE-E109": "Other records still depend on this one.",
+    "RE-E201": "This step is not possible now.",
+    "RE-E202": "This step does not exist.",
+    "RE-E301": "This action does not exist.",
+    "RE-E401": "Some messages could not be sent.",
+    "RE-E402": "A message could not be handled.",
+    "RE-E403": "The application is misconfigured.",
+    "RE-E404": "The application is misconfigured.",
+    "RE-E405": "A message could not be read.",
+    "RE-E406": "A message was refused.",
+    "RE-E501": "Another service did not answer. Try again later.",
+    "RE-E502": "The email could not be delivered.",
+    "RE-E601": "This kind of document does not exist.",
+    "RE-E602": "This type of file is not accepted.",
+    "RE-E603": "The file is too large.",
+    "RE-E604": "The upload did not complete.",
+    "RE-E605": "The document is not available yet.",
+    "RE-E606": "A required document is missing.",
+    "RE-E607": "Files cannot be stored right now. Try again later.",
+    "RE-E608": "The file does not exist.",
+    "RE-E701": "Sign in to continue.",
+    "RE-E702": "You are not allowed to do this.",
+    "RE-E703": "The policy is not valid.",
+    "RE-E704": "You cannot grant more than you have.",
+    "RE-E705": "The policy uses a condition this system cannot apply.",
+    "RE-E706": "You are not allowed to change some of these fields.",
+    "RE-E707": "You cannot search or sort by this field.",
+    "RE-E708": "Choose an organisation first.",
+    "RE-E709": "This belongs to another organisation.",
+    "RE-E710": "Too many requests. Wait a moment and try again.",
+}
 
 
 # --- Configuration (RE-E0xx): raised while building definitions, at bootstrap ---

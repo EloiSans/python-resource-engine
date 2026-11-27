@@ -8,7 +8,7 @@ A policy allows or denies actions to subjects (roles, groups, users or everyone)
 when its condition holds. System roles are fixed in code and cannot be
 targeted or restricted here.
 
-## Business area
+## Àmbit de negoci
 
 Permissions
 
@@ -39,7 +39,73 @@ Policies or role assignments changed: caches must be refreshed.
 | `resource` | `str` | sí |
 | `entity_id` | `Any` | sí |
 
-## Hooks del cicle de vida
+## Què passa en cada operació
+
+Els passos **abans de confirmar** són dins la transacció: si un falla, el canvi es rebutja i no es desa res. Els passos **després de confirmar** s'executen amb el canvi ja desat: un error queda registrat, però no el desfà.
+
+### Crear (`create`)
+
+1. Es valida l'entrada (`PolicyCreate`).
+2. Abans de desar: `stamp_created` — Records who created the policy and when.
+3. Abans de desar: `validate_policy` — Checks actions, subjects and the condition against the catalogue, and that
+4. Es desa el registre nou.
+5. Abans de confirmar: `record_change` — Emits ``PolicyChanged`` so every instance refreshes its permission caches.
+6. Es confirma el canvi, amb l'auditoria i els esdeveniments.
+
+```mermaid
+flowchart LR
+    s0["Validar"]
+    s1["stamp_created"]
+    s0 --> s1
+    s2["validate_policy"]
+    s1 --> s2
+    s3["Desar"]
+    s2 --> s3
+    s4["record_change"]
+    s3 --> s4
+    s5{{"Confirmar"}}
+    s4 --> s5
+```
+
+### Modificar (`update`)
+
+1. Es valida l'entrada (`PolicyUpdate`).
+2. Abans de desar: `stamp_updated` — Records who changed the policy last and when.
+3. Es desen els canvis.
+4. Abans de confirmar: `validate_policy` — Checks actions, subjects and the condition against the catalogue, and that
+5. Es confirma el canvi, amb l'auditoria i els esdeveniments.
+
+```mermaid
+flowchart LR
+    s0["Validar"]
+    s1["stamp_updated"]
+    s0 --> s1
+    s2["Desar"]
+    s1 --> s2
+    s3["validate_policy"]
+    s2 --> s3
+    s4{{"Confirmar"}}
+    s3 --> s4
+```
+
+### Eliminar (`delete`)
+
+1. S'elimina el registre.
+2. Abans de confirmar: `record_change` — Emits ``PolicyChanged`` so every instance refreshes its permission caches.
+3. Es confirma el canvi, amb l'auditoria i els esdeveniments.
+
+```mermaid
+flowchart LR
+    s0["Eliminar"]
+    s1["record_change"]
+    s0 --> s1
+    s2{{"Confirmar"}}
+    s1 --> s2
+```
+
+Després de qualsevol canvi confirmat d'aquest recurs:
+
+- `refresh_caches` — Refreshes this instance's policy and role caches after the commit.
 
 | Punt | Hook | Efectes externs | Descripció |
 |---|---|---|---|
@@ -51,7 +117,7 @@ Policies or role assignments changed: caches must be refreshed.
 | `after_delete` | `record_change` | no | Emits ``PolicyChanged`` so every instance refreshes its permission caches. |
 | `after_commit` | `refresh_caches` | no | Refreshes this instance's policy and role caches after the commit. |
 
-## Schemas
+## Esquemes
 
 ### PolicyCreate (create)
 

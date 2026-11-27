@@ -112,6 +112,19 @@ class StringTemplates:
     def names(self) -> list[str]:
         return sorted({split_locale(key)[1] for key in self.templates})
 
+    def variants(self, name: str) -> list[str | None]:
+        found = [loc for loc, rest in map(split_locale, self.templates) if rest == name]
+        return sorted(found, key=lambda loc: (loc is not None, loc or ""))
+
+    def preview(self, name: str, *, locale: str | None = None) -> str:
+        """Placeholders stay as they are written (``$customer``)."""
+        if locale is None:
+            if name not in self.templates:
+                raise not_found(name, None, [name])
+            return self.templates[name]
+        _, source = self._find(name, locale)
+        return source
+
 
 __all__ = [
     "HTML_EXTENSIONS",

@@ -26,3 +26,21 @@ class TemplateRenderer(Protocol):
     def names(self) -> list[str]:
         """Every template name, without the locale (for ``check``)."""
         ...
+
+
+class PreviewableTemplates(TemplateRenderer, Protocol):
+    """A renderer the documentation can show templates from (both renderers
+    shipped implement it)."""
+
+    def variants(self, name: str) -> list[str | None]:
+        """The locales that have ``name`` itself (``None``: the unlocalised one)."""
+        ...
+
+    def preview(self, name: str, *, locale: str | None = None) -> str:
+        """The template rendered with every variable shown as a placeholder
+        (``{{ customer }}``), for the generated docs: no data is invented.
+
+        ``locale`` falls back like ``render`` (``ca-ES``, ``ca``, the default
+        locale); ``None`` is the unlocalised template only. Raises
+        ``TemplateNotFound`` when there is none."""
+        ...

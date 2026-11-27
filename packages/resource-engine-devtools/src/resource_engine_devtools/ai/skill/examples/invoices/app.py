@@ -24,6 +24,7 @@ from fastapi import FastAPI
 from resource_engine import ResourceManager
 from resource_engine.authz import ApiKeyAuthenticator, PolicyAuthorizer, system_principal
 from resource_engine.cache import InMemoryCache
+from resource_engine.i18n import set_translations
 from resource_engine.messaging import OutboxDelivery
 from resource_engine.ports.identity import Authenticator
 from resource_engine.ratelimit import (
@@ -32,7 +33,7 @@ from resource_engine.ratelimit import (
     RateLimiter,
     SlidingWindowLimiter,
 )
-from resource_engine_fastapi import bearer_actor, mount_asyncapi, mount_resources
+from resource_engine_fastapi import bearer_actor, install_locale, mount_asyncapi, mount_resources
 from resource_engine_sqlalchemy import unit_of_work_factory
 from sqlalchemy.ext.asyncio import AsyncEngine, async_sessionmaker, create_async_engine
 
@@ -40,6 +41,7 @@ from invoices.authz import seed
 from invoices.bootstrap import authz, tenant_registry
 from invoices.infrastructure.persistence import engine as engine_tables
 from invoices.infrastructure.persistence import map_entities, metadata
+from invoices.notifications import translations
 
 
 def keycloak_authenticator() -> Authenticator:
@@ -146,8 +148,11 @@ def create_app(
     keys = ApiKeyAuthenticator(
         manager.uow_factory, fallback=authenticator or keycloak_authenticator()
     )
-    actor = bearer_actor(keys, rate_limiter=limiter)  # 429 with Retry-After
+    # 429 with Retry-After; a token's locale claim sets the language of the answer
+    actor = bearer_actor(keys, rate_limiter=limiter, translations=translations)
     mount_resources(app, registry, manager, actor_dependency=actor, access_log=True)
+    set_translations(translations)  # Catalan by default; English and Spanish catalogues
+    install_locale(app, translations)  # Accept-Language → error titles, Content-Language
     mount_asyncapi(app, registry)  # GET /asyncapi.json: the events it publishes
     return app
 

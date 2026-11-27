@@ -94,6 +94,13 @@ templates = "invoices.notifications:templates"
 metadata = "invoices.infrastructure.persistence:metadata"
 paths = ["examples"]
 
+[tool.resource-engine.i18n]
+# The example's texts (docstrings, templates, messages) are written in Catalan;
+# catalogues translate them to English and Spanish.
+directory = "examples/invoices/locale"
+source_locale = "ca"
+locales = ["ca", "en", "es"]
+
 [tool.resource-engine.asyncapi]
 title = "Factures (exemple de Resource Engine)"
 version = "0.1.0"

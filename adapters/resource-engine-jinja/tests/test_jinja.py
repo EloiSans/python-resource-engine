@@ -94,3 +94,32 @@ def test_the_mailer_on_jinja(templates):
 def test_templates_shipped_in_a_package():
     templates = JinjaTemplates(package="invoices", folder="templates")
     assert templates.exists("email/invoice_approved.subject.txt", locale="ca")
+
+
+def test_templates_translate_with_the_catalogue_and_escape_values(tmp_path):
+    from babel.messages.catalog import Catalog
+    from babel.messages.mofile import write_mo
+    from resource_engine.i18n import Translations
+
+    catalog = Catalog(locale="en")
+    catalog.add("Hola, %(customer)s:", "Hello %(customer)s,")
+    catalog.add("Factura aprovada", "Invoice approved")
+    folder = tmp_path / "locale" / "en" / "LC_MESSAGES"
+    folder.mkdir(parents=True)
+    with (folder / "messages.mo").open("wb") as handle:
+        write_mo(handle, catalog)
+    (tmp_path / "t" / "email").mkdir(parents=True)
+    (tmp_path / "t" / "email" / "hi.html").write_text(
+        "<p>{% trans %}Hola, {{ customer }}:{% endtrans %}</p><p>{{ _('Factura aprovada') }}</p>"
+    )
+    templates = JinjaTemplates(
+        tmp_path / "t",
+        default_locale="ca",
+        translations=Translations(tmp_path / "locale", default_locale="ca"),
+    )
+    english = templates.render("email/hi.html", {"customer": "<b>ACME</b>"}, locale="en")
+    assert english == "<p>Hello &lt;b&gt;ACME&lt;/b&gt;,</p><p>Invoice approved</p>"
+    catalan = templates.render("email/hi.html", {"customer": "ACME"}, locale="ca")
+    assert catalan == "<p>Hola, ACME:</p><p>Factura aprovada</p>"  # the source language
+    assert templates.variants("email/hi.html") == ["ca", "en"]
+    assert "Hello <mark" in templates.preview("email/hi.html", locale="en")

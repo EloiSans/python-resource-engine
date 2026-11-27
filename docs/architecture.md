@@ -41,6 +41,7 @@ so the same class is used by the domain, the in-memory adapter and SQLAlchemy.
 - `Tracer`: spans around operations, outbox publishing, messages and jobs, and the trace context put on envelopes (`NoopTracer` by default, `OtelTracer` in `resource-engine-opentelemetry`; [observability](observability.md)).
 - `LockProvider`: named leases so a `single` job runs on one worker at a time (`SqlAlchemyLocks`, `InMemoryLocks`; [jobs](jobs.md)).
 - `EmailSender`: delivers a composed `EmailMessage` (`SmtpEmailSender` in `resource-engine-smtp`, `SesEmailSender` in `resource-engine-aws`, `RecordingEmailSender` for tests; [email](email.md)).
+- Translations are not a port: `resource_engine.i18n` reads standard gettext `.mo` catalogues with the standard library ([translations](i18n.md)); devtools extracts and compiles them with Babel.
 - `TemplateRenderer`: renders named templates per locale for emails and documents (`StringTemplates` in the core, `JinjaTemplates` in `resource-engine-jinja`).
 - `AuditSink`: where audit entries go (`RepositoryAuditSink` writes the `audit_log` resource in the operation's transaction).
 

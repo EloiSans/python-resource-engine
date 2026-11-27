@@ -1,0 +1,638 @@
+# Catalan texts of the generated documentation (resource-engine-devtools).
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: resource-engine-devtools VERSION\n"
+"Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
+"POT-Creation-Date: 2026-11-27 10:54+0100\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language: ca\n"
+"Language-Team: ca <LL@li.org>\n"
+"Plural-Forms: nplurals=3; plural=(n == 1 ? 0 : n != 0 && n % 1000000 == 0 ? 1 : 2);\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.19.0\n"
+
+msgid "_No description._"
+msgstr "_Sense descripció._"
+
+msgid "yes"
+msgstr "sí"
+
+msgid "no"
+msgstr "no"
+
+msgid "refused while referenced"
+msgstr "es denega mentre hi hagi referències"
+
+msgid "the field is emptied"
+msgstr "el camp es buida"
+
+msgid "deleted in cascade"
+msgstr "s'eliminen en cascada"
+
+#, python-brace-format
+msgid "`{qualname}` — entity `{model}`"
+msgstr "`{qualname}` — entitat `{model}`"
+
+msgid "Operations"
+msgstr "Operacions"
+
+msgid "Operation"
+msgstr "Operació"
+
+msgid "Kind"
+msgstr "Tipus"
+
+msgid "Endpoint"
+msgstr "Endpoint"
+
+msgid "Input"
+msgstr "Entrada"
+
+msgid "Output"
+msgstr "Sortida"
+
+msgid "Description"
+msgstr "Descripció"
+
+msgid "Read-only view: the records are computed by a query."
+msgstr "Vista de només lectura: els registres es calculen amb una consulta."
+
+#, python-brace-format
+msgid "Read-only view computed from [{source}]({source}.md), one row per {groups}:"
+msgstr "Vista de només lectura calculada a partir de [{source}]({source}.md), amb una fila per {groups}:"
+
+msgid "Field"
+msgstr "Camp"
+
+msgid "Computation"
+msgstr "Càlcul"
+
+#, python-brace-format
+msgid ""
+"Base resource: the `{field}` field holds each record's subtype ({kinds}). It lists and reads "
+"every kind; each subtype creates, updates and deletes its own."
+msgstr ""
+"Recurs base: el camp `{field}` indica el subtipus de cada registre ({kinds}). Llista i consulta "
+"tots els tipus; es creen, modifiquen i eliminen a cada subtipus."
+
+#, python-brace-format
+msgid ""
+"Subtype of [{base}]({base}.md) (`{identity}`): it shares its ids, common fields, state machines "
+"and hooks."
+msgstr ""
+"Subtipus de [{base}]({base}.md) (`{identity}`): comparteix-ne els identificadors, els camps "
+"comuns, les màquines d'estats i els hooks."
+
+#, python-brace-format
+msgid "Filters: {filters} · Sorting: {sorting}"
+msgstr "Filtres: {filters} · Ordenació: {sorting}"
+
+#, python-brace-format
+msgid ""
+"Multi-tenant: each record belongs to the tenant in `{field}`; operations are limited to the "
+"caller's tenant."
+msgstr ""
+"Multi-inquilí: cada registre pertany a l'inquilí del camp `{field}`; les operacions es limiten a "
+"l'inquilí de qui crida."
+
+#, python-brace-format
+msgid ""
+"Optimistic concurrency: `{field}` is the record's version (`ETag` header); updates send `If-"
+"Match` and an old version is refused with 409."
+msgstr ""
+"Concurrència optimista: el camp `{field}` és la versió del registre (capçalera `ETag`); les "
+"modificacions envien `If-Match` i una versió antiga es rebutja amb 409."
+
+msgid "Writes without a version are refused (428)."
+msgstr "Les escriptures sense versió es rebutgen (428)."
+
+#, python-brace-format
+msgid ""
+"Restricted fields: {fields} — they need an explicit grant (`{name}:read:<field>`, "
+"`{name}:write:<field>`); otherwise they are left out of the answers."
+msgstr ""
+"Camps restringits: {fields} — cal una concessió explícita (`{name}:read:<camp>`, "
+"`{name}:write:<camp>`); si no, s'ometen de les respostes."
+
+msgid "not audited."
+msgstr "no s'audita."
+
+msgid "changes and refused attempts are audited, reads too"
+msgstr "s'auditen els canvis i els intents denegats, també les lectures"
+
+msgid "changes and refused attempts are audited"
+msgstr "s'auditen els canvis i els intents denegats"
+
+#, python-brace-format
+msgid "; without values for {fields}"
+msgstr "; sense valors per a {fields}"
+
+#, python-brace-format
+msgid "Audit: {note}"
+msgstr "Auditoria: {note}"
+
+#, python-brace-format
+msgid "State machine `{name}`"
+msgstr "Màquina d'estats `{name}`"
+
+msgid "State machine"
+msgstr "Màquina d'estats"
+
+#, python-brace-format
+msgid "`{qualname}` — field `{field}`"
+msgstr "`{qualname}` — camp `{field}`"
+
+msgid "State"
+msgstr "Estat"
+
+msgid "Name"
+msgstr "Nom"
+
+msgid "initial"
+msgstr "inicial"
+
+msgid "final"
+msgstr "final"
+
+msgid "Transition"
+msgstr "Transició"
+
+msgid "From"
+msgstr "Origen"
+
+msgid "To"
+msgstr "Destí"
+
+msgid "Automatic transitions"
+msgstr "Transicions automàtiques"
+
+msgid "After"
+msgstr "Després de"
+
+msgid "Counted from"
+msgstr "Comptat des de"
+
+msgid ""
+"The worker (`TimerJob`) runs them as the system principal; they appear in the history and the "
+"audit trail like any transition."
+msgstr ""
+"Les executa el treballador (`TimerJob`) com a principal del sistema; queden a l'historial i a "
+"l'auditoria com qualsevol transició."
+
+msgid "Actions"
+msgstr "Accions"
+
+msgid "Process"
+msgstr "Procés"
+
+#, python-brace-format
+msgid "Each record is an instance of the process, one per value of `{field}`. It reacts to these events:"
+msgstr ""
+"Cada registre és una instància del procés, una per valor de `{field}`. Reacciona a aquests "
+"esdeveniments:"
+
+msgid "Event"
+msgstr "Esdeveniment"
+
+msgid "When"
+msgstr "Quan"
+
+msgid "Key"
+msgstr "Clau"
+
+msgid "Starts"
+msgstr "Inicia"
+
+msgid "What it does"
+msgstr "Què fa"
+
+msgid "References"
+msgstr "Referències"
+
+msgid "Relation"
+msgstr "Relació"
+
+msgid "Resource"
+msgstr "Recurs"
+
+msgid "When it is deleted"
+msgstr "En eliminar-lo"
+
+msgid ""
+"With `expand` (`?expand=` over HTTP) the answer includes the related record; `<relation>.<field>`"
+" filters use the related resource's filterable fields."
+msgstr ""
+"Amb `expand` (`?expand=` per HTTP) la resposta inclou el registre relacionat; els filtres "
+"`<relació>.<camp>` filtren pels camps filtrables del recurs relacionat."
+
+#, python-brace-format
+msgid "Referenced by: {refs}."
+msgstr "Hi fan referència: {refs}."
+
+msgid "Reverse relation"
+msgstr "Relació inversa"
+
+msgid "Records"
+msgstr "Registres"
+
+msgid "Route"
+msgstr "Ruta"
+
+#, python-brace-format
+msgid "| `{name}` or `{name}:25` (one page) |"
+msgstr "| `{name}` o `{name}:25` (una pàgina) |"
+
+msgid "Many-to-many relations"
+msgstr "Relacions molts a molts"
+
+msgid "Through"
+msgstr "A través de"
+
+msgid ""
+"They are linked and unlinked by creating and deleting records of the join resource; `expand` "
+"accepts these relations too."
+msgstr ""
+"S'enllacen i es desenllacen creant i eliminant registres del recurs intermedi; `expand` també "
+"accepta aquestes relacions."
+
+msgid "Domain events"
+msgstr "Esdeveniments de domini"
+
+msgid "Type"
+msgstr "Tipus"
+
+msgid "Required"
+msgstr "Obligatori"
+
+msgid "Documents"
+msgstr "Documents"
+
+msgid "Slot"
+msgstr "Ranura"
+
+msgid "Types"
+msgstr "Tipus"
+
+msgid "Max. size"
+msgstr "Mida màx."
+
+msgid "Multiple"
+msgstr "Múltiple"
+
+msgid "Upload"
+msgstr "Pujada"
+
+msgid "Required by"
+msgstr "Requerit per"
+
+msgid "Processing"
+msgstr "Processament"
+
+msgid "Emails"
+msgstr "Correus"
+
+msgid "Email"
+msgstr "Correu"
+
+msgid "Recipients"
+msgstr "Destinataris"
+
+msgid "Language"
+msgstr "Idioma"
+
+msgid "_computed at runtime_"
+msgstr "_calculat en temps d'execució_"
+
+msgid ""
+"They are requested inside the transaction and sent once the change is committed; if the change is"
+" rolled back, they are not sent."
+msgstr ""
+"Es demanen dins la transacció i s'envien quan el canvi s'ha confirmat; si el canvi es desfà, no "
+"s'envien."
+
+msgid "Schemas"
+msgstr "Esquemes"
+
+#, python-brace-format
+msgid "on the `{name}` action"
+msgstr "en l'acció `{name}`"
+
+#, python-brace-format
+msgid "on the `{name}` transition"
+msgstr "en la transició `{name}`"
+
+msgid "on any transition"
+msgstr "en qualsevol transició"
+
+msgid "on any action"
+msgstr "en qualsevol acció"
+
+#, python-brace-format
+msgid "when attaching to `{name}`"
+msgstr "en adjuntar a `{name}`"
+
+msgid "when attaching a document"
+msgstr "en adjuntar un document"
+
+#, python-brace-format
+msgid "when removing from `{name}`"
+msgstr "en treure de `{name}`"
+
+msgid "when removing a document"
+msgstr "en treure un document"
+
+msgid "on create"
+msgstr "en crear"
+
+msgid "on update"
+msgstr "en modificar"
+
+msgid "on delete"
+msgstr "en eliminar"
+
+msgid "when validating the input"
+msgstr "en validar l'entrada"
+
+msgid "after any committed change"
+msgstr "després de qualsevol canvi confirmat"
+
+msgid "Create"
+msgstr "Crear"
+
+msgid "Update"
+msgstr "Modificar"
+
+msgid "Delete"
+msgstr "Eliminar"
+
+#, python-brace-format
+msgid "Transition `{name}`"
+msgstr "Transició `{name}`"
+
+#, python-brace-format
+msgid "Action `{name}`"
+msgstr "Acció `{name}`"
+
+#, python-brace-format
+msgid "Attach to `{name}`"
+msgstr "Adjuntar a `{name}`"
+
+#, python-brace-format
+msgid "Remove from `{name}`"
+msgstr "Treure de `{name}`"
+
+msgid "The new record is saved."
+msgstr "Es desa el registre nou."
+
+msgid "Save"
+msgstr "Desar"
+
+msgid "The changes are saved."
+msgstr "Es desen els canvis."
+
+msgid "The record is deleted."
+msgstr "S'elimina el registre."
+
+msgid "The state changes."
+msgstr "Canvia l'estat."
+
+msgid "Change the state"
+msgstr "Canviar l'estat"
+
+msgid "The action runs."
+msgstr "S'executa l'acció."
+
+msgid "Run"
+msgstr "Executar"
+
+msgid "The document is saved."
+msgstr "Es desa el document."
+
+msgid "Save the document"
+msgstr "Desar el document"
+
+msgid "The document is removed."
+msgstr "Es treu el document."
+
+msgid "Remove the document"
+msgstr "Treure el document"
+
+msgid "The change is saved."
+msgstr "Es desa el canvi."
+
+msgid "Commit"
+msgstr "Confirmar"
+
+msgid "What happens in each operation"
+msgstr "Què passa en cada operació"
+
+msgid ""
+"Steps **before the commit** are inside the transaction: if one fails, the change is refused and "
+"nothing is saved. Steps **after the commit** run with the change already saved: an error is "
+"logged, but it doesn't undo the change."
+msgstr ""
+"Els passos **abans de confirmar** són dins la transacció: si un falla, el canvi es rebutja i no "
+"es desa res. Els passos **després de confirmar** s'executen amb el canvi ja desat: un error queda"
+" registrat, però no el desfà."
+
+#, python-brace-format
+msgid "The input is validated (`{schema}`)"
+msgstr "Es valida l'entrada (`{schema}`)"
+
+msgid "The input is validated"
+msgstr "Es valida l'entrada"
+
+msgid "Validate"
+msgstr "Validar"
+
+#, python-brace-format
+msgid "A document must be available in {slots}."
+msgstr "Cal un document disponible a {slots}."
+
+#, python-brace-format
+msgid "Document {slots}"
+msgstr "Document {slots}"
+
+#, python-brace-format
+msgid "Before saving: {hook}"
+msgstr "Abans de desar: {hook}"
+
+#, python-brace-format
+msgid "Before the commit: {hook}"
+msgstr "Abans de confirmar: {hook}"
+
+msgid "The change is committed, with the audit entry and the events."
+msgstr "Es confirma el canvi, amb l'auditoria i els esdeveniments."
+
+#, python-brace-format
+msgid "After the commit: the email {email} is sent to `{to}`."
+msgstr "Després de confirmar: s'envia el correu {email} a `{to}`."
+
+#, python-brace-format
+msgid "Email {name}"
+msgstr "Correu {name}"
+
+msgid "After any committed change of this resource:"
+msgstr "Després de qualsevol canvi confirmat d'aquest recurs:"
+
+msgid "Point"
+msgstr "Punt"
+
+msgid "Hook"
+msgstr "Hook"
+
+msgid "External effects"
+msgstr "Efectes externs"
+
+msgid "external effect"
+msgstr "efecte extern"
+
+msgid "no description"
+msgstr "sense descripció"
+
+msgid ""
+"The emails the application sends, from its templates. Variables show as `{{ name }}`: the real "
+"content depends on each case."
+msgstr ""
+"Els correus que envia l'aplicació, a partir de les plantilles. Les variables es mostren com a `{{"
+" nom }}`: el contingut real depèn de cada cas."
+
+#, python-brace-format
+msgid "by [{resource}](resources/{resource}.md) {when}"
+msgstr "per [{resource}](resources/{resource}.md) {when}"
+
+#, python-brace-format
+msgid "Sent {by}."
+msgstr "Enviat {by}."
+
+msgid "No resource requests it: it is sent directly (`Mailer.send`)."
+msgstr "No el demana cap recurs: s'envia directament (`Mailer.send`)."
+
+#, python-brace-format
+msgid "Missing templates: {names}."
+msgstr "Falten plantilles: {names}."
+
+msgid "Other languages (not translated)"
+msgstr "Altres idiomes (sense traduir)"
+
+msgid "Subject:"
+msgstr "Assumpte:"
+
+msgid "Resource catalogue"
+msgstr "Catàleg de recursos"
+
+msgid "State machines"
+msgstr "Màquines d'estats"
+
+msgid "Every state diagram: [state machines](state-machines.md)."
+msgstr "Tots els diagrames d'estats: [màquines d'estats](state-machines.md)."
+
+msgid "The emails the application sends: [emails](emails.md)."
+msgstr "Els correus que envia l'aplicació: [correus](emails.md)."
+
+msgid "See also the [permission matrix](permissions.md)."
+msgstr "Vegeu també la [matriu de permisos](permissions.md)."
+
+msgid "Permission matrix (system roles)"
+msgstr "Matriu de permisos (rols de sistema)"
+
+msgid ""
+"System roles are defined in the code and can't be changed from the front end. Policies created "
+"from the front end are listed by `authz_policies`."
+msgstr ""
+"Els rols de sistema es defineixen al codi i no es poden modificar des del front-end. Les "
+"polítiques creades des del front-end s'han de consultar a `authz_policies`."
+
+msgid "Role"
+msgstr "Rol"
+
+msgid "Grants"
+msgstr "Concessions"
+
+msgid "Action"
+msgstr "Acció"
+
+msgid ""
+"The processes with states of each resource, drawn from the executable definition of the machine. "
+"Each state and transition is described on the resource's page."
+msgstr ""
+"Els processos amb estats de cada recurs, dibuixats a partir de la definició executable de la "
+"màquina. Els detalls de cada estat i transició són a la pàgina del recurs."
+
+#, python-brace-format
+msgid "Resource [{name}](resources/{name}.md) — field `{field}` — `{qualname}`"
+msgstr "Recurs [{name}](resources/{name}.md) — camp `{field}` — `{qualname}`"
+
+#, python-brace-format
+msgid "`{event}` after {after}"
+msgstr "`{event}` després de {after}"
+
+#, python-brace-format
+msgid "Automatic transitions: {timers}."
+msgstr "Transicions automàtiques: {timers}."
+
+msgid "Home"
+msgstr "Inici"
+
+msgid "Permissions"
+msgstr "Permisos"
+
+msgid "Events"
+msgstr "Esdeveniments"
+
+msgid "Resources"
+msgstr "Recursos"
+
+msgid "Search…"
+msgstr "Cerca…"
+
+msgid "No results"
+msgstr "Cap resultat"
+
+msgid "Generated from the code with Resource Engine"
+msgstr "Generat a partir del codi amb Resource Engine"
+
+msgid "Functional documentation"
+msgstr "Documentació funcional"
+
+msgid "Published events"
+msgstr "Esdeveniments publicats"
+
+msgid ""
+"Messages the application publishes after each committed change. The complete AsyncAPI document is"
+" `asyncapi.json`."
+msgstr ""
+"Missatges que l'aplicació publica després de cada canvi confirmat. El document AsyncAPI complet "
+"és a `asyncapi.json`."
+
+msgid "Data"
+msgstr "Dades"
+
+msgid "Business area"
+msgstr "Àmbit de negoci"
+
+msgid "Actors"
+msgstr "Actors"
+
+msgid "Preconditions"
+msgstr "Precondicions"
+
+msgid "Postconditions"
+msgstr "Postcondicions"
+
+msgid "Business Rules"
+msgstr "Regles de negoci"
+
+msgid "Effects"
+msgstr "Efectes"
+
+msgid "Exceptions"
+msgstr "Excepcions"
+
+msgid "Examples"
+msgstr "Exemples"
+

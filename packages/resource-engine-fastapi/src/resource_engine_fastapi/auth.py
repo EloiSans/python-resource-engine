@@ -101,6 +101,7 @@ def bearer_actor(
     rate_limiter: Any = None,
     client_certificate: CertificateSource | None = None,
     public_url: str | None = None,
+    translations: Any = None,
 ) -> Callable[[Request], Awaitable[Principal | None]]:
     """FastAPI dependency: ``Authorization: Bearer <token>`` → ``Principal``.
 
@@ -109,6 +110,9 @@ def bearer_actor(
     (``resource_engine_oidc.SenderConstrained``); ``client_certificate``
     reads the TLS client certificate (``forwarded_client_certificate()``)
     and ``public_url`` fixes the URL proofs name behind a proxy.
+
+    With ``translations``, a ``locale`` claim in the token sets the request's
+    language (see ``install_locale``).
 
     With ``required=False`` anonymous requests get ``actor=None`` (invalid tokens
     are still rejected). With a ``RateLimiter``, callers get its ``default``
@@ -143,6 +147,10 @@ def bearer_actor(
                 await rate_limiter.failed(address)
             raise
         request.state.principal = principal  # for the access log and error reports
+        if translations is not None:  # the user's own language beats the browser's
+            from resource_engine_fastapi.i18n import principal_locale
+
+            principal_locale(principal, translations)
         if rate_limiter is not None:
             request.state.rate_limit = await rate_limiter.caller(principal)
         return principal

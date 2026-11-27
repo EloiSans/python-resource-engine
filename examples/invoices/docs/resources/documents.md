@@ -9,7 +9,7 @@ engine stores each file's content in the blob store and its metadata here.
 Documents are created, replaced and removed through the owner resource
 (``attach`` / ``detach``), never directly.
 
-## Business area
+## Àmbit de negoci
 
 Documents
 
@@ -75,7 +75,7 @@ stateDiagram-v2
 | `discard` | `available` | `deleted` | The document is detached or its upload expired. |
 | `discard` | `rejected` | `deleted` | The document is detached or its upload expired. |
 
-## Schemas
+## Esquemes
 
 ### DocumentRead (read)
 

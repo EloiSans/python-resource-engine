@@ -9,7 +9,7 @@ del servei de pagaments i aleshores marca la factura com a cobrada. Si en 15
 dies no arriba, passa a endarrerida i ho anuncia; un cobrament posterior el
 tanca igualment.
 
-## Business area
+## Àmbit de negoci
 
 Facturació
 
@@ -65,7 +65,7 @@ stateDiagram-v2
 
 ### Transicions automàtiques
 
-| Transició | Després de | Des de | Comptat des de | Descripció |
+| Transició | Després de | Origen | Comptat des de | Descripció |
 |---|---|---|---|---|
 | `expire` | 15d | `awaiting` | `status_changed_at` | Sense cobrament en 15 dies, el cobrament queda endarrerit. |
 
@@ -100,13 +100,33 @@ Una factura aprovada fa 15 dies que espera el cobrament.
 |---|---|---|
 | `invoice_id` | `int` | sí |
 
-## Hooks del cicle de vida
+## Què passa en cada operació
+
+Els passos **abans de confirmar** són dins la transacció: si un falla, el canvi es rebutja i no es desa res. Els passos **després de confirmar** s'executen amb el canvi ja desat: un error queda registrat, però no el desfà.
+
+### Transició `expire`
+
+1. Es valida l'entrada.
+2. Canvia l'estat.
+3. Abans de confirmar: `announce_overdue` — Emet ``PaymentOverdue`` perquè altres serveis (recordatoris) en tinguin notícia.
+4. Es confirma el canvi, amb l'auditoria i els esdeveniments.
+
+```mermaid
+flowchart LR
+    s0["Validar"]
+    s1["Canviar l'estat"]
+    s0 --> s1
+    s2["announce_overdue"]
+    s1 --> s2
+    s3{{"Confirmar"}}
+    s2 --> s3
+```
 
 | Punt | Hook | Efectes externs | Descripció |
 |---|---|---|---|
 | `after_transition:expire` | `announce_overdue` | no | Emet ``PaymentOverdue`` perquè altres serveis (recordatoris) en tinguin notícia. |
 
-## Schemas
+## Esquemes
 
 ### PaymentStart (create)
 

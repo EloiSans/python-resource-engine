@@ -1,8 +1,10 @@
 # Error catalogue
 
 Codes are stable: once released, a code keeps its meaning. Every error exposes
-`code`, `message`, `hint`, `doc` and optionally `details`; the HTTP adapter returns
-them as `{"error": {...}}`.
+`code`, `title`, `message`, `hint`, `doc` and optionally `details`; the HTTP adapter
+returns them as `{"error": {...}}`. `title` is a short sentence for people, in the
+request's language ([translations](i18n.md)); `message` and `hint` are technical
+and in English.
 
 | Code | Class | HTTP | Meaning |
 |---|---|---|---|

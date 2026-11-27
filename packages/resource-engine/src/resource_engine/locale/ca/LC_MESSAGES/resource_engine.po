@@ -1,0 +1,202 @@
+# Catalan translations of Resource Engine's own messages.
+msgid ""
+msgstr ""
+"Content-Type: text/plain; charset=UTF-8\n"
+"Language: ca\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+msgctxt "RE-E000"
+msgid "Something went wrong."
+msgstr "Alguna cosa ha fallat."
+
+msgctxt "RE-E001"
+msgid "The application is misconfigured."
+msgstr "L'aplicació no està ben configurada."
+
+msgctxt "RE-E002"
+msgid "This kind of record does not exist."
+msgstr "Aquest tipus de registre no existeix."
+
+msgctxt "RE-E003"
+msgid "This operation is not available."
+msgstr "Aquesta operació no està disponible."
+
+msgctxt "RE-E004"
+msgid "The application is misconfigured."
+msgstr "L'aplicació no està ben configurada."
+
+msgctxt "RE-E005"
+msgid "The application is misconfigured."
+msgstr "L'aplicació no està ben configurada."
+
+msgctxt "RE-E007"
+msgid "The changes could not be saved together."
+msgstr "Els canvis no s'han pogut desar junts."
+
+msgctxt "RE-E008"
+msgid "The application is misconfigured."
+msgstr "L'aplicació no està ben configurada."
+
+msgctxt "RE-E009"
+msgid "The history is not available."
+msgstr "L'historial no està disponible."
+
+msgctxt "RE-E010"
+msgid "A message template is missing."
+msgstr "Falta una plantilla de missatge."
+
+msgctxt "RE-E011"
+msgid "A message template could not be filled in."
+msgstr "No s'ha pogut omplir una plantilla de missatge."
+
+msgctxt "RE-E101"
+msgid "Some fields are not valid."
+msgstr "Alguns camps no són vàlids."
+
+msgctxt "RE-E102"
+msgid "The record does not exist."
+msgstr "El registre no existeix."
+
+msgctxt "RE-E103"
+msgid "The search cannot be done this way."
+msgstr "La cerca no es pot fer d'aquesta manera."
+
+msgctxt "RE-E104"
+msgid "The application is misconfigured."
+msgstr "L'aplicació no està ben configurada."
+
+msgctxt "RE-E105"
+msgid "Someone else changed this record. Reload it and try again."
+msgstr "Algú altre ha modificat aquest registre. Torna'l a carregar i prova-ho de nou."
+
+msgctxt "RE-E106"
+msgid "Reload the record before changing it."
+msgstr "Torna a carregar el registre abans de modificar-lo."
+
+msgctxt "RE-E107"
+msgid "This request was already made with other data."
+msgstr "Aquesta petició ja s'havia fet amb altres dades."
+
+msgctxt "RE-E108"
+msgid "A related record does not exist."
+msgstr "Un registre relacionat no existeix."
+
+msgctxt "RE-E109"
+msgid "Other records still depend on this one."
+msgstr "Altres registres encara depenen d'aquest."
+
+msgctxt "RE-E201"
+msgid "This step is not possible now."
+msgstr "Aquest pas no és possible ara."
+
+msgctxt "RE-E202"
+msgid "This step does not exist."
+msgstr "Aquest pas no existeix."
+
+msgctxt "RE-E301"
+msgid "This action does not exist."
+msgstr "Aquesta acció no existeix."
+
+msgctxt "RE-E401"
+msgid "Some messages could not be sent."
+msgstr "Alguns missatges no s'han pogut enviar."
+
+msgctxt "RE-E402"
+msgid "A message could not be handled."
+msgstr "Un missatge no s'ha pogut tractar."
+
+msgctxt "RE-E403"
+msgid "The application is misconfigured."
+msgstr "L'aplicació no està ben configurada."
+
+msgctxt "RE-E404"
+msgid "The application is misconfigured."
+msgstr "L'aplicació no està ben configurada."
+
+msgctxt "RE-E405"
+msgid "A message could not be read."
+msgstr "Un missatge no s'ha pogut llegir."
+
+msgctxt "RE-E406"
+msgid "A message was refused."
+msgstr "Un missatge s'ha rebutjat."
+
+msgctxt "RE-E501"
+msgid "Another service did not answer. Try again later."
+msgstr "Un altre servei no ha respost. Torna-ho a provar més tard."
+
+msgctxt "RE-E502"
+msgid "The email could not be delivered."
+msgstr "El correu no s'ha pogut lliurar."
+
+msgctxt "RE-E601"
+msgid "This kind of document does not exist."
+msgstr "Aquest tipus de document no existeix."
+
+msgctxt "RE-E602"
+msgid "This type of file is not accepted."
+msgstr "Aquest tipus de fitxer no s'accepta."
+
+msgctxt "RE-E603"
+msgid "The file is too large."
+msgstr "El fitxer és massa gran."
+
+msgctxt "RE-E604"
+msgid "The upload did not complete."
+msgstr "La pujada no s'ha completat."
+
+msgctxt "RE-E605"
+msgid "The document is not available yet."
+msgstr "El document encara no està disponible."
+
+msgctxt "RE-E606"
+msgid "A required document is missing."
+msgstr "Falta un document necessari."
+
+msgctxt "RE-E607"
+msgid "Files cannot be stored right now. Try again later."
+msgstr "Ara no es poden desar fitxers. Torna-ho a provar més tard."
+
+msgctxt "RE-E608"
+msgid "The file does not exist."
+msgstr "El fitxer no existeix."
+
+msgctxt "RE-E701"
+msgid "Sign in to continue."
+msgstr "Inicia la sessió per continuar."
+
+msgctxt "RE-E702"
+msgid "You are not allowed to do this."
+msgstr "No tens permís per fer això."
+
+msgctxt "RE-E703"
+msgid "The policy is not valid."
+msgstr "La política no és vàlida."
+
+msgctxt "RE-E704"
+msgid "You cannot grant more than you have."
+msgstr "No pots concedir més del que tens."
+
+msgctxt "RE-E705"
+msgid "The policy uses a condition this system cannot apply."
+msgstr "La política fa servir una condició que aquest sistema no pot aplicar."
+
+msgctxt "RE-E706"
+msgid "You are not allowed to change some of these fields."
+msgstr "No tens permís per modificar alguns d'aquests camps."
+
+msgctxt "RE-E707"
+msgid "You cannot search or sort by this field."
+msgstr "No pots cercar ni ordenar per aquest camp."
+
+msgctxt "RE-E708"
+msgid "Choose an organisation first."
+msgstr "Tria primer una organització."
+
+msgctxt "RE-E709"
+msgid "This belongs to another organisation."
+msgstr "Això pertany a una altra organització."
+
+msgctxt "RE-E710"
+msgid "Too many requests. Wait a moment and try again."
+msgstr "Massa peticions. Espera un moment i torna-ho a provar."

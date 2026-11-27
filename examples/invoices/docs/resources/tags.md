@@ -4,7 +4,7 @@
 
 Etiquetes per classificar factures.
 
-## Business area
+## Àmbit de negoci
 
 Facturació
 
@@ -38,7 +38,7 @@ Hi fan referència: [invoice_tags.tag_id](invoice_tags.md) (s'eliminen en cascad
 
 S'enllacen i es desenllacen creant i eliminant registres del recurs intermedi; `expand` també accepta aquestes relacions.
 
-## Schemas
+## Esquemes
 
 ### TagCreate (create)
 

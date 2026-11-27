@@ -142,6 +142,35 @@ class SlotDoc:
 
 
 @dataclass
+class EmailUseDoc:
+    """An email a hook or action of the resource requests."""
+
+    template: str | None  # None: computed at runtime
+    point: str  # hook point, or action:<name>
+    function: str
+    locale: str | None
+    to: str  # the recipients as written in the code
+
+
+@dataclass
+class EmailVariantDoc:
+    """A template set rendered for one locale, variables as placeholders."""
+
+    locale: str | None  # None: the unlocalised (fallback) templates
+    subject: str | None
+    text: str | None
+    html: str | None
+
+
+@dataclass
+class EmailTemplateDoc:
+    template: str
+    used_by: list[str]  # "<resource> <point>"
+    variants: list[EmailVariantDoc] = field(default_factory=list)
+    missing: list[str] = field(default_factory=list)  # files the requests need
+
+
+@dataclass
 class ResourceDoc:
     name: str
     qualname: str
@@ -181,6 +210,7 @@ class ResourceDoc:
     view: str | None = None
     view_group_by: list[str] = field(default_factory=list)
     view_values: dict[str, str] = field(default_factory=dict)
+    emails: list[EmailUseDoc] = field(default_factory=list)
 
 
 @dataclass
@@ -198,6 +228,7 @@ class DocumentationModel:
     actions: list[str] = field(default_factory=list)
     system_roles: list[SystemRoleDoc] = field(default_factory=list)
     audit_resource: str | None = None
+    emails: list[EmailTemplateDoc] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)

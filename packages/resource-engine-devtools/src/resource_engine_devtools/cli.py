@@ -229,14 +229,48 @@ def cmd_docs_asyncapi(args: argparse.Namespace) -> int:
     return 0
 
 
+def _templates() -> dict[str, object]:
+    """The renderer named in ``[tool.resource-engine] templates``, for the docs."""
+    config = find_config(Path.cwd())
+    if not config.get("templates"):
+        return {}
+    from resource_engine_devtools.loader import load_object
+
+    return {
+        "templates": load_object(config["templates"]),
+        "email_prefix": config.get("email_prefix", "email/"),
+    }
+
+
+def _i18n_config():  # type: ignore[no-untyped-def]
+    from resource_engine_devtools.i18n import load_config
+
+    config = find_config(Path.cwd())
+    return load_config(config, Path(str(config.get("_root", Path.cwd()))))
+
+
+def _docs_locale(args: argparse.Namespace) -> str | None:
+    """``--locale``, else the application's source language (if configured)."""
+    config = _i18n_config()
+    return args.locale or (config.source_locale if config else None)
+
+
 def cmd_docs_generate(args: argparse.Namespace) -> int:
+    from resource_engine_devtools.documentation.i18n import docs_locale, translate_model
+    from resource_engine_devtools.i18n import po_gettext
+
     registry = _registry(args)
-    model = introspect(registry, load_authz(Path.cwd()))
+    model = introspect(registry, load_authz(Path.cwd()), **_templates())
+    locale = _docs_locale(args)
+    config = _i18n_config()
+    if locale and config:
+        model = translate_model(model, po_gettext(config, locale))
     out = Path(args.out)
     if args.format == "json":
         files = {"documentation.json": render_json(model)}
     else:
-        files = render_markdown(model)
+        with docs_locale(locale):
+            files = render_markdown(model)
     asyncapi = _asyncapi(args, registry)
     if asyncapi["channels"]:
         files["asyncapi.json"] = json.dumps(asyncapi, indent=2, ensure_ascii=False) + "\n"
@@ -254,11 +288,21 @@ def cmd_docs_generate(args: argparse.Namespace) -> int:
 
 def cmd_docs_site(args: argparse.Namespace) -> int:
     from resource_engine_devtools.documentation.generators.site import render_site
+    from resource_engine_devtools.i18n import iter_docs_locales, po_gettext
 
     registry = _registry(args)
-    model = introspect(registry, load_authz(Path.cwd()))
+    model = introspect(registry, load_authz(Path.cwd()), **_templates())
     asyncapi = _asyncapi(args, registry)
-    files = render_site(model, asyncapi=asyncapi, title=args.title, mermaid_url=args.mermaid_url)
+    config = _i18n_config()
+    locales = list(iter_docs_locales(config, args.locale))
+    files = render_site(
+        model,
+        asyncapi=asyncapi,
+        title=args.title,
+        mermaid_url=args.mermaid_url,
+        locales=locales or None,
+        translate=(lambda locale: po_gettext(config, locale)) if config else None,
+    )
     if asyncapi["channels"]:
         files["asyncapi.json"] = json.dumps(asyncapi, indent=2, ensure_ascii=False) + "\n"
     out = Path(args.out)
@@ -572,6 +616,60 @@ def cmd_check(args: argparse.Namespace) -> int:
     return 1 if violations else 0
 
 
+def cmd_i18n(args: argparse.Namespace) -> int:
+    from resource_engine_devtools import i18n
+
+    config = _i18n_config()
+    if config is None:
+        _emit(
+            args,
+            {"error": "no [tool.resource-engine.i18n] section"},
+            "error: add [tool.resource-engine.i18n] (directory, source_locale, locales)",
+        )
+        return 2
+    command = args.i18n_command
+    if command == "extract":
+        project = find_config(Path.cwd())
+        root = Path(str(project.get("_root", Path.cwd())))
+        paths = [root / str(p) for p in project.get("paths", ["."])]  # type: ignore[union-attr]
+        model = None
+        try:
+            registry = _registry(args)
+            model = introspect(registry, load_authz(Path.cwd()))
+        except SystemExit:
+            pass  # no registry configured: code and templates only
+        catalog = i18n.extract(config, paths, model=model)
+        path = i18n.write_template(config, catalog)
+        count = len([m for m in catalog if m.id])
+        _emit(args, {"template": str(path), "messages": count}, f"wrote {path} ({count} messages)")
+        return 0
+    if command == "update":
+        done = i18n.update(config)
+        _emit(args, {"locales": done}, "\n".join(f"{loc}: {what}" for loc, what in done.items()))
+        return 0
+    if command == "compile":
+        written = i18n.compile_catalogues(config)
+        _emit(
+            args,
+            {"written": {k: str(v) for k, v in written.items()}},
+            "\n".join(f"wrote {v}" for v in written.values()) or "no catalogues",
+        )
+        return 0
+    if command == "export":
+        files = i18n.export(config, Path(args.out))
+        _emit(args, {"written": [str(f) for f in files]}, "\n".join(f"wrote {f}" for f in files))
+        return 0
+    report = i18n.status(config)
+    lines = [
+        f"{s.locale}: {s.translated}/{s.total} translated, {s.fuzzy} fuzzy, "
+        f"{len(s.missing)} missing{'' if s.compiled else ' (not compiled)'}"
+        for s in report
+    ]
+    failed = args.strict and any(s.missing or s.fuzzy or not s.compiled for s in report)
+    _emit(args, {"passed": not failed, "locales": [s.to_dict() for s in report]}, "\n".join(lines))
+    return 1 if failed else 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     common = argparse.ArgumentParser(add_help=False)
     common.add_argument("--json", action="store_true", help="machine-readable output")
@@ -599,6 +697,9 @@ def build_parser() -> argparse.ArgumentParser:
     p = docs.add_parser("generate", parents=[common])
     p.add_argument("--out", default="docs/functional")
     p.add_argument("--format", choices=["markdown", "json"], default="markdown")
+    p.add_argument(
+        "--locale", help="language of the docs (default: the i18n source_locale, else English)"
+    )
     p.set_defaults(func=cmd_docs_generate)
     p = docs.add_parser(
         "asyncapi", parents=[common], help="AsyncAPI 3.0 document of published and consumed events"
@@ -622,6 +723,12 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p.add_argument("--out", default="site")
     p.add_argument("--title", help="site title (default: the AsyncAPI title)")
+    p.add_argument(
+        "--locale",
+        action="append",
+        help="a language of the site (repeatable; default: every i18n locale). With several, "
+        "each gets its own folder and a language switcher",
+    )
     p.add_argument(
         "--mermaid-url",
         default=MERMAID_URL,
@@ -785,6 +892,24 @@ def build_parser() -> argparse.ArgumentParser:
         "--variable", default="SEED_POLICIES", help="list in <package>/authz.py to append to"
     )
     p.set_defaults(func=cmd_scaffold)
+
+    i18n = sub.add_parser(
+        "i18n", help="translation catalogues ([tool.resource-engine.i18n])"
+    ).add_subparsers(dest="i18n_command", required=True)
+    p = i18n.add_parser(
+        "extract", parents=[common], help="messages.pot from code, templates and docs texts"
+    )
+    p.set_defaults(func=cmd_i18n)
+    p = i18n.add_parser("update", parents=[common], help="create or update each locale's .po")
+    p.set_defaults(func=cmd_i18n)
+    p = i18n.add_parser("compile", parents=[common], help=".po → .mo for the runtime")
+    p.set_defaults(func=cmd_i18n)
+    p = i18n.add_parser("status", parents=[common], help="translated, fuzzy, missing per locale")
+    p.add_argument("--strict", action="store_true", help="fail on missing or fuzzy texts")
+    p.set_defaults(func=cmd_i18n)
+    p = i18n.add_parser("export", parents=[common], help="JSON catalogues for front ends")
+    p.add_argument("--out", default="locale-json")
+    p.set_defaults(func=cmd_i18n)
 
     p = sub.add_parser("mcp", help="serve these commands as MCP tools for coding agents (stdio)")
     p.add_argument("--project", help="project directory (default: the current one)")

@@ -53,6 +53,11 @@ prints a compact catalogue; the installed copy is `project.md` next to this file
      commit (`Mailer.router()`). Templates live in `templates/email/`
      (`<name>.subject.txt`, `.txt`, `.html`, per locale); `check` reports
      missing ones (RE-C007).
+   - A text people read (an email line, a message) → write it in the
+     project's source language inside `_()` / `{% trans %}`; run
+     `resource-engine i18n extract` and `update`, and leave the `.po`
+     translations to translators (`docs/i18n.md`). Never translate JSON
+     data; errors already carry a translated `title`.
    - Something else to do after the change is saved (call another system)
      → record a domain event and handle it in a consumer, or an `after_commit`
      hook marked `@external_effect`.

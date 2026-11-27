@@ -15,7 +15,8 @@ resource and state-machine docstrings, schemas, permissions and events.
 | Page | Contents |
 |---|---|
 | `index.html` | Catalogue of resources with their description and operations. |
-| `resources/<name>.html` | Description, business area and actors; operations and endpoints; filters, tenancy, versions, restricted fields; references and relations; state machines with their diagram, states, transitions and timers; documents, hooks and schemas. |
+| `resources/<name>.html` | Description, business area and actors; operations and endpoints; filters, tenancy, versions, restricted fields; references and relations; state machines with their diagram, states, transitions and timers; documents; the emails it sends; what happens in each operation; schemas. |
+| `emails.html` | Every email template set, with a preview per locale (with `[tool.resource-engine] templates`). |
 | `permissions.html` | The system roles and the matrix of actions each one grants (with an authorization config). |
 | `events.html` | The published events per channel, with their data (from the AsyncAPI document, written next to it as `asyncapi.json`). |
 
@@ -26,8 +27,40 @@ intranet without internet access), and `--mermaid-url ""` leaves the
 diagrams as text. Pages follow the light or dark mode of the system, adapt to
 phones and print without the menu.
 
+## What happens in each operation
+
+Each resource page explains, per write operation, the steps that run and in
+which order: input validation, required documents, the hooks before and after
+the change, the commit, and the emails sent after it. Each step uses the
+hook's docstring summary, and a small diagram shows the same sequence. Steps
+before the commit are inside the transaction (a failure refuses the change);
+steps after it run with the change saved. `after_commit` hooks run after
+every change of the resource, so they are listed once; say in their
+docstring which operations they act on. The technical table (hook point,
+function, external effect) follows.
+
+## Emails
+
+With the renderer configured (`templates = "pkg.module:templates"`), the
+site gets an emails page. Each template set shows which resource requests it
+and when (read from the `EmailRequested` calls in hooks and actions), and a
+preview per locale: the subject, the text body and the HTML body in a
+sandboxed frame. Variables appear as highlighted placeholders
+(`{{ customer }}`), so no data is invented. The unlocalised templates show
+as the fallback for other languages. Each resource page lists its emails,
+the trigger and the recipients as written in the code.
+
 Documentation text is Markdown. Raw HTML in a docstring is shown as text,
 never run.
+
+## Languages
+
+With `[tool.resource-engine.i18n]` configured, the site is built once per
+locale (`ca/`, `en/`, `es/`), with a language switcher on every page and a
+root page that opens the visitor's language. Docstrings and descriptions
+come from the application's catalogues. Headings and tables are the
+generator's own texts, shipped in English, Catalan and Spanish. See
+[translations](i18n.md#documentation-in-several-languages).
 
 ## Publishing
 

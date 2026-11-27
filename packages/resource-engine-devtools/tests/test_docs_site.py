@@ -13,9 +13,12 @@ from resource_engine.messaging.asyncapi import asyncapi_document
 from resource_engine_devtools.cli import main
 from resource_engine_devtools.documentation import introspect
 from resource_engine_devtools.documentation.generators.site import render_site
+from resource_engine_devtools.documentation.i18n import docs_locale
 
 
 def _site(**kw):
+    """The example's site in its own language (Catalan)."""
+    kw.setdefault("locales", ["ca"])
     return render_site(introspect(registry, authz), asyncapi=asyncapi_document(registry), **kw)
 
 
@@ -38,7 +41,8 @@ def test_every_page_with_navigation_and_links():
 
 def test_diagrams_are_drawn_in_the_browser():
     page = _site()["resources/invoices.html"]
-    assert page.count('<pre class="mermaid">') == 2  # approval and delivery
+    assert page.count('<pre class="mermaid">stateDiagram-v2') == 2  # approval and delivery
+    assert page.count('<pre class="mermaid">flowchart LR') == 4  # operations with hooks
     assert "stateDiagram-v2" in page and "draft --&gt; pending: submit" in page
     assert "mermaid@11" in page
     quiet = _site(mermaid_url="")["resources/invoices.html"]
@@ -91,7 +95,15 @@ def test_cli_writes_the_site(tmp_path, capsys):
     out = tmp_path / "site"
     args = ["docs", "site", "--out", str(out), "--app", "invoices.bootstrap:registry", "--json"]
     assert main(args) == 0
-    assert (out / "index.html").is_file() and (out / "resources" / "invoices.html").is_file()
+    # one copy per language of [tool.resource-engine.i18n], the root picks one
+    for locale in ("ca", "en", "es"):
+        assert (out / locale / "resources" / "invoices.html").is_file()
+    assert "location.replace" in (out / "index.html").read_text()
+    english = (out / "en" / "resources" / "invoices.html").read_text()
+    assert '<html lang="en">' in english and "The organisation&#x27;s invoices." in english
+    assert 'href="../../ca/resources/invoices.html" hreflang="ca"' in english  # the switcher
+    spanish = (out / "es" / "resources" / "invoices.html").read_text()
+    assert "Gestión de las facturas de la organización." in spanish and "Operaciones" in spanish
     assert json.loads((out / "asyncapi.json").read_text())["asyncapi"].startswith("3.")
     assert json.loads(capsys.readouterr().out)["index"].endswith("index.html")
 
@@ -105,3 +117,57 @@ def test_every_state_machine_on_one_page_linked_from_the_catalogue():
         assert f'href="state-machines.html#{anchor}"' in files["index.html"]
     assert 'href="state-machines.html"' in files["index.html"]  # the menu
     assert "import mermaid" in machines
+
+
+def test_emails_are_listed_and_previewed_per_locale():
+    from invoices.notifications import templates
+    from resource_engine_devtools.documentation.generators.markdown import render_markdown
+
+    model = introspect(registry, authz, templates=templates)
+    [email] = model.emails
+    assert email.template == "invoice_approved" and email.missing == []
+    assert email.used_by == ["invoices after_transition:approve"]
+    # one variant per catalogue locale, the source (default) language first
+    assert [v.locale for v in email.variants] == ["ca", "en", "es"]
+    catalan, english, spanish = email.variants
+    assert catalan.subject == "Factura {{ number }} aprovada"
+    assert english.subject == "Invoice {{ number }} approved"
+    assert "Hello {{ customer }}," in english.text and "ha sido aprobada" in spanish.text
+    assert '<mark class="placeholder">{{ customer }}</mark>' in catalan.html
+
+    with docs_locale("ca"):
+        pages = render_markdown(model)
+    invoices = pages["resources/invoices.md"]
+    assert "[`invoice_approved`](../emails.md#invoice_approved)" in invoices
+    assert "`[customer.email]`" in invoices and "## Correus" in invoices
+    assert "### en" in pages["emails.md"]
+
+    site = render_site(model, locales=["ca"])
+    preview = site["emails.html"]
+    assert '<iframe class="email-preview" sandbox=""' in preview
+    assert "&lt;mark class=&quot;placeholder&quot;&gt;" in preview  # escaped into srcdoc
+    assert 'href="emails.html"' in site["index.html"]
+
+
+def test_hooks_are_described_per_operation_in_lifecycle_order():
+    from invoices.notifications import templates
+    from resource_engine_devtools.documentation.generators.markdown import render_markdown
+
+    with docs_locale("ca"):
+        pages = render_markdown(introspect(registry, authz, templates=templates))
+    page = pages["resources/invoices.md"]
+    section = page.split("## Què passa en cada operació")[1].split("## Schemas")[0]
+    approve = section.split("### Transició `approve`")[1].split("###")[0]
+    steps = re.findall(r"^\d+\. (.+)$", approve, re.MULTILINE)
+    assert steps[0].startswith("Es valida l'entrada")
+    assert steps[1] == "Cal un document disponible a `signed_pdf`."
+    assert steps[2] == "Canvia l'estat."
+    assert steps[3].startswith("Abans de confirmar: `request_approval_email`")
+    assert steps[4].startswith("Es confirma el canvi")
+    assert steps[5].startswith("Després de confirmar: s'envia el correu")
+    assert 's4{{"Confirmar"}}' in approve  # the commit in the diagram
+    update = section.split("### Modificar (`update`)")[1].split("###")[0]
+    assert "Abans de desar: `ensure_editable`" in update
+    assert "Abans de confirmar: `validate_amount`" in update
+    assert "### Transició `submit`" not in section  # nothing of its own to show
+    assert "Després de qualsevol canvi confirmat" in section and "`notify_approval`" in section

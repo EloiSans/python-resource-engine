@@ -16,6 +16,9 @@ from resource_engine_devtools.documentation.docstrings import DocText, parse_doc
 from resource_engine_devtools.documentation.model import (
     ActionDoc,
     DocumentationModel,
+    EmailTemplateDoc,
+    EmailUseDoc,
+    EmailVariantDoc,
     EventDoc,
     FieldDoc,
     HookDoc,
@@ -309,8 +312,15 @@ def _resource_doc(d: ResourceDefinition) -> ResourceDoc:
     )
 
 
-def introspect(registry: ResourceRegistry, authz: Any = None) -> DocumentationModel:
-    """``authz``: an ``AuthzConfig`` to document system roles (permission matrix)."""
+def introspect(
+    registry: ResourceRegistry,
+    authz: Any = None,
+    *,
+    templates: Any = None,
+    email_prefix: str = "email/",
+) -> DocumentationModel:
+    """``authz``: an ``AuthzConfig`` to document system roles (permission matrix).
+    ``templates``: the application's ``TemplateRenderer``, to show the emails."""
     from resource_engine.authz.catalog import FIELD_KINDS, Catalog
     from resource_engine.authz.evaluator import names_field
 
@@ -367,13 +377,89 @@ def introspect(registry: ResourceRegistry, authz: Any = None) -> DocumentationMo
                         on_delete="link",
                     )
                 )
+    emails = _emails(registry, by_name, templates, email_prefix)
     return DocumentationModel(
         resources=resources,
         engine_version=resource_engine.__version__,
         actions=documented,
         audit_resource="audit_log" if "audit_log" in registry else None,
         system_roles=roles,
+        emails=emails,
     )
+
+
+def _emails(
+    registry: ResourceRegistry, by_name: dict[str, ResourceDoc], templates: Any, prefix: str
+) -> list[EmailTemplateDoc]:
+    """Each resource's requests, and every template set with a preview per locale."""
+    from resource_engine_devtools.emails import find_email_requests
+    from resource_engine_devtools.templates_check import missing_template
+
+    used: dict[str, list[str]] = {}
+    missing: dict[str, set[str]] = {}
+    seen: set[tuple[str, str, str | None]] = set()
+    for use in find_email_requests(registry):
+        resource = by_name.get(use.resource)
+        if resource is None or (use.point, use.function, use.template) in seen:
+            continue
+        seen.add((use.point, use.function, use.template))
+        resource.emails.append(
+            EmailUseDoc(use.template, use.point, use.function, use.locale, use.to)
+        )
+        if use.template is None:
+            continue
+        used.setdefault(use.template, []).append(f"{use.resource} {use.point}")
+        if templates is not None:
+            gap = missing_template(templates, prefix, use.template, use.locale)
+            if gap:
+                missing.setdefault(use.template, set()).add(gap)
+    names = set(used)
+    if templates is not None:
+        suffix = ".subject.txt"
+        names |= {
+            n[len(prefix) : -len(suffix)]
+            for n in templates.names()
+            if n.startswith(prefix) and n.endswith(suffix)
+        }
+    out = []
+    for name in sorted(names):
+        doc = EmailTemplateDoc(name, used.get(name, []), missing=sorted(missing.get(name, ())))
+        if templates is not None and hasattr(templates, "preview"):
+            doc.variants = _variants(templates, f"{prefix}{name}")
+        out.append(doc)
+    return out
+
+
+def _variants(templates: Any, base: str) -> list[EmailVariantDoc]:
+    from resource_engine.errors import TemplateFailed, TemplateNotFound
+
+    files = (f"{base}.subject.txt", f"{base}.txt", f"{base}.html")
+    locales: list[str | None] = []
+    for name in files:
+        for locale in templates.variants(name):
+            if locale not in locales:
+                locales.append(locale)
+    default = getattr(templates, "default_locale", None)
+    # the default locale first, the unlocalised fallback last
+    locales.sort(key=lambda loc: (loc != default, loc is None, loc or ""))
+
+    def show(name: str, locale: str | None) -> str | None:
+        try:
+            return templates.preview(name, locale=locale)
+        except TemplateNotFound:
+            return None
+        except TemplateFailed as exc:
+            return f"⚠ {exc.message}"
+
+    return [
+        EmailVariantDoc(
+            locale,
+            " ".join((show(files[0], locale) or "").split()) or None,
+            show(files[1], locale),
+            show(files[2], locale),
+        )
+        for locale in locales
+    ]
 
 
 def _view_doc(view: Any) -> dict[str, Any]:

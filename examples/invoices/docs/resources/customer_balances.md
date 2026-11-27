@@ -7,7 +7,7 @@ Saldo de facturació de cada client, calculat a partir de les factures.
 És una vista: només es consulta, i cada fila es recalcula amb les factures
 del client (no es desa enlloc).
 
-## Business area
+## Àmbit de negoci
 
 Facturació
 
@@ -47,7 +47,7 @@ Auditoria: s'auditen els canvis i els intents denegats.
 
 Amb `expand` (`?expand=` per HTTP) la resposta inclou el registre relacionat; els filtres `<relació>.<camp>` filtren pels camps filtrables del recurs relacionat.
 
-## Schemas
+## Esquemes
 
 ### CustomerBalanceRead (read)
 

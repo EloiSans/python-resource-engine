@@ -232,6 +232,19 @@
   sandbox, autoescaping); `EventRouter.include`; `check` RE-C007; Mailpit in
   the compose stack; the example emails the customer when an invoice is
   approved.
+- Documentation of emails and hooks: each resource lists the emails it sends
+  (trigger, recipients as written) and what runs in each write operation, in
+  lifecycle order, with a small diagram; an emails page previews every
+  template set per locale with placeholders, HTML in a sandboxed frame.
+- Translations (`docs/i18n.md`): gettext catalogues read with the standard
+  library (`Translations`, the locale in a context variable, `Accept-Language`
+  negotiation and the token's `locale` claim, `Content-Language`); a `title`
+  per error code in the request's language (engine catalogues in Catalan and
+  Spanish); Jinja `{% trans %}` and `_()`; `resource-engine i18n extract |
+  update | compile | status | export`; the functional docs and the site in
+  every configured language, with a switcher (generator texts shipped in
+  English, Catalan and Spanish). The example runs in Catalan, English and
+  Spanish.
 
 ## Next
 
@@ -241,11 +254,6 @@ what follows builds on it.
 
 ### Soon
 
-- Message translations: gettext catalogues (Babel) for templates, generated
-  documents, the functional docs and human-readable error messages; locale
-  from `Accept-Language` or the principal; `extract` / `update` / `compile`
-  in the CLI; a message catalogue exported for front ends (the API stays
-  code-based). Translatable data fields stay in Later.
 - Visual explorer (read-only): a local web UI with the resources, their state
   diagrams, relations, the permission matrix and a try-it console against a
   running app, for functional reviews; code stays the source of truth.

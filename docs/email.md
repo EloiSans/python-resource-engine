@@ -116,6 +116,11 @@ templates/
 - **Subject:** one line. Line breaks and repeated spaces are folded.
 - **Values:** the request's `context`, the mailer's `globals`, and `locale`.
   A missing value is an error (RE-E011), never an empty string.
+- **Translations:** instead of a folder per locale, one template set can be
+  translated by the catalogue: `{{ _("Factura %(number)s aprovada",
+  number=number) }}` and `{% trans %}` blocks, with
+  `JinjaTemplates(..., translations=...)`. The example works this way. See
+  [translations](i18n.md#templates).
 
 `TemplateRenderer` is a port. There are two renderers:
 
@@ -155,6 +160,13 @@ Point it at the renderer:
 templates = "invoices.notifications:templates"
 email_prefix = "email/"   # the default
 ```
+
+## In the documentation
+
+`docs generate` and `docs site` list each resource's emails (trigger,
+recipients as written, locale) and add an emails page with a preview of
+every template set per locale, variables shown as placeholders. See
+[documentation site](docs-site.md#emails).
 
 ## Local development
 

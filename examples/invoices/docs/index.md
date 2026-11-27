@@ -17,4 +17,6 @@
 
 Tots els diagrames d'estats: [màquines d'estats](state-machines.md).
 
+Els correus que envia l'aplicació: [correus](emails.md).
+
 Vegeu també la [matriu de permisos](permissions.md).

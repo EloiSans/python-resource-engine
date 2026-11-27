@@ -7,7 +7,7 @@ Clients als quals l'organització emet factures.
 Les factures hi fan referència amb ``customer_id``; un client amb factures
 no es pot eliminar.
 
-## Business area
+## Àmbit de negoci
 
 Facturació
 
@@ -39,7 +39,7 @@ Hi fan referència: [invoices.customer_id](invoices.md) (es denega mentre hi hag
 | `invoices` | [invoices](invoices.md) | `GET /customers/{id}/invoices` | `invoices` o `invoices:25` (una pàgina) |
 | `balance` | [customer_balances](customer_balances.md) | `GET /customers/{id}/balance` | `balance` o `balance:25` (una pàgina) |
 
-## Schemas
+## Esquemes
 
 ### CustomerCreate (create)
 

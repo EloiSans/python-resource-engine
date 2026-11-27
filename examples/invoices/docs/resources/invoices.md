@@ -7,7 +7,7 @@ Gestió de factures de l'organització.
 Permet crear, consultar i modificar factures, així com gestionar-ne el
 procés d'aprovació i cobrament.
 
-## Business area
+## Àmbit de negoci
 
 Facturació
 
@@ -116,7 +116,7 @@ stateDiagram-v2
 
 ### Transicions automàtiques
 
-| Transició | Després de | Des de | Comptat des de | Descripció |
+| Transició | Després de | Origen | Comptat des de | Descripció |
 |---|---|---|---|---|
 | `reject` | 30d | `pending` | `status_changed_at` | Les factures pendents d'aprovar més de 30 dies es rebutgen soles. |
 
@@ -130,15 +130,15 @@ Les executa el treballador (`TimerJob`) com a principal del sistema; queden a l'
 
 Aplica un descompte percentual a l'import d'una factura.
 
-#### Preconditions
+#### Precondicions
 
 La factura és un esborrany.
 
-#### Postconditions
+#### Postcondicions
 
 L'import queda reduït pel percentatge indicat, arrodonit a cèntims.
 
-#### Effects
+#### Efectes
 
 Emet l'esdeveniment ``InvoiceTotalsRecalculated``.
 
@@ -148,11 +148,11 @@ Emet l'esdeveniment ``InvoiceTotalsRecalculated``.
 
 Genera un resum en Markdown de la factura i l'adjunta a la ranura ``summary``.
 
-#### Postconditions
+#### Postcondicions
 
 La factura té un únic document ``summary`` amb les dades actuals.
 
-#### Effects
+#### Efectes
 
 Desa el document al magatzem de fitxers i emet ``DocumentAttached``.
 
@@ -200,7 +200,99 @@ L'import d'una factura s'ha recalculat aplicant un descompte.
 | `attachments` | */* | 26214400 B | sí | any | — | no | Justificants i altra documentació de suport. |
 | `summary` | text/markdown | 26214400 B | no | api | — | no | Resum generat per l'acció render_summary. |
 
-## Hooks del cicle de vida
+## Correus
+
+| Correu | Quan | Destinataris | Idioma |
+|---|---|---|---|
+| [`invoice_approved`](../emails.md#invoice_approved) | en la transició `approve` (`request_approval_email`) | `[customer.email]` | ca |
+
+Es demanen dins la transacció i s'envien quan el canvi s'ha confirmat; si el canvi es desfà, no s'envien.
+
+## Què passa en cada operació
+
+Els passos **abans de confirmar** són dins la transacció: si un falla, el canvi es rebutja i no es desa res. Els passos **després de confirmar** s'executen amb el canvi ja desat: un error queda registrat, però no el desfà.
+
+### Crear (`create`)
+
+1. Es valida l'entrada (`InvoiceCreate`).
+2. Abans de desar: `validate_amount` — Rebutja factures amb import negatiu.
+3. Es desa el registre nou.
+4. Es confirma el canvi, amb l'auditoria i els esdeveniments.
+
+```mermaid
+flowchart LR
+    s0["Validar"]
+    s1["validate_amount"]
+    s0 --> s1
+    s2["Desar"]
+    s1 --> s2
+    s3{{"Confirmar"}}
+    s2 --> s3
+```
+
+### Modificar (`update`)
+
+1. Es valida l'entrada (`InvoiceUpdate`).
+2. Abans de desar: `ensure_editable` — Només es poden modificar o eliminar factures en esborrany.
+3. Es desen els canvis.
+4. Abans de confirmar: `validate_amount` — Rebutja factures amb import negatiu.
+5. Es confirma el canvi, amb l'auditoria i els esdeveniments.
+
+```mermaid
+flowchart LR
+    s0["Validar"]
+    s1["ensure_editable"]
+    s0 --> s1
+    s2["Desar"]
+    s1 --> s2
+    s3["validate_amount"]
+    s2 --> s3
+    s4{{"Confirmar"}}
+    s3 --> s4
+```
+
+### Eliminar (`delete`)
+
+1. Abans de desar: `ensure_editable` — Només es poden modificar o eliminar factures en esborrany.
+2. S'elimina el registre.
+3. Es confirma el canvi, amb l'auditoria i els esdeveniments.
+
+```mermaid
+flowchart LR
+    s0["ensure_editable"]
+    s1["Eliminar"]
+    s0 --> s1
+    s2{{"Confirmar"}}
+    s1 --> s2
+```
+
+### Transició `approve`
+
+1. Es valida l'entrada.
+2. Cal un document disponible a `signed_pdf`.
+3. Canvia l'estat.
+4. Abans de confirmar: `request_approval_email` — Demana el correu d'aprovació per al client registrat, si té adreça.
+5. Es confirma el canvi, amb l'auditoria i els esdeveniments.
+6. Després de confirmar: s'envia el correu [`invoice_approved`](../emails.md#invoice_approved) a `[customer.email]`.
+
+```mermaid
+flowchart LR
+    s0["Validar"]
+    s1["Document signed_pdf"]
+    s0 --> s1
+    s2["Canviar l'estat"]
+    s1 --> s2
+    s3["request_approval_email"]
+    s2 --> s3
+    s4{{"Confirmar"}}
+    s3 --> s4
+    s5["Correu invoice_approved"]
+    s4 --> s5
+```
+
+Després de qualsevol canvi confirmat d'aquest recurs:
+
+- `notify_approval` (efecte extern) — Notifica el client que la factura ha estat aprovada.
 
 | Punt | Hook | Efectes externs | Descripció |
 |---|---|---|---|
@@ -211,7 +303,7 @@ L'import d'una factura s'ha recalculat aplicant un descompte.
 | `after_transition:approve` | `request_approval_email` | no | Demana el correu d'aprovació per al client registrat, si té adreça. |
 | `after_commit` | `notify_approval` | sí | Notifica el client que la factura ha estat aprovada. |
 
-## Schemas
+## Esquemes
 
 ### InvoiceCreate (create)
 

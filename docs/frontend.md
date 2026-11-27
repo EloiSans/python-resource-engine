@@ -137,14 +137,18 @@ Idempotency-Key: 6f1c2e4a-...
 Every error has the same body:
 
 ```json
-{"error": {"code": "RE-E201", "message": "Transition 'approve' is not allowed for 'invoices' in state 'draft'",
+{"error": {"code": "RE-E201", "title": "This step is not possible now.",
+           "message": "Transition 'approve' is not allowed for 'invoices' in state 'draft'",
            "hint": "Allowed transitions from 'draft': submit. ...", "doc": "docs/errors.md#re-e201",
            "details": {"state": "draft", "allowed": ["submit"]}}}
 ```
 
 - **Branch on `code`.** It is stable and never reused. The message and hint
   are for developers and logs, in English.
-- **Translate it yourself.** Show the user a text of your own for each code.
+- **Show `title` or a text of your own.** `title` is a short sentence for
+  people, in the request's language (`Accept-Language`, or the user's
+  `locale` claim; see [translations](i18n.md)). For texts of your own per
+  code, `resource-engine i18n export` gives you the titles in every language.
 - **Validation errors** (422, `RE-E101`) carry Pydantic's list in `details`:
   `[{"loc": ["amount"], "msg": "...", "type": "decimal_parsing"}, ...]`. Map
   `loc` to form fields.

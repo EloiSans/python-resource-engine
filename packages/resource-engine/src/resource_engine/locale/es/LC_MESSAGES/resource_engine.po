@@ -1,0 +1,202 @@
+# Spanish translations of Resource Engine's own messages.
+msgid ""
+msgstr ""
+"Content-Type: text/plain; charset=UTF-8\n"
+"Language: es\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+msgctxt "RE-E000"
+msgid "Something went wrong."
+msgstr "Algo ha fallado."
+
+msgctxt "RE-E001"
+msgid "The application is misconfigured."
+msgstr "La aplicación no está bien configurada."
+
+msgctxt "RE-E002"
+msgid "This kind of record does not exist."
+msgstr "Este tipo de registro no existe."
+
+msgctxt "RE-E003"
+msgid "This operation is not available."
+msgstr "Esta operación no está disponible."
+
+msgctxt "RE-E004"
+msgid "The application is misconfigured."
+msgstr "La aplicación no está bien configurada."
+
+msgctxt "RE-E005"
+msgid "The application is misconfigured."
+msgstr "La aplicación no está bien configurada."
+
+msgctxt "RE-E007"
+msgid "The changes could not be saved together."
+msgstr "Los cambios no se han podido guardar juntos."
+
+msgctxt "RE-E008"
+msgid "The application is misconfigured."
+msgstr "La aplicación no está bien configurada."
+
+msgctxt "RE-E009"
+msgid "The history is not available."
+msgstr "El historial no está disponible."
+
+msgctxt "RE-E010"
+msgid "A message template is missing."
+msgstr "Falta una plantilla de mensaje."
+
+msgctxt "RE-E011"
+msgid "A message template could not be filled in."
+msgstr "No se ha podido rellenar una plantilla de mensaje."
+
+msgctxt "RE-E101"
+msgid "Some fields are not valid."
+msgstr "Algunos campos no son válidos."
+
+msgctxt "RE-E102"
+msgid "The record does not exist."
+msgstr "El registro no existe."
+
+msgctxt "RE-E103"
+msgid "The search cannot be done this way."
+msgstr "La búsqueda no se puede hacer de esta manera."
+
+msgctxt "RE-E104"
+msgid "The application is misconfigured."
+msgstr "La aplicación no está bien configurada."
+
+msgctxt "RE-E105"
+msgid "Someone else changed this record. Reload it and try again."
+msgstr "Otra persona ha modificado este registro. Vuelve a cargarlo e inténtalo de nuevo."
+
+msgctxt "RE-E106"
+msgid "Reload the record before changing it."
+msgstr "Vuelve a cargar el registro antes de modificarlo."
+
+msgctxt "RE-E107"
+msgid "This request was already made with other data."
+msgstr "Esta petición ya se había hecho con otros datos."
+
+msgctxt "RE-E108"
+msgid "A related record does not exist."
+msgstr "Un registro relacionado no existe."
+
+msgctxt "RE-E109"
+msgid "Other records still depend on this one."
+msgstr "Otros registros todavía dependen de este."
+
+msgctxt "RE-E201"
+msgid "This step is not possible now."
+msgstr "Este paso no es posible ahora."
+
+msgctxt "RE-E202"
+msgid "This step does not exist."
+msgstr "Este paso no existe."
+
+msgctxt "RE-E301"
+msgid "This action does not exist."
+msgstr "Esta acción no existe."
+
+msgctxt "RE-E401"
+msgid "Some messages could not be sent."
+msgstr "Algunos mensajes no se han podido enviar."
+
+msgctxt "RE-E402"
+msgid "A message could not be handled."
+msgstr "Un mensaje no se ha podido tratar."
+
+msgctxt "RE-E403"
+msgid "The application is misconfigured."
+msgstr "La aplicación no está bien configurada."
+
+msgctxt "RE-E404"
+msgid "The application is misconfigured."
+msgstr "La aplicación no está bien configurada."
+
+msgctxt "RE-E405"
+msgid "A message could not be read."
+msgstr "Un mensaje no se ha podido leer."
+
+msgctxt "RE-E406"
+msgid "A message was refused."
+msgstr "Un mensaje se ha rechazado."
+
+msgctxt "RE-E501"
+msgid "Another service did not answer. Try again later."
+msgstr "Otro servicio no ha respondido. Inténtalo de nuevo más tarde."
+
+msgctxt "RE-E502"
+msgid "The email could not be delivered."
+msgstr "El correo no se ha podido entregar."
+
+msgctxt "RE-E601"
+msgid "This kind of document does not exist."
+msgstr "Este tipo de documento no existe."
+
+msgctxt "RE-E602"
+msgid "This type of file is not accepted."
+msgstr "Este tipo de archivo no se acepta."
+
+msgctxt "RE-E603"
+msgid "The file is too large."
+msgstr "El archivo es demasiado grande."
+
+msgctxt "RE-E604"
+msgid "The upload did not complete."
+msgstr "La subida no se ha completado."
+
+msgctxt "RE-E605"
+msgid "The document is not available yet."
+msgstr "El documento todavía no está disponible."
+
+msgctxt "RE-E606"
+msgid "A required document is missing."
+msgstr "Falta un documento necesario."
+
+msgctxt "RE-E607"
+msgid "Files cannot be stored right now. Try again later."
+msgstr "Ahora no se pueden guardar archivos. Inténtalo de nuevo más tarde."
+
+msgctxt "RE-E608"
+msgid "The file does not exist."
+msgstr "El archivo no existe."
+
+msgctxt "RE-E701"
+msgid "Sign in to continue."
+msgstr "Inicia sesión para continuar."
+
+msgctxt "RE-E702"
+msgid "You are not allowed to do this."
+msgstr "No tienes permiso para hacer esto."
+
+msgctxt "RE-E703"
+msgid "The policy is not valid."
+msgstr "La política no es válida."
+
+msgctxt "RE-E704"
+msgid "You cannot grant more than you have."
+msgstr "No puedes conceder más de lo que tienes."
+
+msgctxt "RE-E705"
+msgid "The policy uses a condition this system cannot apply."
+msgstr "La política usa una condición que este sistema no puede aplicar."
+
+msgctxt "RE-E706"
+msgid "You are not allowed to change some of these fields."
+msgstr "No tienes permiso para modificar algunos de estos campos."
+
+msgctxt "RE-E707"
+msgid "You cannot search or sort by this field."
+msgstr "No puedes buscar ni ordenar por este campo."
+
+msgctxt "RE-E708"
+msgid "Choose an organisation first."
+msgstr "Elige primero una organización."
+
+msgctxt "RE-E709"
+msgid "This belongs to another organisation."
+msgstr "Esto pertenece a otra organización."
+
+msgctxt "RE-E710"
+msgid "Too many requests. Wait a moment and try again."
+msgstr "Demasiadas peticiones. Espera un momento y vuelve a intentarlo."

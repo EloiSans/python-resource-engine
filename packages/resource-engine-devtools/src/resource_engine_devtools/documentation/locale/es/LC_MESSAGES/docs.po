@@ -1,0 +1,636 @@
+# Spanish texts of the generated documentation (resource-engine-devtools).
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: resource-engine-devtools VERSION\n"
+"Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
+"POT-Creation-Date: 2026-11-27 10:54+0100\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language: es\n"
+"Language-Team: es <LL@li.org>\n"
+"Plural-Forms: nplurals=3; plural=(n == 1 ? 0 : n != 0 && n % 1000000 == 0 ? 1 : 2);\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.19.0\n"
+
+msgid "_No description._"
+msgstr "_Sin descripción._"
+
+msgid "yes"
+msgstr "sí"
+
+msgid "no"
+msgstr "no"
+
+msgid "refused while referenced"
+msgstr "se deniega mientras haya referencias"
+
+msgid "the field is emptied"
+msgstr "el campo se vacía"
+
+msgid "deleted in cascade"
+msgstr "se eliminan en cascada"
+
+#, python-brace-format
+msgid "`{qualname}` — entity `{model}`"
+msgstr "`{qualname}` — entidad `{model}`"
+
+msgid "Operations"
+msgstr "Operaciones"
+
+msgid "Operation"
+msgstr "Operación"
+
+msgid "Kind"
+msgstr "Tipo"
+
+msgid "Endpoint"
+msgstr "Endpoint"
+
+msgid "Input"
+msgstr "Entrada"
+
+msgid "Output"
+msgstr "Salida"
+
+msgid "Description"
+msgstr "Descripción"
+
+msgid "Read-only view: the records are computed by a query."
+msgstr "Vista de solo lectura: los registros se calculan con una consulta."
+
+#, python-brace-format
+msgid "Read-only view computed from [{source}]({source}.md), one row per {groups}:"
+msgstr "Vista de solo lectura calculada a partir de [{source}]({source}.md), con una fila por {groups}:"
+
+msgid "Field"
+msgstr "Campo"
+
+msgid "Computation"
+msgstr "Cálculo"
+
+#, python-brace-format
+msgid ""
+"Base resource: the `{field}` field holds each record's subtype ({kinds}). It lists and reads "
+"every kind; each subtype creates, updates and deletes its own."
+msgstr ""
+"Recurso base: el campo `{field}` indica el subtipo de cada registro ({kinds}). Lista y consulta "
+"todos los tipos; se crean, modifican y eliminan en cada subtipo."
+
+#, python-brace-format
+msgid ""
+"Subtype of [{base}]({base}.md) (`{identity}`): it shares its ids, common fields, state machines "
+"and hooks."
+msgstr ""
+"Subtipo de [{base}]({base}.md) (`{identity}`): comparte sus identificadores, los campos comunes, "
+"las máquinas de estados y los hooks."
+
+#, python-brace-format
+msgid "Filters: {filters} · Sorting: {sorting}"
+msgstr "Filtros: {filters} · Ordenación: {sorting}"
+
+#, python-brace-format
+msgid ""
+"Multi-tenant: each record belongs to the tenant in `{field}`; operations are limited to the "
+"caller's tenant."
+msgstr ""
+"Multiinquilino: cada registro pertenece al inquilino del campo `{field}`; las operaciones se "
+"limitan al inquilino de quien llama."
+
+#, python-brace-format
+msgid ""
+"Optimistic concurrency: `{field}` is the record's version (`ETag` header); updates send `If-"
+"Match` and an old version is refused with 409."
+msgstr ""
+"Concurrencia optimista: el campo `{field}` es la versión del registro (cabecera `ETag`); las "
+"modificaciones envían `If-Match` y una versión antigua se rechaza con 409."
+
+msgid "Writes without a version are refused (428)."
+msgstr "Las escrituras sin versión se rechazan (428)."
+
+#, python-brace-format
+msgid ""
+"Restricted fields: {fields} — they need an explicit grant (`{name}:read:<field>`, "
+"`{name}:write:<field>`); otherwise they are left out of the answers."
+msgstr ""
+"Campos restringidos: {fields} — hace falta una concesión explícita (`{name}:read:<campo>`, "
+"`{name}:write:<campo>`); si no, se omiten de las respuestas."
+
+msgid "not audited."
+msgstr "no se audita."
+
+msgid "changes and refused attempts are audited, reads too"
+msgstr "se auditan los cambios y los intentos denegados, también las lecturas"
+
+msgid "changes and refused attempts are audited"
+msgstr "se auditan los cambios y los intentos denegados"
+
+#, python-brace-format
+msgid "; without values for {fields}"
+msgstr "; sin valores para {fields}"
+
+#, python-brace-format
+msgid "Audit: {note}"
+msgstr "Auditoría: {note}"
+
+#, python-brace-format
+msgid "State machine `{name}`"
+msgstr "Máquina de estados `{name}`"
+
+msgid "State machine"
+msgstr "Máquina de estados"
+
+#, python-brace-format
+msgid "`{qualname}` — field `{field}`"
+msgstr "`{qualname}` — campo `{field}`"
+
+msgid "State"
+msgstr "Estado"
+
+msgid "Name"
+msgstr "Nombre"
+
+msgid "initial"
+msgstr "inicial"
+
+msgid "final"
+msgstr "final"
+
+msgid "Transition"
+msgstr "Transición"
+
+msgid "From"
+msgstr "Origen"
+
+msgid "To"
+msgstr "Destino"
+
+msgid "Automatic transitions"
+msgstr "Transiciones automáticas"
+
+msgid "After"
+msgstr "Después de"
+
+msgid "Counted from"
+msgstr "Contado desde"
+
+msgid ""
+"The worker (`TimerJob`) runs them as the system principal; they appear in the history and the "
+"audit trail like any transition."
+msgstr ""
+"Las ejecuta el trabajador (`TimerJob`) como principal del sistema; quedan en el historial y en la"
+" auditoría como cualquier transición."
+
+msgid "Actions"
+msgstr "Acciones"
+
+msgid "Process"
+msgstr "Proceso"
+
+#, python-brace-format
+msgid "Each record is an instance of the process, one per value of `{field}`. It reacts to these events:"
+msgstr "Cada registro es una instancia del proceso, una por valor de `{field}`. Reacciona a estos eventos:"
+
+msgid "Event"
+msgstr "Evento"
+
+msgid "When"
+msgstr "Cuándo"
+
+msgid "Key"
+msgstr "Clave"
+
+msgid "Starts"
+msgstr "Inicia"
+
+msgid "What it does"
+msgstr "Qué hace"
+
+msgid "References"
+msgstr "Referencias"
+
+msgid "Relation"
+msgstr "Relación"
+
+msgid "Resource"
+msgstr "Recurso"
+
+msgid "When it is deleted"
+msgstr "Al eliminarlo"
+
+msgid ""
+"With `expand` (`?expand=` over HTTP) the answer includes the related record; `<relation>.<field>`"
+" filters use the related resource's filterable fields."
+msgstr ""
+"Con `expand` (`?expand=` por HTTP) la respuesta incluye el registro relacionado; los filtros "
+"`<relación>.<campo>` filtran por los campos filtrables del recurso relacionado."
+
+#, python-brace-format
+msgid "Referenced by: {refs}."
+msgstr "Hacen referencia a él: {refs}."
+
+msgid "Reverse relation"
+msgstr "Relación inversa"
+
+msgid "Records"
+msgstr "Registros"
+
+msgid "Route"
+msgstr "Ruta"
+
+#, python-brace-format
+msgid "| `{name}` or `{name}:25` (one page) |"
+msgstr "| `{name}` o `{name}:25` (una página) |"
+
+msgid "Many-to-many relations"
+msgstr "Relaciones muchos a muchos"
+
+msgid "Through"
+msgstr "A través de"
+
+msgid ""
+"They are linked and unlinked by creating and deleting records of the join resource; `expand` "
+"accepts these relations too."
+msgstr ""
+"Se enlazan y desenlazan creando y eliminando registros del recurso intermedio; `expand` también "
+"acepta estas relaciones."
+
+msgid "Domain events"
+msgstr "Eventos de dominio"
+
+msgid "Type"
+msgstr "Tipo"
+
+msgid "Required"
+msgstr "Obligatorio"
+
+msgid "Documents"
+msgstr "Documentos"
+
+msgid "Slot"
+msgstr "Ranura"
+
+msgid "Types"
+msgstr "Tipos"
+
+msgid "Max. size"
+msgstr "Tamaño máx."
+
+msgid "Multiple"
+msgstr "Múltiple"
+
+msgid "Upload"
+msgstr "Subida"
+
+msgid "Required by"
+msgstr "Requerido por"
+
+msgid "Processing"
+msgstr "Procesamiento"
+
+msgid "Emails"
+msgstr "Correos"
+
+msgid "Email"
+msgstr "Correo"
+
+msgid "Recipients"
+msgstr "Destinatarios"
+
+msgid "Language"
+msgstr "Idioma"
+
+msgid "_computed at runtime_"
+msgstr "_calculado en tiempo de ejecución_"
+
+msgid ""
+"They are requested inside the transaction and sent once the change is committed; if the change is"
+" rolled back, they are not sent."
+msgstr ""
+"Se piden dentro de la transacción y se envían cuando el cambio se ha confirmado; si el cambio se "
+"deshace, no se envían."
+
+msgid "Schemas"
+msgstr "Esquemas"
+
+#, python-brace-format
+msgid "on the `{name}` action"
+msgstr "en la acción `{name}`"
+
+#, python-brace-format
+msgid "on the `{name}` transition"
+msgstr "en la transición `{name}`"
+
+msgid "on any transition"
+msgstr "en cualquier transición"
+
+msgid "on any action"
+msgstr "en cualquier acción"
+
+#, python-brace-format
+msgid "when attaching to `{name}`"
+msgstr "al adjuntar a `{name}`"
+
+msgid "when attaching a document"
+msgstr "al adjuntar un documento"
+
+#, python-brace-format
+msgid "when removing from `{name}`"
+msgstr "al quitar de `{name}`"
+
+msgid "when removing a document"
+msgstr "al quitar un documento"
+
+msgid "on create"
+msgstr "al crear"
+
+msgid "on update"
+msgstr "al modificar"
+
+msgid "on delete"
+msgstr "al eliminar"
+
+msgid "when validating the input"
+msgstr "al validar la entrada"
+
+msgid "after any committed change"
+msgstr "después de cualquier cambio confirmado"
+
+msgid "Create"
+msgstr "Crear"
+
+msgid "Update"
+msgstr "Modificar"
+
+msgid "Delete"
+msgstr "Eliminar"
+
+#, python-brace-format
+msgid "Transition `{name}`"
+msgstr "Transición `{name}`"
+
+#, python-brace-format
+msgid "Action `{name}`"
+msgstr "Acción `{name}`"
+
+#, python-brace-format
+msgid "Attach to `{name}`"
+msgstr "Adjuntar a `{name}`"
+
+#, python-brace-format
+msgid "Remove from `{name}`"
+msgstr "Quitar de `{name}`"
+
+msgid "The new record is saved."
+msgstr "Se guarda el registro nuevo."
+
+msgid "Save"
+msgstr "Guardar"
+
+msgid "The changes are saved."
+msgstr "Se guardan los cambios."
+
+msgid "The record is deleted."
+msgstr "Se elimina el registro."
+
+msgid "The state changes."
+msgstr "Cambia el estado."
+
+msgid "Change the state"
+msgstr "Cambiar el estado"
+
+msgid "The action runs."
+msgstr "Se ejecuta la acción."
+
+msgid "Run"
+msgstr "Ejecutar"
+
+msgid "The document is saved."
+msgstr "Se guarda el documento."
+
+msgid "Save the document"
+msgstr "Guardar el documento"
+
+msgid "The document is removed."
+msgstr "Se quita el documento."
+
+msgid "Remove the document"
+msgstr "Quitar el documento"
+
+msgid "The change is saved."
+msgstr "Se guarda el cambio."
+
+msgid "Commit"
+msgstr "Confirmar"
+
+msgid "What happens in each operation"
+msgstr "Qué pasa en cada operación"
+
+msgid ""
+"Steps **before the commit** are inside the transaction: if one fails, the change is refused and "
+"nothing is saved. Steps **after the commit** run with the change already saved: an error is "
+"logged, but it doesn't undo the change."
+msgstr ""
+"Los pasos **antes de confirmar** están dentro de la transacción: si uno falla, el cambio se "
+"rechaza y no se guarda nada. Los pasos **después de confirmar** se ejecutan con el cambio ya "
+"guardado: un error queda registrado, pero no lo deshace."
+
+#, python-brace-format
+msgid "The input is validated (`{schema}`)"
+msgstr "Se valida la entrada (`{schema}`)"
+
+msgid "The input is validated"
+msgstr "Se valida la entrada"
+
+msgid "Validate"
+msgstr "Validar"
+
+#, python-brace-format
+msgid "A document must be available in {slots}."
+msgstr "Hace falta un documento disponible en {slots}."
+
+#, python-brace-format
+msgid "Document {slots}"
+msgstr "Documento {slots}"
+
+#, python-brace-format
+msgid "Before saving: {hook}"
+msgstr "Antes de guardar: {hook}"
+
+#, python-brace-format
+msgid "Before the commit: {hook}"
+msgstr "Antes de confirmar: {hook}"
+
+msgid "The change is committed, with the audit entry and the events."
+msgstr "Se confirma el cambio, con la auditoría y los eventos."
+
+#, python-brace-format
+msgid "After the commit: the email {email} is sent to `{to}`."
+msgstr "Después de confirmar: se envía el correo {email} a `{to}`."
+
+#, python-brace-format
+msgid "Email {name}"
+msgstr "Correo {name}"
+
+msgid "After any committed change of this resource:"
+msgstr "Después de cualquier cambio confirmado de este recurso:"
+
+msgid "Point"
+msgstr "Punto"
+
+msgid "Hook"
+msgstr "Hook"
+
+msgid "External effects"
+msgstr "Efectos externos"
+
+msgid "external effect"
+msgstr "efecto externo"
+
+msgid "no description"
+msgstr "sin descripción"
+
+msgid ""
+"The emails the application sends, from its templates. Variables show as `{{ name }}`: the real "
+"content depends on each case."
+msgstr ""
+"Los correos que envía la aplicación, a partir de sus plantillas. Las variables se muestran como "
+"`{{ nombre }}`: el contenido real depende de cada caso."
+
+#, python-brace-format
+msgid "by [{resource}](resources/{resource}.md) {when}"
+msgstr "por [{resource}](resources/{resource}.md) {when}"
+
+#, python-brace-format
+msgid "Sent {by}."
+msgstr "Enviado {by}."
+
+msgid "No resource requests it: it is sent directly (`Mailer.send`)."
+msgstr "Ningún recurso lo pide: se envía directamente (`Mailer.send`)."
+
+#, python-brace-format
+msgid "Missing templates: {names}."
+msgstr "Faltan plantillas: {names}."
+
+msgid "Other languages (not translated)"
+msgstr "Otros idiomas (sin traducir)"
+
+msgid "Subject:"
+msgstr "Asunto:"
+
+msgid "Resource catalogue"
+msgstr "Catálogo de recursos"
+
+msgid "State machines"
+msgstr "Máquinas de estados"
+
+msgid "Every state diagram: [state machines](state-machines.md)."
+msgstr "Todos los diagramas de estados: [máquinas de estados](state-machines.md)."
+
+msgid "The emails the application sends: [emails](emails.md)."
+msgstr "Los correos que envía la aplicación: [correos](emails.md)."
+
+msgid "See also the [permission matrix](permissions.md)."
+msgstr "Véase también la [matriz de permisos](permissions.md)."
+
+msgid "Permission matrix (system roles)"
+msgstr "Matriz de permisos (roles de sistema)"
+
+msgid ""
+"System roles are defined in the code and can't be changed from the front end. Policies created "
+"from the front end are listed by `authz_policies`."
+msgstr ""
+"Los roles de sistema se definen en el código y no se pueden modificar desde el front-end. Las "
+"políticas creadas desde el front-end se consultan en `authz_policies`."
+
+msgid "Role"
+msgstr "Rol"
+
+msgid "Grants"
+msgstr "Concesiones"
+
+msgid "Action"
+msgstr "Acción"
+
+msgid ""
+"The processes with states of each resource, drawn from the executable definition of the machine. "
+"Each state and transition is described on the resource's page."
+msgstr ""
+"Los procesos con estados de cada recurso, dibujados a partir de la definición ejecutable de la "
+"máquina. Los detalles de cada estado y transición están en la página del recurso."
+
+#, python-brace-format
+msgid "Resource [{name}](resources/{name}.md) — field `{field}` — `{qualname}`"
+msgstr "Recurso [{name}](resources/{name}.md) — campo `{field}` — `{qualname}`"
+
+#, python-brace-format
+msgid "`{event}` after {after}"
+msgstr "`{event}` después de {after}"
+
+#, python-brace-format
+msgid "Automatic transitions: {timers}."
+msgstr "Transiciones automáticas: {timers}."
+
+msgid "Home"
+msgstr "Inicio"
+
+msgid "Permissions"
+msgstr "Permisos"
+
+msgid "Events"
+msgstr "Eventos"
+
+msgid "Resources"
+msgstr "Recursos"
+
+msgid "Search…"
+msgstr "Buscar…"
+
+msgid "No results"
+msgstr "Ningún resultado"
+
+msgid "Generated from the code with Resource Engine"
+msgstr "Generado a partir del código con Resource Engine"
+
+msgid "Functional documentation"
+msgstr "Documentación funcional"
+
+msgid "Published events"
+msgstr "Eventos publicados"
+
+msgid ""
+"Messages the application publishes after each committed change. The complete AsyncAPI document is"
+" `asyncapi.json`."
+msgstr ""
+"Mensajes que la aplicación publica después de cada cambio confirmado. El documento AsyncAPI "
+"completo está en `asyncapi.json`."
+
+msgid "Data"
+msgstr "Datos"
+
+msgid "Business area"
+msgstr "Área de negocio"
+
+msgid "Actors"
+msgstr "Actores"
+
+msgid "Preconditions"
+msgstr "Precondiciones"
+
+msgid "Postconditions"
+msgstr "Postcondiciones"
+
+msgid "Business Rules"
+msgstr "Reglas de negocio"
+
+msgid "Effects"
+msgstr "Efectos"
+
+msgid "Exceptions"
+msgstr "Excepciones"
+
+msgid "Examples"
+msgstr "Ejemplos"
+

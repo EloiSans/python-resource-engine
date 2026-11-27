@@ -22,6 +22,7 @@ dependencies = [
     "resource-engine>=0.1.0.dev0,<0.2",
     "docstring-parser>=0.16",
     "markdown-it-py>=3.0",
+    "babel>=2.14",
 ]
 
 [project.urls]

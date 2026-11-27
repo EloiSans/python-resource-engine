@@ -350,6 +350,15 @@ wheels = [
 ]
 
 [[package]]
+name = "babel"
+version = "2.19.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/32/44/744169ce3677a541439bc9506ef08bd85674e9d6e3895ebe5a87ff65fb7a/babel-2.19.0.tar.gz", hash = "sha256:fddd2cbbbac7c299af3c2880be23609c331bd94f0912baca6cb0abfe054dfc27", size = 10695455, upload-time = "2026-11-24T20:14:32.427Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/71/3b/ddf4b07be846bfa361683729b5948c9c61a87fbdf09e69540d8e586bb7c5/babel-2.19.0-py3-none-any.whl", hash = "sha256:6d49734aed1d595b2c065d012174df8c83964692f26fc461702281634dd7555b", size = 10983582, upload-time = "2026-11-24T20:14:30.163Z" },
+]
+
+[[package]]
 name = "botocore"
 version = "1.43.117"
 source = { registry = "https://pypi.org/simple" }
@@ -2337,6 +2346,7 @@ name = "resource-engine-devtools"
 version = "0.1.0.dev0"
 source = { editable = "packages/resource-engine-devtools" }
 dependencies = [
+    { name = "babel" },
     { name = "docstring-parser" },
     { name = "markdown-it-py" },
     { name = "resource-engine" },
@@ -2349,6 +2359,7 @@ mcp = [
 
 [package.metadata]
 requires-dist = [
+    { name = "babel", specifier = ">=2.14" },
     { name = "docstring-parser", specifier = ">=0.16" },
     { name = "markdown-it-py", specifier = ">=3.0" },
     { name = "mcp", marker = "extra == 'mcp'", specifier = ">=2.3,<3" },

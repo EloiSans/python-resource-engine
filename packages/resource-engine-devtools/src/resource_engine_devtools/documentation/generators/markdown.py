@@ -1,22 +1,36 @@
-"""MkDocs-compatible Markdown. One page per resource plus an index."""
+"""MkDocs-compatible Markdown. One page per resource plus an index.
+
+The generator's texts are English and go through ``t()``: render inside
+``docs_locale("ca")`` for another language (see ``documentation.i18n``).
+"""
 
 from __future__ import annotations
 
+import re
 from typing import Any
 
 from resource_engine_devtools.documentation.docstrings import FUNCTIONAL_SECTIONS, DocText
 from resource_engine_devtools.documentation.generators.mermaid import render_state_machine
+from resource_engine_devtools.documentation.i18n import t
 from resource_engine_devtools.documentation.model import DocumentationModel, ResourceDoc
 
 _TITLES = {key: title for title, key in FUNCTIONAL_SECTIONS.items()}
-UNDOCUMENTED = "_Sense descripció._"
 
 
-_ON_DELETE = {
-    "restrict": "es denega mentre hi hagi referències",
-    "set_null": "el camp es buida",
-    "cascade": "s'eliminen en cascada",
-}
+def _undocumented() -> str:
+    return t("_No description._")
+
+
+def _yes(value: bool) -> str:
+    return t("yes") if value else t("no")
+
+
+def _on_delete(kind: str) -> str:
+    return {
+        "restrict": t("refused while referenced"),
+        "set_null": t("the field is emptied"),
+        "cascade": t("deleted in cascade"),
+    }[kind]
 
 
 def _text(doc: DocText, *, heading: str = "###") -> list[str]:
@@ -26,23 +40,29 @@ def _text(doc: DocText, *, heading: str = "###") -> list[str]:
     if doc.description:
         out += ["", doc.description]
     for key, body in doc.sections.items():
-        out += ["", f"{heading} {_TITLES.get(key, key)}", "", body]
-    return out or [UNDOCUMENTED]
+        out += ["", f"{heading} {t(_TITLES.get(key, key))}", "", body]
+    return out or [_undocumented()]
 
 
 def _cell(value: str | None) -> str:
     return (value or "").replace("|", "\\|").replace("\n", " ")
 
 
+def _codes(names: Any) -> str:
+    return ", ".join(f"`{n}`" for n in names)
+
+
 def render_resource(r: ResourceDoc, audit_resource: str | None = None) -> str:
-    out = [f"# {r.name}", "", f"`{r.qualname}` — entitat `{r.model}`", ""]
+    entity = t("`{qualname}` — entity `{model}`", qualname=r.qualname, model=r.model)
+    out = [f"# {r.name}", "", entity, ""]
     out += _text(r.doc, heading="##")
 
     out += [
         "",
-        "## Operacions",
+        f"## {t('Operations')}",
         "",
-        "| Operació | Tipus | Endpoint | Entrada | Sortida | Descripció |",
+        f"| {t('Operation')} | {t('Kind')} | {t('Endpoint')} | {t('Input')} | {t('Output')} "
+        f"| {t('Description')} |",
         "|---|---|---|---|---|---|",
     ]
     for op in r.operations:
@@ -51,15 +71,17 @@ def render_resource(r: ResourceDoc, audit_resource: str | None = None) -> str:
             f"| {op.output_schema or ''} | {_cell(op.doc.summary) or '—'} |"
         )
     if r.view == "custom":
-        out += ["", "Vista de només lectura: els registres es calculen amb una consulta."]
+        out += ["", t("Read-only view: the records are computed by a query.")]
     elif r.view:
-        groups = ", ".join(f"`{g}`" for g in r.view_group_by)
         out += [
             "",
-            f"Vista de només lectura calculada a partir de [{r.view}]({r.view}.md), "
-            f"amb una fila per {groups}:",
+            t(
+                "Read-only view computed from [{source}]({source}.md), one row per {groups}:",
+                source=r.view,
+                groups=_codes(r.view_group_by),
+            ),
             "",
-            "| Camp | Càlcul |",
+            f"| {t('Field')} | {t('Computation')} |",
             "|---|---|",
             *(f"| `{k}` | `{v}` |" for k, v in r.view_values.items()),
         ]
@@ -67,61 +89,82 @@ def render_resource(r: ResourceDoc, audit_resource: str | None = None) -> str:
         kinds = ", ".join(f"`{i}` ([{n}]({n}.md))" for i, n in r.subtypes.items()) or "—"
         out += [
             "",
-            f"Recurs base: el camp `{r.discriminator}` indica el subtipus de cada registre "
-            f"({kinds}). Llista i consulta tots els tipus; es creen, modifiquen i eliminen "
-            "a cada subtipus.",
+            t(
+                "Base resource: the `{field}` field holds each record's subtype ({kinds}). It "
+                "lists and reads every kind; each subtype creates, updates and deletes its own.",
+                field=r.discriminator,
+                kinds=kinds,
+            ),
         ]
     if r.extends:
         out += [
             "",
-            f"Subtipus de [{r.extends}]({r.extends}.md) (`{r.identity}`): comparteix-ne "
-            "els identificadors, els camps comuns, les màquines d'estats i els hooks.",
+            t(
+                "Subtype of [{base}]({base}.md) (`{identity}`): it shares its ids, common "
+                "fields, state machines and hooks.",
+                base=r.extends,
+                identity=r.identity,
+            ),
         ]
     if r.filterable or r.sortable:
         out += [
             "",
-            f"Filtres: {', '.join(f'`{f}`' for f in r.filterable) or '—'} · "
-            f"Ordenació: {', '.join(f'`{f}`' for f in r.sortable) or '—'}",
+            t(
+                "Filters: {filters} · Sorting: {sorting}",
+                filters=_codes(r.filterable) or "—",
+                sorting=_codes(r.sortable) or "—",
+            ),
         ]
     if r.tenant_field:
         out += [
             "",
-            f"Multi-inquilí: cada registre pertany a l'inquilí del camp `{r.tenant_field}`; "
-            "les operacions es limiten a l'inquilí de qui crida.",
+            t(
+                "Multi-tenant: each record belongs to the tenant in `{field}`; operations are "
+                "limited to the caller's tenant.",
+                field=r.tenant_field,
+            ),
         ]
     if r.version_field:
-        required = " Les escriptures sense versió es rebutgen (428)." if r.require_version else ""
         out += [
             "",
-            f"Concurrència optimista: el camp `{r.version_field}` és la versió del registre "
-            "(capçalera `ETag`); les modificacions envien `If-Match` i una versió antiga "
-            f"es rebutja amb 409.{required}",
+            t(
+                "Optimistic concurrency: `{field}` is the record's version (`ETag` header); "
+                "updates send `If-Match` and an old version is refused with 409.",
+                field=r.version_field,
+            )
+            + (" " + t("Writes without a version are refused (428).") if r.require_version else ""),
         ]
     if r.restricted_fields:
         out += [
             "",
-            "Camps restringits: "
-            + ", ".join(f"`{f}`" for f in r.restricted_fields)
-            + f" — cal una concessió explícita (`{r.name}:read:<camp>`, "
-            f"`{r.name}:write:<camp>`); si no, s'ometen de les respostes.",
+            t(
+                "Restricted fields: {fields} — they need an explicit grant "
+                "(`{name}:read:<field>`, `{name}:write:<field>`); otherwise they are left out "
+                "of the answers.",
+                fields=_codes(r.restricted_fields),
+                name=r.name,
+            ),
         ]
     if audit_resource and r.name != audit_resource:
         if not r.audit:
-            audit_note = "no s'audita."
+            note = t("not audited.")
         else:
             hidden = sorted({*r.restricted_fields, *r.audit_exclude})
-            audit_note = "s'auditen els canvis i els intents denegats" + (
-                ", també les lectures" if r.audit_reads else ""
+            note = (
+                t("changes and refused attempts are audited, reads too")
+                if r.audit_reads
+                else t("changes and refused attempts are audited")
             )
             if hidden:
-                audit_note += f"; sense valors per a {', '.join(f'`{f}`' for f in hidden)}"
-            audit_note += "."
-        out += ["", f"Auditoria: {audit_note}"]
+                note += t("; without values for {fields}", fields=_codes(hidden))
+            note += "."
+        out += ["", t("Audit: {note}", note=note)]
 
     several = len(r.state_machines) > 1
     for sm in r.state_machines:
-        title = f"## Màquina d'estats `{sm.machine}`" if several else "## Màquina d'estats"
-        out += ["", title, "", f"`{sm.qualname}` — camp `{sm.state_field}`", ""]
+        title = t("State machine `{name}`", name=sm.machine) if several else t("State machine")
+        where = t("`{qualname}` — field `{field}`", qualname=sm.qualname, field=sm.state_field)
+        out += ["", f"## {title}", "", where, ""]
         out += _text(sm.doc)
         out += [
             "",
@@ -129,41 +172,47 @@ def render_resource(r: ResourceDoc, audit_resource: str | None = None) -> str:
             render_state_machine(sm),
             "```",
             "",
-            "| Estat | Nom | Descripció |",
+            f"| {t('State')} | {t('Name')} | {t('Description')} |",
             "|---|---|---|",
         ]
         for s in sm.states:
-            flags = " (inicial)" if s.initial else " (final)" if s.final else ""
+            flags = f" ({t('initial')})" if s.initial else f" ({t('final')})" if s.final else ""
             out.append(f"| `{s.id}`{flags} | {s.name} | {_cell(s.description) or '—'} |")
-        out += ["", "| Transició | Origen | Destí | Descripció |", "|---|---|---|---|"]
-        for t in sm.transitions:
+        out += [
+            "",
+            f"| {t('Transition')} | {t('From')} | {t('To')} | {t('Description')} |",
+            "|---|---|---|---|",
+        ]
+        for tr in sm.transitions:
             out.append(
-                f"| `{t.event}` | `{t.source}` | `{t.target}` | {_cell(t.description) or '—'} |"
+                f"| `{tr.event}` | `{tr.source}` | `{tr.target}` | {_cell(tr.description) or '—'} |"
             )
 
-    timers = [t for sm in r.state_machines for t in sm.timers]
+    timers = [timer for sm in r.state_machines for timer in sm.timers]
     if timers:
         out += [
             "",
-            "### Transicions automàtiques",
+            f"### {t('Automatic transitions')}",
             "",
-            "| Transició | Després de | Des de | Comptat des de | Descripció |",
+            f"| {t('Transition')} | {t('After')} | {t('From')} | {t('Counted from')} "
+            f"| {t('Description')} |",
             "|---|---|---|---|---|",
         ]
-        for t in timers:
-            states = ", ".join(f"`{s}`" for s in t.states)
+        for timer in timers:
             out.append(
-                f"| `{t.event}` | {t.after} | {states} | `{t.since}` "
-                f"| {_cell(t.description) or '—'} |"
+                f"| `{timer.event}` | {timer.after} | {_codes(timer.states)} | `{timer.since}` "
+                f"| {_cell(timer.description) or '—'} |"
             )
         out += [
             "",
-            "Les executa el treballador (`TimerJob`) com a principal del sistema; queden a "
-            "l'historial i a l'auditoria com qualsevol transició.",
+            t(
+                "The worker (`TimerJob`) runs them as the system principal; they appear in "
+                "the history and the audit trail like any transition."
+            ),
         ]
 
     if r.actions:
-        out += ["", "## Accions"]
+        out += ["", f"## {t('Actions')}"]
         for a in r.actions:
             out += ["", f"### `{a.name}`", "", f"`{a.qualname}`", ""]
             out += _text(a.doc, heading="####")
@@ -171,68 +220,73 @@ def render_resource(r: ResourceDoc, audit_resource: str | None = None) -> str:
     if r.reacts:
         out += [
             "",
-            "## Procés",
+            f"## {t('Process')}",
             "",
-            f"Cada registre és una instància del procés, una per valor de `{r.correlation}`. "
-            "Reacciona a aquests esdeveniments:",
+            t(
+                "Each record is an instance of the process, one per value of `{field}`. It "
+                "reacts to these events:",
+                field=r.correlation,
+            ),
             "",
-            "| Esdeveniment | Quan | Clau | Inicia | Què fa |",
+            f"| {t('Event')} | {t('When')} | {t('Key')} | {t('Starts')} | {t('What it does')} |",
             "|---|---|---|---|---|",
         ]
         for x in r.reacts:
             out.append(
-                f"| `{x.event}` | {x.when or '—'} | `{x.key}` | {'sí' if x.start else 'no'} "
+                f"| `{x.event}` | {x.when or '—'} | `{x.key}` | {_yes(x.start)} "
                 f"| {_cell(x.description) or x.handler} |"
             )
 
     if r.references:
         out += [
             "",
-            "## Referències",
+            f"## {t('References')}",
             "",
-            "| Relació | Camp | Recurs | En eliminar-lo | Descripció |",
+            f"| {t('Relation')} | {t('Field')} | {t('Resource')} | {t('When it is deleted')} "
+            f"| {t('Description')} |",
             "|---|---|---|---|---|",
         ]
         for ref in r.references:
             out.append(
                 f"| `{ref.name}` | `{ref.field}` | [{ref.resource}]({ref.resource}.md) "
-                f"| {_ON_DELETE[ref.on_delete]} | {_cell(ref.description) or '—'} |"
+                f"| {_on_delete(ref.on_delete)} | {_cell(ref.description) or '—'} |"
             )
         out += [
             "",
-            "Amb `expand` (`?expand=` per HTTP) la resposta inclou el registre relacionat; "
-            "els filtres `<relació>.<camp>` filtren pels camps filtrables del recurs relacionat.",
+            t(
+                "With `expand` (`?expand=` over HTTP) the answer includes the related record; "
+                "`<relation>.<field>` filters use the related resource's filterable fields."
+            ),
         ]
     if r.referenced_by:
-        out += [
-            "",
-            "Hi fan referència: "
-            + ", ".join(
-                f"[{ref.field}]({ref.resource}.md) ({_ON_DELETE[ref.on_delete]})"
-                for ref in r.referenced_by
-            )
-            + ".",
-        ]
+        refs = ", ".join(
+            f"[{ref.field}]({ref.resource}.md) ({_on_delete(ref.on_delete)})"
+            for ref in r.referenced_by
+        )
+        out += ["", t("Referenced by: {refs}.", refs=refs)]
         reverse = [ref for ref in r.referenced_by if ref.related_name]
         if reverse:
             out += [
                 "",
-                "| Relació inversa | Registres | Ruta | `expand` |",
+                f"| {t('Reverse relation')} | {t('Records')} | {t('Route')} | `expand` |",
                 "|---|---|---|---|",
             ]
             for ref in reverse:
                 out.append(
                     f"| `{ref.related_name}` | [{ref.resource}]({ref.resource}.md) "
                     f"| `GET /{r.name}/{{id}}/{ref.related_name}` "
-                    f"| `{ref.related_name}` o `{ref.related_name}:25` (una pàgina) |"
+                    + t(
+                        "| `{name}` or `{name}:25` (one page) |",
+                        name=ref.related_name,
+                    )
                 )
 
     if r.links:
         out += [
             "",
-            "## Relacions molts a molts",
+            f"## {t('Many-to-many relations')}",
             "",
-            "| Relació | Registres | A través de | Ruta |",
+            f"| {t('Relation')} | {t('Records')} | {t('Through')} | {t('Route')} |",
             "|---|---|---|---|",
         ]
         for link in r.links:
@@ -242,64 +296,291 @@ def render_resource(r: ResourceDoc, audit_resource: str | None = None) -> str:
             )
         out += [
             "",
-            "S'enllacen i es desenllacen creant i eliminant registres del recurs "
-            "intermedi; `expand` també accepta aquestes relacions.",
+            t(
+                "They are linked and unlinked by creating and deleting records of the join "
+                "resource; `expand` accepts these relations too."
+            ),
         ]
 
     if r.events:
-        out += ["", "## Esdeveniments de domini"]
+        out += ["", f"## {t('Domain events')}"]
         for e in r.events:
             out += ["", f"### `{e.name}`", "", f"`{e.qualname}`", ""]
             out += _text(e.doc, heading="####")
-            out += ["", "| Camp | Tipus | Obligatori |", "|---|---|---|"]
+            out += [
+                "",
+                f"| {t('Field')} | {t('Type')} | {t('Required')} |",
+                "|---|---|---|",
+            ]
             for f in e.fields:
-                out.append(f"| `{f.name}` | `{_cell(f.type)}` | {'sí' if f.required else 'no'} |")
+                out.append(f"| `{f.name}` | `{_cell(f.type)}` | {_yes(f.required)} |")
 
     if r.documents:
         out += [
             "",
-            "## Documents",
+            f"## {t('Documents')}",
             "",
-            "| Ranura | Tipus | Mida màx. | Múltiple | Pujada | Requerit per | Processament "
-            "| Descripció |",
+            f"| {t('Slot')} | {t('Types')} | {t('Max. size')} | {t('Multiple')} | {t('Upload')} "
+            f"| {t('Required by')} | {t('Processing')} | {t('Description')} |",
             "|---|---|---|---|---|---|---|---|",
         ]
         for slot in r.documents:
-            required = ", ".join(f"`{t}`" for t in slot.required_for) or "—"
             out.append(
                 f"| `{slot.name}` | {', '.join(slot.content_types)} | {slot.max_bytes} B "
-                f"| {'sí' if slot.multiple else 'no'} | {slot.upload} | {required} "
-                f"| {'sí' if slot.processing else 'no'} | {_cell(slot.description) or '—'} |"
+                f"| {_yes(slot.multiple)} | {slot.upload} | {_codes(slot.required_for) or '—'} "
+                f"| {_yes(slot.processing)} | {_cell(slot.description) or '—'} |"
             )
 
-    if r.hooks:
+    if r.emails:
         out += [
             "",
-            "## Hooks del cicle de vida",
+            f"## {t('Emails')}",
             "",
-            "| Punt | Hook | Efectes externs | Descripció |",
+            f"| {t('Email')} | {t('When')} | {t('Recipients')} | {t('Language')} |",
             "|---|---|---|---|",
         ]
-        for h in r.hooks:
-            out.append(
-                f"| `{h.point}` | `{h.name}` | {'sí' if h.external_effect else 'no'} "
-                f"| {_cell(h.doc.summary) or '—'} |"
+        for e in r.emails:
+            name = (
+                f"[`{e.template}`](../emails.md#{_slug(e.template)})"
+                if e.template
+                else t("_computed at runtime_")
             )
+            out.append(
+                f"| {name} | {_point_label(e.point)} (`{e.function}`) | `{_cell(e.to)}` "
+                f"| {e.locale or '—'} |"
+            )
+        out += [
+            "",
+            t(
+                "They are requested inside the transaction and sent once the change is "
+                "committed; if the change is rolled back, they are not sent."
+            ),
+        ]
 
-    out += ["", "## Schemas"]
+    out += _lifecycle(r)
+
+    out += ["", f"## {t('Schemas')}"]
     for s in r.schemas:
         out += [
             "",
             f"### {s.name} ({s.role})",
             "",
-            "| Camp | Tipus | Obligatori | Descripció |",
+            f"| {t('Field')} | {t('Type')} | {t('Required')} | {t('Description')} |",
             "|---|---|---|---|",
         ]
         for f in s.fields:
             out.append(
-                f"| `{f.name}` | `{_cell(f.type)}` | {'sí' if f.required else 'no'} "
+                f"| `{f.name}` | `{_cell(f.type)}` | {_yes(f.required)} "
                 f"| {_cell(f.description) or '—'} |"
             )
+    return "\n".join(out) + "\n"
+
+
+# ------------------------------------------------- what happens in each operation
+
+
+def _point_label(point: str) -> str:
+    """``after_transition:approve`` → "on the `approve` transition"."""
+    if point.startswith("action:"):
+        return t("on the `{name}` action", name=point[7:])
+    base, _, q = point.partition(":")
+    kind = base.split("_", 1)[1] if "_" in base else base
+    if kind == "transition":
+        return t("on the `{name}` transition", name=q) if q else t("on any transition")
+    if kind == "action":
+        return t("on the `{name}` action", name=q) if q else t("on any action")
+    if kind == "attach":
+        return t("when attaching to `{name}`", name=q) if q else t("when attaching a document")
+    if kind == "detach":
+        return t("when removing from `{name}`", name=q) if q else t("when removing a document")
+    labels = {
+        "create": t("on create"),
+        "update": t("on update"),
+        "delete": t("on delete"),
+        "validate": t("when validating the input"),
+        "commit": t("after any committed change"),
+    }
+    return labels.get(kind, f"`{point}`")
+
+
+def _steps_for(r: ResourceDoc) -> list[tuple[str, str, str | None, str | None]]:
+    """``(kind, title, qualifier, input schema)`` of every write operation."""
+    titles = {"create": t("Create"), "update": t("Update"), "delete": t("Delete")}
+    out = []
+    for op in r.operations:
+        if op.kind == "crud" and op.name in titles:
+            out.append((op.name, f"{titles[op.name]} (`{op.name}`)", None, op.input_schema))
+        elif op.kind == "transition":
+            title = t("Transition `{name}`", name=op.name)
+            out.append(("transition", title, op.name, op.input_schema))
+        elif op.kind == "action":
+            out.append(("action", t("Action `{name}`", name=op.name), op.name, op.input_schema))
+    for slot in r.documents:
+        out.append(("attach", t("Attach to `{name}`", name=slot.name), slot.name, None))
+        out.append(("detach", t("Remove from `{name}`", name=slot.name), slot.name, None))
+    return out
+
+
+def _hooks_at(r: ResourceDoc, point: str, qualifier: str | None) -> list[Any]:
+    """Generic hooks first, then the qualified ones (the engine's order)."""
+    generic = [h for h in r.hooks if h.point == point]
+    qualified = [h for h in r.hooks if qualifier and h.point == f"{point}:{qualifier}"]
+    return generic + qualified
+
+
+def _mutation(kind: str) -> tuple[str, str]:
+    return {
+        "create": (t("The new record is saved."), t("Save")),
+        "update": (t("The changes are saved."), t("Save")),
+        "delete": (t("The record is deleted."), t("Delete")),
+        "transition": (t("The state changes."), t("Change the state")),
+        "action": (t("The action runs."), t("Run")),
+        "attach": (t("The document is saved."), t("Save the document")),
+        "detach": (t("The document is removed."), t("Remove the document")),
+    }.get(kind, (t("The change is saved."), t("Save")))
+
+
+def _commit() -> str:
+    return t("Commit")
+
+
+def _lifecycle(r: ResourceDoc) -> list[str]:
+    """What runs in each write operation, in the order of docs/lifecycle.md."""
+    if not r.hooks and not r.emails:
+        return []
+    out = [
+        "",
+        f"## {t('What happens in each operation')}",
+        "",
+        t(
+            "Steps **before the commit** are inside the transaction: if one fails, the change "
+            "is refused and nothing is saved. Steps **after the commit** run with the change "
+            "already saved: an error is logged, but it doesn't undo the change."
+        ),
+    ]
+    for kind, title, qualifier, schema in _steps_for(r):
+        validates = kind in ("create", "update", "transition", "action")
+        before = _hooks_at(r, f"before_{kind}", qualifier)
+        after = _hooks_at(r, f"after_{kind}", qualifier)
+        checks = (
+            _hooks_at(r, "before_validate", None) + _hooks_at(r, "after_validate", None)
+            if validates
+            else []
+        )
+        point_key = f"action:{qualifier}" if kind == "action" else None
+        mails = [
+            e
+            for e in r.emails
+            if e.point in {h.point for h in before + after + checks}
+            or (point_key and e.point == point_key)
+        ]
+        required = [s.name for s in r.documents if qualifier and qualifier in s.required_for]
+        if not (before or after or checks or mails or required):
+            continue
+        # (sentence for the list, short label for the diagram)
+        steps: list[tuple[str, str]] = []
+        if validates:
+            text = (
+                t("The input is validated (`{schema}`)", schema=schema)
+                if schema
+                else t("The input is validated")
+            )
+            steps.append(
+                (text + "".join(f"; {_hook_text(h)}" for h in checks) + ".", t("Validate"))
+            )
+        if required:
+            steps.append((
+                t("A document must be available in {slots}.", slots=_codes(required)),
+                t("Document {slots}", slots=", ".join(required)),
+            ))  # fmt: skip
+        steps += [(t("Before saving: {hook}", hook=_hook_text(h)), h.name) for h in before]
+        steps.append(_mutation(kind))
+        steps += [(t("Before the commit: {hook}", hook=_hook_text(h)), h.name) for h in after]
+        committed = t("The change is committed, with the audit entry and the events.")
+        steps.append((committed, _commit()))
+        for e in mails:
+            link = f"[`{e.template}`](../emails.md#{_slug(e.template)})" if e.template else ""
+            sent = t("After the commit: the email {email} is sent to `{to}`.", email=link, to=e.to)
+            steps.append((sent, t("Email {name}", name=e.template or "").strip()))
+        out += ["", f"### {title}", ""]
+        out += [f"{i}. {text}" for i, (text, _) in enumerate(steps, 1)]
+        out += ["", "```mermaid", _flow([label for _, label in steps]), "```"]
+    commit = [h for h in r.hooks if h.point == "after_commit"]
+    if commit:
+        out += ["", t("After any committed change of this resource:"), ""]
+        out += [f"- {_hook_text(h)}" for h in commit]
+    out += [
+        "",
+        f"| {t('Point')} | {t('Hook')} | {t('External effects')} | {t('Description')} |",
+        "|---|---|---|---|",
+    ]
+    for h in r.hooks:
+        out.append(
+            f"| `{h.point}` | `{h.name}` | {_yes(h.external_effect)} "
+            f"| {_cell(h.doc.summary) or '—'} |"
+        )
+    return out
+
+
+def _hook_text(h: Any) -> str:
+    effect = f" ({t('external effect')})" if h.external_effect else ""
+    return f"`{h.name}`{effect} — {_cell(h.doc.summary) or t('no description')}"
+
+
+def _flow(labels: list[str]) -> str:
+    """The steps as a left-to-right flowchart; the commit is a hexagon."""
+    commit = _commit()
+    lines = ["flowchart LR"]
+    for i, label in enumerate(labels):
+        label = label.replace('"', "'")
+        shape = ('{{"', '"}}') if label == commit else ('["', '"]')
+        lines.append(f"    s{i}{shape[0]}{label}{shape[1]}")
+        if i:
+            lines.append(f"    s{i - 1} --> s{i}")
+    return "\n".join(lines)
+
+
+def _slug(text: str) -> str:
+    return re.sub(r"[^\w]+", "-", text.lower()).strip("-")
+
+
+# ------------------------------------------------------------------ pages
+
+
+def render_emails(model: DocumentationModel) -> str:
+    """Every email template set, with a preview per locale."""
+    out = [
+        f"# {t('Emails')}",
+        "",
+        t(
+            "The emails the application sends, from its templates. Variables show as "
+            "`{{ name }}`: the real content depends on each case."
+        ),
+    ]
+    for e in model.emails:
+        out += ["", f"## {e.template}", ""]
+        if e.used_by:
+            sent = "; ".join(
+                t(
+                    "by [{resource}](resources/{resource}.md) {when}",
+                    resource=u.split(" ", 1)[0],
+                    when=_point_label(u.split(" ", 1)[1]),
+                )
+                for u in e.used_by
+            )
+            out.append(t("Sent {by}.", by=sent))
+        else:
+            out.append(t("No resource requests it: it is sent directly (`Mailer.send`)."))
+        if e.missing:
+            out += ["", "⚠ " + t("Missing templates: {names}.", names=_codes(e.missing))]
+        for v in e.variants:
+            label = v.locale or t("Other languages (not translated)")
+            out += ["", f"### {label}", ""]
+            out += [f"**{t('Subject:')}** {_cell(v.subject) or '—'}"]
+            if v.text:
+                out += ["", "```text", v.text.rstrip("\n"), "```"]
+            if v.html:
+                out += ["", "```email-html", v.html.rstrip("\n"), "```"]
     return "\n".join(out) + "\n"
 
 
@@ -309,13 +590,13 @@ def render_markdown(model: DocumentationModel) -> dict[str, str]:
         f"resources/{r.name}.md": render_resource(r, model.audit_resource) for r in model.resources
     }
     index = [
-        "# Catàleg de recursos",
+        f"# {t('Resource catalogue')}",
         "",
-        "| Recurs | Descripció | Operacions | Màquines d'estats |",
+        f"| {t('Resource')} | {t('Description')} | {t('Operations')} | {t('State machines')} |",
         "|---|---|---|---|",
     ]
     for r in model.resources:
-        ops = ", ".join(f"`{o.name}`" for o in r.operations)
+        ops = _codes(o.name for o in r.operations)
         machines = ", ".join(
             f"[{sm.machine or sm.state_field}](state-machines.md#{_anchor(r.name, sm)})"
             for sm in r.state_machines
@@ -325,10 +606,13 @@ def render_markdown(model: DocumentationModel) -> dict[str, str]:
             f"| {machines or '—'} |"
         )
     if any(r.state_machines for r in model.resources):
-        index += ["", "Tots els diagrames d'estats: [màquines d'estats](state-machines.md)."]
+        index += ["", t("Every state diagram: [state machines](state-machines.md).")]
         pages["state-machines.md"] = render_state_machines(model)
+    if model.emails:
+        index += ["", t("The emails the application sends: [emails](emails.md).")]
+        pages["emails.md"] = render_emails(model)
     if model.system_roles:
-        index += ["", "Vegeu també la [matriu de permisos](permissions.md)."]
+        index += ["", t("See also the [permission matrix](permissions.md).")]
         pages["permissions.md"] = render_permissions(model)
     pages["index.md"] = "\n".join(index) + "\n"
     return pages
@@ -339,30 +623,28 @@ def render_permissions(model: DocumentationModel) -> str:
     data and are listed by the authz_policies resource, not here."""
     roles = model.system_roles
     out = [
-        "# Matriu de permisos (rols de sistema)",
+        f"# {t('Permission matrix (system roles)')}",
         "",
-        "Els rols de sistema es defineixen al codi i no es poden modificar des del "
-        "front-end. Les polítiques creades des del front-end s'han de consultar a "
-        "`authz_policies`.",
+        t(
+            "System roles are defined in the code and can't be changed from the front end. "
+            "Policies created from the front end are listed by `authz_policies`."
+        ),
         "",
-        "| Rol | Descripció | Concessions |",
+        f"| {t('Role')} | {t('Description')} | {t('Grants')} |",
         "|---|---|---|",
     ]
-    for r in roles:
-        grants = ", ".join(f"`{g}`" for g in r.grants)
-        out.append(f"| `{r.name}` | {_cell(r.description) or '—'} | {grants} |")
-    out += ["", "| Acció | " + " | ".join(f"`{r.name}`" for r in roles) + " |"]
+    for role in roles:
+        out.append(f"| `{role.name}` | {_cell(role.description) or '—'} | {_codes(role.grants)} |")
+    out += ["", f"| {t('Action')} | " + " | ".join(f"`{role.name}`" for role in roles) + " |"]
     out.append("|---|" + "---|" * len(roles))
     for action in model.actions:
-        marks = " | ".join("✓" if action in r.actions else "" for r in roles)
+        marks = " | ".join("✓" if action in role.actions else "" for role in roles)
         out.append(f"| `{action}` | {marks} |")
     return "\n".join(out) + "\n"
 
 
 def _anchor(resource: str, sm: Any) -> str:
     """The heading id of a machine on the state-machines page (``<h2>`` slug)."""
-    import re
-
     # the same slug on GitHub and on the site: "invoices: approval" → invoices-approval
     text = f"{resource}: {sm.machine or sm.state_field}".lower()
     return re.sub(r"[^\w]+", "-", text).strip("-")
@@ -371,11 +653,13 @@ def _anchor(resource: str, sm: Any) -> str:
 def render_state_machines(model: DocumentationModel) -> str:
     """Every state machine of the application, with its diagram."""
     out = [
-        "# Màquines d'estats",
+        f"# {t('State machines')}",
         "",
-        "Els processos amb estats de cada recurs, dibuixats a partir de la definició "
-        "executable de la màquina. Els detalls de cada estat i transició són a la "
-        "pàgina del recurs.",
+        t(
+            "The processes with states of each resource, drawn from the executable "
+            "definition of the machine. Each state and transition is described on the "
+            "resource's page."
+        ),
     ]
     for r in model.resources:
         for sm in r.state_machines:
@@ -383,14 +667,21 @@ def render_state_machines(model: DocumentationModel) -> str:
                 "",
                 f"## {r.name}: {sm.machine or sm.state_field}",
                 "",
-                f"Recurs [{r.name}](resources/{r.name}.md) — camp `{sm.state_field}` — "
-                f"`{sm.qualname}`",
+                t(
+                    "Resource [{name}](resources/{name}.md) — field `{field}` — `{qualname}`",
+                    name=r.name,
+                    field=sm.state_field,
+                    qualname=sm.qualname,
+                ),
                 "",
             ]
             if sm.doc.summary:
                 out += [sm.doc.summary, ""]
             out += ["```mermaid", render_state_machine(sm), "```"]
             if sm.timers:
-                timers = ", ".join(f"`{t.event}` després de {t.after}" for t in sm.timers)
-                out += ["", f"Transicions automàtiques: {timers}."]
+                timers = ", ".join(
+                    t("`{event}` after {after}", event=timer.event, after=timer.after)
+                    for timer in sm.timers
+                )
+                out += ["", t("Automatic transitions: {timers}.", timers=timers)]
     return "\n".join(out) + "\n"

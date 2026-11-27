@@ -191,4 +191,4 @@ def test_mcp_and_docs(manager):
     )
     assert "`vacation` ([vacation_requests](vacation_requests.md))" in base
     sub = next(v for k, v in pages.items() if k.endswith("vacation_requests.md"))
-    assert "Subtipus de [requests](requests.md) (`vacation`)" in sub
+    assert "Subtype of [requests](requests.md) (`vacation`)" in sub

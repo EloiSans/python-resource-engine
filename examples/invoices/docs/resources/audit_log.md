@@ -7,7 +7,7 @@ Audit trail: committed changes and refused attempts.
 Entries are written by the engine only (no create, update or delete). The
 resource is sensitive: wildcard grants do not reach it.
 
-## Business area
+## Àmbit de negoci
 
 Audit
 
@@ -20,7 +20,7 @@ Audit
 
 Filtres: `resource`, `entity_id`, `tenant`, `actor`, `outcome`, `operation`, `correlation_id`, `seal` · Ordenació: `at`
 
-## Schemas
+## Esquemes
 
 ### AuditEntryRead (read)
 

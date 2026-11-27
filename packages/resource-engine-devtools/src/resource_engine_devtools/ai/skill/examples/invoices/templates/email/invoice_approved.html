@@ -1,5 +1,5 @@
 {% extends "email/base.html" %}
 {% block body %}
-<p>Hello {{ customer }},</p>
-<p>Invoice <strong>{{ number }}</strong> for <strong>{{ amount }} EUR</strong> has been approved.</p>
+<p>{% trans %}Hola, {{ customer }}:{% endtrans %}</p>
+<p>{% trans number=number, amount=amount %}La factura <strong>{{ number }}</strong>, de <strong>{{ amount }} €</strong>, ha estat aprovada.{% endtrans %}</p>
 {% endblock %}

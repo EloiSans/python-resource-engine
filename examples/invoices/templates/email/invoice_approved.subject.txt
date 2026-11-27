@@ -1,1 +1,1 @@
-Invoice {{ number }} approved
+{{ _("Factura %(number)s aprovada", number=number) }}

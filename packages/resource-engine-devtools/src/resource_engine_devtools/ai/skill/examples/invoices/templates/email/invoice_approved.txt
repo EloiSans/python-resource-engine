@@ -1,5 +1,5 @@
-Hello {{ customer }},
+{{ _("Hola, %(customer)s:", customer=customer) }}
 
-Invoice {{ number }} for {{ amount }} EUR has been approved.
+{{ _("La factura %(number)s, de %(amount)s €, ha estat aprovada.", number=number, amount=amount) }}
 
 {{ app_name }}

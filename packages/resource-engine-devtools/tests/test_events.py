@@ -110,8 +110,8 @@ def test_events_in_the_generated_docs():
     assert [e.name for e in resource.events] == ["OrderShipped", "OrderLost"]
     assert [f.name for f in resource.events[0].fields] == ["order_id", "carrier"]
     page = render_markdown(model)["resources/orders.md"]
-    assert "## Esdeveniments de domini" in page
-    assert "| `carrier` | `str` | sí |" in page
+    assert "## Domain events" in page
+    assert "| `carrier` | `str` | yes |" in page
     findings = [f for f in validate(model) if f.code == "RE-D011"]
     assert {(f.target.rsplit(".", 1)[-1], f.level) for f in findings} == {
         ("OrderShipped", "ok"),
