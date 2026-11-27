@@ -138,6 +138,9 @@ Markdown or HTML summary).
 |---|---|---|---|
 | Any SMTP server or relay (Postfix, Microsoft 365, SES/Postmark/SendGrid SMTP) | `resource-engine-smtp` | `SmtpEmailSender` | Mailpit (compose) |
 | Amazon SES (v2 API) | `resource-engine-aws[ses]` | `SesEmailSender` | AWS Emulator (refusals; it keeps identities unverified) and a recording client |
+| Postmark | `resource-engine-http` | `PostmarkEmailSender(http, token=...)` | mock transport |
+| SendGrid / Twilio | `resource-engine-http` | `SendGridEmailSender(http, api_key=...)` | mock transport |
+| Microsoft 365 (Graph `sendMail`) | `resource-engine-http` | `GraphEmailSender(http, mailbox=...)`, with `OAuth2ClientCredentials` | mock transport |
 | In memory | `resource-engine` (`resource_engine.testing`) | `RecordingEmailSender` | – |
 
 - **SMTP:** port 465 uses implicit TLS; other ports upgrade with STARTTLS
@@ -181,6 +184,45 @@ The example's worker sends through it by default (`SMTP_HOST`, `SMTP_PORT`,
 real server). Approving an invoice whose registered customer has an email
 address sends `invoice_approved` in Catalan.
 
-Not included yet: provider HTTP APIs (Postmark, SendGrid, Microsoft Graph)
-and bounce and complaint handling. Template texts are translated with the
-application's catalogues; see [translations](i18n.md#templates).
+## Bounces and complaints
+
+Addresses that bounce for good, complain (mark the message as spam) or
+unsubscribe shouldn't get more mail: providers lower the sender's
+reputation, and some suspend accounts. A suppression list keeps them out:
+
+```python
+from resource_engine.email import EmailEventHandler
+from resource_engine_fastapi import mount_email_events
+from resource_engine_http import parse_postmark
+from resource_engine_sqlalchemy import SqlAlchemySuppressionList
+
+suppressions = SqlAlchemySuppressionList(
+    sessions, tables.suppressions
+)  # engine_tables(suppressions=True)
+mailer = Mailer(sender, templates, from_address=..., suppressions=suppressions)
+mount_email_events(
+    app, "/webhooks/postmark", parse_postmark, EmailEventHandler(suppressions), token=SECRET
+)
+```
+
+- **Sending:** suppressed recipients are left out of every message. A
+  message with nobody left isn't sent, and that is logged.
+- **Events:** the webhook parsers turn each provider's payload into
+  `EmailEvent`s (`bounce`, `complaint`, `delivery`, `unsubscribe`):
+  `parse_postmark` and `parse_sendgrid` (`resource-engine-http`), and
+  `parse_ses` (`resource-engine-aws`) for SNS notifications and
+  configuration-set events.
+- **What gets suppressed:** `EmailEventHandler` suppresses hard bounces,
+  complaints and unsubscribes. Soft bounces (a full mailbox) and deliveries
+  are only logged; `on_event=` acts on any of them, for example a record's
+  status or a metric.
+- **The endpoint:** `mount_email_events` checks a shared token (`?token=`,
+  a bearer token or the Basic password) before parsing, and answers 204.
+  Payloads it doesn't recognise are acknowledged, so the provider doesn't
+  retry them. Confirm an SNS subscription once by opening its
+  `SubscribeURL`.
+- **Releasing:** `suppressions.release(address)` lets mail go to an address
+  again, for example after the user fixes their mailbox.
+
+Microsoft Graph has no event webhooks: failures come back to the mailbox as
+non-delivery reports.

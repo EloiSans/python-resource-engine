@@ -4,7 +4,7 @@ and the SES email sender.
 Install the extras for the services you use: ``resource-engine-aws[sqs,sns,ses]``.
 """
 
-from resource_engine_aws.ses import SesEmailSender
+from resource_engine_aws.ses import SesEmailSender, parse_ses
 from resource_engine_aws.sns import SnsMessagePublisher
 from resource_engine_aws.sqs import SqsMessagePublisher
 from resource_engine_aws.sqs_source import SqsMessageSource, decode_sqs_body
@@ -15,4 +15,5 @@ __all__ = [
     "SqsMessagePublisher",
     "SqsMessageSource",
     "decode_sqs_body",
+    "parse_ses",
 ]

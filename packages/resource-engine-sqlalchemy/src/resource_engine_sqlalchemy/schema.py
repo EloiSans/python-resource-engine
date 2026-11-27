@@ -38,6 +38,7 @@ from resource_engine_sqlalchemy.idempotency import idempotency_table
 from resource_engine_sqlalchemy.inbox import inbox_table
 from resource_engine_sqlalchemy.locks import locks_table
 from resource_engine_sqlalchemy.outbox import outbox_table
+from resource_engine_sqlalchemy.suppressions import suppressions_table
 
 #: Constraint and index names that are stable across databases, so later
 #: migrations can drop or rename them. Pass it to your ``MetaData``.
@@ -63,9 +64,11 @@ class EngineTables:
     locks: Table | None = None
     idempotency: Table | None = None
     api_keys: Table | None = None
+    suppressions: Table | None = None
 
     def all(self) -> list[Table]:
         tables = [
+            self.suppressions,
             self.outbox,
             self.inbox,
             self.audit,
@@ -92,6 +95,7 @@ def engine_tables(
     locks: bool = False,
     idempotency: bool = False,
     api_keys: bool = False,
+    suppressions: bool = False,
     names: dict[str, Any] | None = None,
 ) -> EngineTables:
     """Declare the engine tables an application uses on ``metadata``.
@@ -105,6 +109,7 @@ def engine_tables(
         locks: Leases for ``JobRunner`` jobs with ``single=True``.
         idempotency: Results of writes sent with an idempotency key.
         api_keys: Keys for machine clients (``registry.register_api_keys``).
+        suppressions: Email addresses not to send to (``SqlAlchemySuppressionList``).
         names: Custom table names, by the same keys (``authz`` takes a prefix).
     """
     if seals and not audit:
@@ -124,6 +129,7 @@ def engine_tables(
         locks=named("locks", locks_table) if locks else None,
         idempotency=named("idempotency", idempotency_table) if idempotency else None,
         api_keys=named("api_keys", api_keys_table) if api_keys else None,
+        suppressions=named("suppressions", suppressions_table) if suppressions else None,
     )
 
 

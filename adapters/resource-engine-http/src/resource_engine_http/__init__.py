@@ -9,6 +9,13 @@
 
 from resource_engine_http.audit import HttpAuditExporter
 from resource_engine_http.auth import OAuth2ClientCredentials
+from resource_engine_http.email import (
+    GraphEmailSender,
+    PostmarkEmailSender,
+    SendGridEmailSender,
+    parse_postmark,
+    parse_sendgrid,
+)
 from resource_engine_http.pdf import GotenbergPdfConverter
 from resource_engine_http.rest import (
     RemoteUnitOfWork,
@@ -21,6 +28,11 @@ from resource_engine_http.rest import (
 from resource_engine_http.webhook import WebhookMessagePublisher
 
 __all__ = [
+    "GraphEmailSender",
+    "PostmarkEmailSender",
+    "SendGridEmailSender",
+    "parse_postmark",
+    "parse_sendgrid",
     "GotenbergPdfConverter",
     "HttpAuditExporter",
     "OAuth2ClientCredentials",

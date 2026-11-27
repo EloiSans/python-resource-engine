@@ -87,3 +87,26 @@ async def test_throttling_is_retried():
     )
     with pytest.raises(RemoteCallFailed):
         await SesEmailSender(Throttled()).send(message)
+
+
+def test_ses_notifications():
+    import json
+
+    from resource_engine_aws import parse_ses
+
+    bounce = {
+        "notificationType": "Bounce",
+        "mail": {"messageId": "m1"},
+        "bounce": {
+            "bounceType": "Permanent",
+            "bouncedRecipients": [{"emailAddress": "a@x.com", "diagnosticCode": "550"}],
+        },
+    }
+    [event] = parse_ses({"Type": "Notification", "Message": json.dumps(bounce)})
+    assert (event.kind, event.address, event.permanent, event.message_id) == (
+        "bounce", "a@x.com", True, "m1",
+    )  # fmt: skip
+    complaint = {"eventType": "Complaint", "complaint": {"complainedRecipients": [
+        {"emailAddress": "b@x.com"}]}}  # fmt: skip
+    assert parse_ses(complaint)[0].kind == "complaint"
+    assert parse_ses({"Type": "SubscriptionConfirmation", "SubscribeURL": "https://x"}) == []

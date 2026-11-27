@@ -119,3 +119,20 @@ async def test_retention_rules_compile_to_sql(setup):
     )
     stats = await janitor.run_once(later)
     assert stats.seals == 2 and stats.purged_seals == 2 and (await sealer.verify()).ok
+
+
+async def test_suppression_list_on_sql(tmp_path):
+    from resource_engine_sqlalchemy import SqlAlchemySuppressionList, engine_tables
+
+    meta = MetaData()
+    tables = engine_tables(meta, suppressions=True)
+    engine = create_async_engine(f"sqlite+aiosqlite:///{tmp_path / 's.db'}")
+    async with engine.begin() as conn:
+        await conn.run_sync(meta.create_all)
+    store = SqlAlchemySuppressionList(async_sessionmaker(engine), tables.suppressions)
+    await store.suppress("Ann <A@x.com>", "bounce")
+    await store.suppress("a@x.com", "complaint")  # again: the reason is refreshed
+    assert await store.suppressed(["a@X.com", "b@x.com"]) == {"a@x.com"}
+    await store.release("a@x.com")
+    assert await store.suppressed(["a@x.com"]) == set()
+    await engine.dispose()

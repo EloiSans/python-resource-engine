@@ -63,3 +63,40 @@ class EmailSender(Protocol):
     """
 
     async def send(self, message: EmailMessage) -> str | None: ...
+
+
+@dataclass(frozen=True)
+class EmailEvent:
+    """What a mail service reports after sending: a bounce, a complaint (the
+    recipient marked it as spam), a delivery, an unsubscribe.
+
+    Attributes:
+        kind: ``bounce``, ``complaint``, ``delivery`` or ``unsubscribe``.
+        address: The recipient it is about.
+        permanent: For bounces: the address will never accept mail (hard
+            bounce), not a full mailbox or a greylist (soft bounce).
+        reason: The provider's description.
+        provider: ``postmark``, ``sendgrid``, ``ses``...
+        message_id: The provider's id of the message, when it gives one.
+    """
+
+    kind: str
+    address: str
+    permanent: bool = False
+    reason: str = ""
+    provider: str = ""
+    message_id: str | None = None
+
+
+class SuppressionList(Protocol):
+    """Addresses not to send to (hard bounces, complaints, unsubscribes)."""
+
+    async def suppressed(self, addresses: Sequence[str]) -> set[str]:
+        """Which of ``addresses`` are suppressed (compared in lower case)."""
+        ...
+
+    async def suppress(self, address: str, reason: str) -> None: ...
+
+    async def release(self, address: str) -> None:
+        """Send to it again (the user fixed their mailbox, asked to resubscribe)."""
+        ...

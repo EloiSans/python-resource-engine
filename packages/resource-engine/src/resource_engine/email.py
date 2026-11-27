@@ -20,6 +20,7 @@ See docs/email.md.
 
 from __future__ import annotations
 
+import dataclasses
 import logging
 import mimetypes
 from collections.abc import Callable, Mapping, Sequence
@@ -32,7 +33,13 @@ from resource_engine.domain.events import DomainEvent
 from resource_engine.errors import ConfigurationError, TemplateNotFound
 from resource_engine.messaging.consumer import EventRouter
 from resource_engine.messaging.envelope import EventEnvelope, to_jsonable
-from resource_engine.ports.email import Attachment, EmailMessage, EmailSender
+from resource_engine.ports.email import (
+    Attachment,
+    EmailEvent,
+    EmailMessage,
+    EmailSender,
+    SuppressionList,
+)
 from resource_engine.ports.templates import TemplateRenderer
 
 log = logging.getLogger("resource_engine.email")
@@ -74,6 +81,8 @@ class Mailer:
         prefix: Folder of the email templates (``email/``).
         globals: Values every template gets (app name, URLs), or a function
             returning them; the request's context wins on a clash.
+        suppressions: A ``SuppressionList``: suppressed recipients are left
+            out of every message, and a message with nobody left isn't sent.
     """
 
     def __init__(
@@ -86,6 +95,7 @@ class Mailer:
         default_locale: str | None = None,
         prefix: str = "email/",
         globals: ContextFactory | None = None,
+        suppressions: SuppressionList | None = None,
     ) -> None:
         if "@" not in parseaddr(from_address)[1]:
             raise ConfigurationError(f"Invalid from_address {from_address!r}")
@@ -96,6 +106,7 @@ class Mailer:
         self.default_locale = default_locale
         self.prefix = prefix
         self.globals = globals
+        self.suppressions = suppressions
 
     @property
     def domain(self) -> str:
@@ -162,6 +173,10 @@ class Mailer:
     ) -> str | None:  # type: ignore[no-untyped-def]
         """Compose and send now (outside a transaction: a job, a script)."""
         message = self.compose(template, to, context, **kw)
+        message = await self._without_suppressed(message)
+        if message is None:
+            log.info("email skipped: every recipient is suppressed", extra={"template": template})
+            return None
         provider_id = await self.sender.send(message)
         log.info(
             "email sent",
@@ -169,6 +184,21 @@ class Mailer:
                    "message_id": message.message_id, "provider_id": provider_id},
         )  # fmt: skip
         return provider_id
+
+    async def _without_suppressed(self, message: EmailMessage) -> EmailMessage | None:
+        if self.suppressions is None:
+            return message
+        blocked = {a.lower() for a in await self.suppressions.suppressed(message.recipients)}
+        if not blocked:
+            return message
+
+        def keep(addresses: Sequence[str]) -> tuple[str, ...]:
+            return tuple(a for a in addresses if parseaddr(a)[1].lower() not in blocked)
+
+        to, cc, bcc = keep(message.to), keep(message.cc), keep(message.bcc)
+        if not (to or cc or bcc):
+            return None
+        return dataclasses.replace(message, to=to, cc=cc, bcc=bcc)
 
     # ---------------------------------------------------- requested emails
 
@@ -199,6 +229,62 @@ class Mailer:
         router = EventRouter(ignore_unknown=True, name=name, description="Sends requested emails")
         router.register(EmailRequested, lambda envelope: self.handle(envelope))
         return router
+
+
+class InMemorySuppressionList:
+    """A ``SuppressionList`` in this process (tests, single instances); use the
+    SQL one (``SqlAlchemySuppressionList``) with several."""
+
+    def __init__(self) -> None:
+        self.reasons: dict[str, str] = {}
+
+    async def suppressed(self, addresses: Sequence[str]) -> set[str]:
+        wanted = {parseaddr(a)[1].lower() or a.lower() for a in addresses}
+        return wanted & set(self.reasons)
+
+    async def suppress(self, address: str, reason: str) -> None:
+        self.reasons[address.lower()] = reason
+
+    async def release(self, address: str) -> None:
+        self.reasons.pop(address.lower(), None)
+
+
+class EmailEventHandler:
+    """Acts on what mail services report: hard bounces, complaints and
+    unsubscribes suppress the address; soft bounces and deliveries are logged.
+
+    Args:
+        suppressions: Where suppressed addresses go.
+        on_event: Also called for every event (metrics, a record's status).
+    """
+
+    SUPPRESS = {"complaint", "unsubscribe"}
+
+    def __init__(
+        self, suppressions: SuppressionList, *, on_event: Callable[[EmailEvent], Any] | None = None
+    ) -> None:
+        self.suppressions = suppressions
+        self.on_event = on_event
+
+    async def handle(self, events: Sequence[EmailEvent]) -> int:
+        """Returns how many addresses were suppressed."""
+        suppressed = 0
+        for event in events:
+            if event.kind in self.SUPPRESS or (event.kind == "bounce" and event.permanent):
+                await self.suppressions.suppress(
+                    event.address, f"{event.provider} {event.kind}: {event.reason}".strip()
+                )
+                suppressed += 1
+            log.info(
+                "email %s",
+                event.kind,
+                extra={"provider": event.provider, "permanent": event.permanent},
+            )
+            if self.on_event is not None:
+                result = self.on_event(event)
+                if hasattr(result, "__await__"):
+                    await result
+        return suppressed
 
 
 def to_mime(message: EmailMessage) -> MimeMessage:
@@ -247,6 +333,9 @@ def jsonable_context(context: Mapping[str, Any]) -> dict[str, Any]:
 
 __all__ = [
     "Attachment",
+    "EmailEvent",
+    "EmailEventHandler",
+    "InMemorySuppressionList",
     "EmailMessage",
     "EmailRequested",
     "Mailer",

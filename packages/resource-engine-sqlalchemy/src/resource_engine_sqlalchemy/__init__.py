@@ -21,10 +21,13 @@ from resource_engine_sqlalchemy.schema import (
     engine_tables,
     map_engine,
 )
+from resource_engine_sqlalchemy.suppressions import SqlAlchemySuppressionList, suppressions_table
 from resource_engine_sqlalchemy.unit_of_work import SqlAlchemyUnitOfWork, unit_of_work_factory
 from resource_engine_sqlalchemy.views import aggregate_select, map_view, map_views
 
 __all__ = [
+    "SqlAlchemySuppressionList",
+    "suppressions_table",
     "aggregate_select",
     "map_view",
     "map_views",

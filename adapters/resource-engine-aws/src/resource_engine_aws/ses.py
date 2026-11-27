@@ -18,12 +18,13 @@ async with session.create_client("sesv2", region_name="eu-west-1") as ses:
 from __future__ import annotations
 
 import re
+from collections.abc import Mapping
 from email.utils import parseaddr
 from typing import Any
 
 from resource_engine.email import to_mime
 from resource_engine.errors import EmailRejected, RemoteCallFailed
-from resource_engine.ports.email import EmailMessage
+from resource_engine.ports.email import EmailEvent, EmailMessage
 
 PERMANENT = {
     "MessageRejected",
@@ -96,4 +97,56 @@ class SesEmailSender:
         return response.get("MessageId")
 
 
-__all__ = ["SesEmailSender"]
+def parse_ses(payload: Mapping[str, Any]) -> list[EmailEvent]:
+    """SES bounce, complaint and delivery notifications: an SNS message (the
+    ``Message`` holds the notification), the notification itself, or a
+    configuration set event (``eventType``). A ``SubscriptionConfirmation``
+    gives no events: confirm it by fetching its ``SubscribeURL`` once."""
+    import json
+
+    if payload.get("Type") == "SubscriptionConfirmation":
+        return []
+    if isinstance(payload.get("Message"), str):
+        try:
+            payload = json.loads(payload["Message"])
+        except ValueError:
+            return []
+    kind = payload.get("notificationType") or payload.get("eventType")
+    message_id = (payload.get("mail") or {}).get("messageId")
+    if kind == "Bounce":
+        bounce = payload.get("bounce") or {}
+        permanent = bounce.get("bounceType") == "Permanent"
+        return [
+            EmailEvent(
+                "bounce",
+                r.get("emailAddress", ""),
+                permanent,
+                r.get("diagnosticCode") or bounce.get("bounceSubType", ""),
+                "ses",
+                message_id,
+            )
+            for r in bounce.get("bouncedRecipients", [])
+        ]
+    if kind == "Complaint":
+        complaint = payload.get("complaint") or {}
+        return [
+            EmailEvent(
+                "complaint",
+                r.get("emailAddress", ""),
+                True,
+                complaint.get("complaintFeedbackType", "complaint"),
+                "ses",
+                message_id,
+            )
+            for r in complaint.get("complainedRecipients", [])
+        ]
+    if kind == "Delivery":
+        delivery = payload.get("delivery") or {}
+        return [
+            EmailEvent("delivery", address, False, "", "ses", message_id)
+            for address in delivery.get("recipients", [])
+        ]
+    return []
+
+
+__all__ = ["SesEmailSender", "parse_ses"]

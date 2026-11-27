@@ -278,6 +278,12 @@
   templates per locale to HTML, Markdown, text or PDF (`PdfConverter`,
   `GotenbergPdfConverter` in `resource-engine-http`, Gotenberg in compose) and
   attaches them to a slot inside the operation.
+- Email providers and bounces: `PostmarkEmailSender`, `SendGridEmailSender`,
+  `GraphEmailSender` (`resource-engine-http`); `EmailEvent` from webhooks
+  (`parse_postmark`, `parse_sendgrid`, `parse_ses`), `mount_email_events` with
+  a shared token, `EmailEventHandler` suppressing hard bounces, complaints and
+  unsubscribes in a `SuppressionList` (in memory or `SqlAlchemySuppressionList`),
+  and the mailer leaving suppressed recipients out.
 
 ## Next
 
@@ -291,8 +297,6 @@ Nothing scheduled: the next items come from Later.
 
 ### Later
 
-- Email: provider HTTP APIs (Postmark, SendGrid, Microsoft Graph), bounce and
-  complaint handling, emails listed in the generated docs.
 - Translatable data fields (a product name per language): storage,
   filtering, sorting and the language a read returns.
 - Versioning: versions of resource schemas, actions and events published side
