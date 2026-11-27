@@ -307,8 +307,6 @@ Nothing scheduled: the next items come from Later.
 - Versioning: versions of resource schemas, actions and events published side
   by side (`/v2/...`, `schema_version` per event type), deprecation notices in
   OpenAPI, AsyncAPI and GraphQL, and the contract checks comparing versions.
-- SOAP server adapter (WSDL from the schemas), only for a concrete integration
-  that needs it; the SOAP client side already exists.
 - SAP: OData v2/v4 repository for S/4HANA APIs on top of the REST repository,
   BTP destination service lookup.
 - Composite unit of work (SQL resources and remote resources in one operation) and
