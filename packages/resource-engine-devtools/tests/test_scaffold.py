@@ -58,9 +58,7 @@ def test_generated_module_is_complete_and_clean(project, capsys):
         assert (base / name).is_file(), name
 
     resource = importlib.import_module("scafshop.orders.application.resource").OrderResource
-    resource.actions = [
-        importlib.import_module("scafshop.orders.application.actions").ApplyDiscount
-    ]
+    assert [a.__name__ for a in resource.actions] == ["ApplyDiscount"]  # declared by scaffold
     registry = ResourceRegistry()
     definition = registry.register(resource).definition()
     assert definition.name == "orders" and definition.version_field == "version"

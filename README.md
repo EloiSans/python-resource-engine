@@ -21,7 +21,7 @@ moved to its own repository without code changes.
 | `resource-engine-graphql` | `resource_engine_graphql` | core, graphql-core | GraphQL adapter: schema generated from the resources, batched relations, subscriptions, cost limits, persisted queries, `mount_graphql` |
 | `resource-engine-mcp` | `resource_engine_mcp` | core, mcp | MCP server: every operation as a tool for AI agents, over stdio or Streamable HTTP with bearer tokens |
 | `resource-engine-sqlalchemy` | `resource_engine_sqlalchemy` | core, SQLAlchemy 2 (async) | Persistence adapter: repository, unit of work, outbox, inbox, documents, permission and audit tables, job leases, Alembic setup (`[alembic]`) |
-| `resource-engine-devtools` | `resource_engine_devtools` | core, docstring-parser | `resource-engine` CLI: inspect, check (architecture and hook/effect lints), docs and AsyncAPI, AI skill and context (`ai install`, `ai sync`), scaffold (modules, consumers), worker, development MCP server (`[mcp]`) |
+| `resource-engine-devtools` | `resource_engine_devtools` | core, docstring-parser | `resource-engine` CLI: inspect, check (architecture and hook/effect lints), docs and AsyncAPI, AI skill and context (`ai install`, `ai sync`), scaffold (modules and every part of one, consumers), worker, development MCP server (`[mcp]`) |
 | `resource-engine-aws` | `resource_engine_aws` | core, `[sqs,sns]` → aiobotocore | SQS/SNS publishers, SQS consumer source |
 | `resource-engine-azure` | `resource_engine_azure` | core, `[servicebus]` → azure-servicebus | Service Bus publisher and consumer source |
 | `resource-engine-gcp` | `resource_engine_gcp` | core, `[pubsub]` → google-cloud-pubsub | Pub/Sub publisher, pull source, push decoder |

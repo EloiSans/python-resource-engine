@@ -1,9 +1,11 @@
 # Scaffolding
 
-`resource-engine scaffold` writes the structural code of a module, an action or
-a state machine, laid out like the reference module (`examples/invoices`). The
-same input always gives the same files. You or your agent then write only the
-business logic and the descriptions.
+`resource-engine scaffold` writes the structural code of a module and of every
+part of one (actions, state machines, hooks, domain events, document slots,
+references and seed policies), laid out like the reference module
+(`examples/invoices`). The same input always gives the same files. You or your
+agent then write only the business logic and the descriptions. The same
+commands are tools of the [development MCP server](ai.md).
 
 ## A module
 
@@ -56,8 +58,8 @@ resource-engine scaffold action orders Export --package shop.orders --collection
 ```
 
 The action class goes into `application/actions.py`, and with `--input` its
-`ApplyDiscountInput` schema goes into `application/schemas.py`. The command
-prints the line to add to the resource's `actions`, the permission
+`ApplyDiscountInput` schema goes into `application/schemas.py`. The action is
+added to the resource's `actions`. The command prints the permission
 (`orders:action:apply_discount`) and the route.
 
 ## A state machine
@@ -69,6 +71,54 @@ resource-engine scaffold state-machine Order --package shop.orders --states new,
 It writes `domain/state_machine.py` and lists what to change by hand: the
 resource, the entity's `status` field, the read schema, the table and the
 grants.
+
+## Parts of a module
+
+Each of these writes its code and declares it on the resource class (found in
+`application/`, by `name` or by the default name), so the module keeps
+importing, registering and passing `check`:
+
+```bash
+resource-engine scaffold hook orders check_credit --package shop.orders \
+  --on before_create --on before_transition:place
+resource-engine scaffold hook orders tell_warehouse --package shop.orders --on after_commit --effect
+resource-engine scaffold event orders OrderShipped --package shop.orders --field carrier:str
+resource-engine scaffold slot orders delivery_note --package shop.orders \
+  --content-type application/pdf --max-mb 5 --required-for ship
+resource-engine scaffold reference orders customer_id --package shop.orders --to customers
+resource-engine scaffold policy orders --package shop.orders --role clerk
+resource-engine scaffold policy orders --package shop.orders --role auditor --read-only
+```
+
+| Part | Writes | Declares on the resource |
+|---|---|---|
+| `hook` | a function in `application/hooks.py` | `hooks`, at every `--on` point |
+| `event` | a `DomainEvent` dataclass in `domain/events.py` (with `<singular>_id`) | `events` |
+| `slot` | — | a `DocumentSlot` in `documents` |
+| `reference` | the id field in the entity, the schemas and the table, when missing | a `Reference` in `references` |
+| `policy` | a seed policy in `<package>/authz.py` (`SEED_POLICIES`) | — |
+
+- **Hooks:** `--on` takes any hook point, with a transition or action
+  qualifier where the point accepts one (`before_transition:place`). Hooks
+  are plain functions, except `after_commit` ones, which are async. With
+  `--effect` (after `after_commit` only) the hook is marked
+  `@external_effect` and documents its effects. An effect inside the
+  transaction is refused here, as `check` would report it (RE-C002).
+- **Events:** record them where they happen with `ctx.record_event(...)`.
+  Declared events are listed in the docs and the AsyncAPI document.
+- **References:** the relation is named after the field without `_id`, or
+  `<name>_record` when the entity already has a field with that name.
+  `--on-delete set_null` needs an optional field. The referenced resource
+  must be registered too, the module's own tests included.
+- **Policies:** the actions come from the registered resource: its
+  operations, transitions, actions and document slots, or with `--read-only`
+  `list`, `get` and downloads. Point `check` at the list
+  (`[tool.resource-engine] policies = "shop.orders.authz:SEED_POLICIES"`)
+  and create the policies at start-up.
+- **Edits:** they add lines and keep comments and layout. A one-line list or
+  dict that grows is rewritten on several lines. Names that are already
+  there (a function, an event class, a slot, a reference, a policy name)
+  are refused.
 
 ## Safety
 

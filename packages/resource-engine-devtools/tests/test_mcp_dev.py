@@ -121,6 +121,20 @@ async def test_scaffold(tmp_path):
         )
         assert not consumer.is_error
         assert (tmp_path / "devshop/billing/consumers/invoice_events.py").is_file()
+        base = {"package": "devshop.orders", "root": str(tmp_path), "resource": "orders"}
+        for tool, extra in (
+            ("scaffold_hook", {"function": "check_total", "on": ["before_create"]}),
+            ("scaffold_event", {"event_class": "OrderPlaced", "fields": ["total:Decimal"]}),
+            ("scaffold_slot", {"slot": "receipt", "content_types": ["application/pdf"]}),
+            ("scaffold_reference", {"field": "customer_id", "to": "customers"}),
+            ("scaffold_policy", {"role": "clerk", "read_only": True}),
+        ):
+            part = await client.call_tool(tool, {**base, **extra})
+            assert not part.is_error, (tool, part.structured_content)
+        resource = (tmp_path / "devshop/orders/application/resource.py").read_text()
+        assert "hooks.check_total" in resource and '"receipt",' in resource
+        assert "events = [OrderPlaced]" in resource and '"customer_id": Reference(' in resource
+        assert "Clerk reads orders" in (tmp_path / "devshop/orders/authz.py").read_text()
 
 
 async def test_bad_calls(tmp_path):

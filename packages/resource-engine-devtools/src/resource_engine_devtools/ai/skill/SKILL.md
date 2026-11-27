@@ -26,13 +26,19 @@ prints a compact catalogue; the installed copy is `project.md` next to this file
 2. **Write the domain first.** Plain classes or dataclasses, no framework
    imports. Business rules are methods that raise a `DomainError` subclass.
 3. **Declare the resource.** See [references/resource.md](references/resource.md).
-   For a new module, action or state machine, start from the scaffold instead
-   of writing the boilerplate:
+   For a new module or any part of one, start from the scaffold instead of
+   writing the boilerplate. The part commands also declare what they write on
+   the resource class:
 
    ```bash
    resource-engine scaffold resource orders --package shop.orders --field customer:str --field total:Decimal --state-machine
    resource-engine scaffold action orders ApplyDiscount --package shop.orders --input percent:Decimal
    resource-engine scaffold state-machine Order --package shop.orders --states new,paid --transitions 'pay:new>paid'
+   resource-engine scaffold hook orders check_credit --package shop.orders --on before_create
+   resource-engine scaffold event orders OrderShipped --package shop.orders --field carrier:str
+   resource-engine scaffold slot orders delivery_note --package shop.orders --content-type application/pdf
+   resource-engine scaffold reference orders customer_id --package shop.orders --to customers
+   resource-engine scaffold policy orders --package shop.orders --role clerk
    ```
 
    Then follow the printed next steps and replace every `TODO` docstring

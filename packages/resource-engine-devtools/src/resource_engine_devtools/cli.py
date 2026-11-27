@@ -399,6 +399,43 @@ def cmd_db_init(args: argparse.Namespace) -> int:
     return 0
 
 
+PARTS = ("hook", "event", "slot", "reference", "policy")
+
+
+def _scaffold_part(args: argparse.Namespace, root: Path, fields: list) -> object:
+    from resource_engine_devtools import scaffold_parts as parts
+
+    common = {"dry_run": args.dry_run}
+    match args.scaffold_command:
+        case "hook":
+            return parts.hook(
+                root, args.package, args.resource, args.function, args.on or [],
+                effect=args.effect, **common,
+            )  # fmt: skip
+        case "event":
+            return parts.event(
+                root, args.package, args.resource, args.event_class, fields, **common
+            )
+        case "slot":
+            return parts.slot(
+                root, args.package, args.resource, args.slot,
+                content_types=args.content_type, max_mb=args.max_mb, multiple=args.multiple,
+                upload=args.upload, required_for=args.required_for, processing=args.processing,
+                **common,
+            )  # fmt: skip
+        case "reference":
+            return parts.reference(
+                root, args.package, args.resource, args.field_name, args.to,
+                relation=args.relation, on_delete=args.on_delete, required=args.required,
+                related_name=args.related_name, **common,
+            )  # fmt: skip
+        case _:
+            return parts.policy(
+                root, args.package, args.resource, args.role, read_only=args.read_only,
+                name=args.name, variable=args.variable, **common,
+            )  # fmt: skip
+
+
 def cmd_scaffold(args: argparse.Namespace) -> int:
     from resource_engine_devtools import scaffold
 
@@ -446,6 +483,8 @@ def cmd_scaffold(args: argparse.Namespace) -> int:
                 collection=args.collection,
                 dry_run=args.dry_run,
             )
+        elif args.scaffold_command in PARTS:
+            result = _scaffold_part(args, root, fields)
         else:
             states, transitions = scaffold.parse_machine(args.states, args.transitions)
             result = scaffold.state_machine(
@@ -632,7 +671,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.set_defaults(func=cmd_db_init)
 
     scaffold = sub.add_parser(
-        "scaffold", help="generate the boilerplate of a module, action or state machine"
+        "scaffold", help="generate a module or one of its parts (action, hook, event, slot...)"
     ).add_subparsers(dest="scaffold_command", required=True)
     shared = argparse.ArgumentParser(add_help=False)
     shared.add_argument("--json", action="store_true", help="machine-readable output")
@@ -681,6 +720,60 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--states", help="comma-separated states (default: draft,active,closed)")
     p.add_argument("--transitions", help="event:source>target,... (default: one per step)")
     p.add_argument("--force", action="store_true", help="overwrite an existing state machine")
+    p.set_defaults(func=cmd_scaffold)
+    p = scaffold.add_parser(
+        "hook", parents=[shared], help="a hook function, registered on the resource"
+    )
+    p.add_argument("resource", help="resource name (orders)")
+    p.add_argument("function", help="hook function name, snake_case (check_credit)")
+    p.add_argument(
+        "--on",
+        action="append",
+        help="hook point: before_create, after_update, before_transition:place, after_commit... "
+        "(repeatable)",
+    )
+    p.add_argument("--effect", action="store_true", help="an external effect (after_commit, async)")
+    p.set_defaults(func=cmd_scaffold)
+    p = scaffold.add_parser(
+        "event", parents=[shared], help="a domain event, declared on the resource"
+    )
+    p.add_argument("resource", help="resource name (orders)")
+    p.add_argument(
+        "event_class", metavar="EventClass", help="PascalCase, past tense (OrderShipped)"
+    )
+    p.add_argument("--field", action="append", help="payload field name:type[?] (repeatable)")
+    p.set_defaults(func=cmd_scaffold)
+    p = scaffold.add_parser("slot", parents=[shared], help="a document slot on the resource")
+    p.add_argument("resource", help="resource name (orders)")
+    p.add_argument("slot", help="slot name, snake_case (delivery_note)")
+    p.add_argument("--content-type", action="append", help="accepted MIME type (repeatable)")
+    p.add_argument("--max-mb", type=int, help="size limit in MiB (default 25)")
+    p.add_argument("--multiple", action="store_true", help="several documents at once")
+    p.add_argument("--upload", choices=["api", "presigned", "any"], help="how bytes arrive")
+    p.add_argument(
+        "--required-for", action="append", help="transition that needs a document (repeatable)"
+    )
+    p.add_argument("--processing", action="store_true", help="run the processing pipeline")
+    p.set_defaults(func=cmd_scaffold)
+    p = scaffold.add_parser("reference", parents=[shared], help="a reference to another resource")
+    p.add_argument("resource", help="resource name (orders)")
+    p.add_argument("field_name", metavar="field", help="the id field (customer_id)")
+    p.add_argument("--to", required=True, help="the referenced resource (customers)")
+    p.add_argument("--relation", help="relation name for expand (default: field without _id)")
+    p.add_argument("--on-delete", default="restrict", choices=["restrict", "set_null", "cascade"])
+    p.add_argument("--required", action="store_true", help="the field can't be empty")
+    p.add_argument("--related-name", help="reverse relation on the referenced resource")
+    p.set_defaults(func=cmd_scaffold)
+    p = scaffold.add_parser(
+        "policy", parents=[shared], help="a seed policy granting a role the resource"
+    )
+    p.add_argument("resource", help="resource name (orders)")
+    p.add_argument("--role", required=True, help="the role the policy grants (clerk)")
+    p.add_argument("--read-only", action="store_true", help="list, get and downloads only")
+    p.add_argument("--name", help="policy name (default: '<Role> manages <resource>')")
+    p.add_argument(
+        "--variable", default="SEED_POLICIES", help="list in <package>/authz.py to append to"
+    )
     p.set_defaults(func=cmd_scaffold)
 
     p = sub.add_parser("mcp", help="serve these commands as MCP tools for coding agents (stdio)")

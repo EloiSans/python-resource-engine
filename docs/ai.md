@@ -121,7 +121,7 @@ same command:
 | `docs_validate` | Documentation rules (RE-D001…D011), strict by default; only the findings |
 | `asyncapi` | The AsyncAPI document, or with `check_against` the changes that would break consumers |
 | `explain_error` | What an `RE-E`, `RE-C` or `RE-D` code means and what to change |
-| `scaffold_resource`, `scaffold_action`, `scaffold_state_machine`, `scaffold_consumer` | The [scaffold](scaffold.md) commands, with `dry_run` |
+| `scaffold_resource`, `scaffold_action`, `scaffold_state_machine`, `scaffold_consumer`, `scaffold_hook`, `scaffold_event`, `scaffold_slot`, `scaffold_reference`, `scaffold_policy` | The [scaffold](scaffold.md) commands, with `dry_run` |
 
 - **Fresh runs:** each project tool runs the CLI with `--json` in a new
   process in the project directory (`--project` to choose another). It sees

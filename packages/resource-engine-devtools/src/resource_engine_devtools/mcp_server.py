@@ -6,7 +6,7 @@
 
 - **Tools:** the project catalogue, ``inspect``, ``check``, ``docs validate``,
   the AsyncAPI document and its compatibility check, ``explain_error`` and the
-  four scaffold commands.
+  scaffold commands.
 - **Fresh runs:** each project tool runs the CLI with ``--json`` in a new
   process in the project directory, so it sees the code as it is now (agents
   edit it between calls), and nothing the application prints can corrupt the
@@ -335,6 +335,53 @@ async def _scaffold_consumer(server: DevServer, args: dict[str, Any]) -> dict[st
     return await server.cli(*argv)
 
 
+def _flags(args: dict[str, Any], spec: dict[str, str]) -> list[str]:
+    """MCP arguments → CLI options: ``spec`` maps each argument to its option;
+    booleans become flags, lists repeat the option."""
+    argv: list[str] = []
+    for key, option in spec.items():
+        value = args.get(key)
+        if value is None or value is False:
+            continue
+        if value is True:
+            argv.append(option)
+        elif isinstance(value, list):
+            for item in value:
+                argv += [option, str(item)]
+        else:
+            argv += [option, str(value)]
+    return argv
+
+
+def _part(command: str, positional: list[str], spec: dict[str, str]):  # type: ignore[no-untyped-def]
+    async def run(server: DevServer, args: dict[str, Any]) -> dict[str, Any]:
+        argv = ["scaffold", command, *(args[p] for p in positional), *_scaffold_tail(args)]
+        return await server.cli(*argv, *_flags(args, spec))
+
+    return run
+
+
+def _part_tool(
+    name: str, title: str, description: str, positional: dict[str, Any], options: dict[str, Any],
+    spec: dict[str, str], required: list[str] | None = None,
+) -> DevTool:  # fmt: skip
+    command = name.removeprefix("scaffold_")
+    return DevTool(
+        name,
+        title,
+        description + " Edits the resource class to declare it; never overwrites a name "
+        "that exists. Follow the next_steps it returns.",
+        _schema(
+            {**positional, "package": _PACKAGE, **options, "root": _ROOT, "dry_run": _DRY},
+            [*positional, "package", *(required or [])],
+        ),
+        _part(command, list(positional), spec),
+        read_only=False,
+    )
+
+
+_RESOURCE = {"type": "string", "description": "Resource name (orders)"}
+
 TOOLS = [
     DevTool(
         "project_catalogue",
@@ -477,6 +524,92 @@ TOOLS = [
         ),
         _scaffold_consumer,
         read_only=False,
+    ),
+    _part_tool(
+        "scaffold_hook",
+        "Scaffold a hook",
+        "A hook function in application/hooks.py, registered at the given points.",
+        {"resource": _RESOURCE, "function": {"type": "string", "description": "snake_case"}},
+        {
+            "on": {
+                **_STRINGS,
+                "description": "Hook points: before_create, after_update, "
+                "before_transition:place, after_commit...",
+            },
+            "effect": {"type": "boolean", "description": "External effect (after_commit only)"},
+        },
+        {"on": "--on", "effect": "--effect"},
+        ["on"],
+    ),
+    _part_tool(
+        "scaffold_event",
+        "Scaffold a domain event",
+        "A DomainEvent in domain/events.py, declared in the resource's events.",
+        {
+            "resource": _RESOURCE,
+            "event_class": {"type": "string", "description": "PascalCase, past tense"},
+        },
+        {"fields": {**_STRINGS, "description": "Payload fields name:type[?]"}},
+        {"fields": "--field"},
+    ),
+    _part_tool(
+        "scaffold_slot",
+        "Scaffold a document slot",
+        "A DocumentSlot in the resource's documents.",
+        {"resource": _RESOURCE, "slot": {"type": "string", "description": "snake_case"}},
+        {
+            "content_types": _STRINGS,
+            "max_mb": {"type": "integer", "minimum": 1},
+            "multiple": {"type": "boolean"},
+            "upload": {"type": "string", "enum": ["api", "presigned", "any"]},
+            "required_for": {**_STRINGS, "description": "Transitions that need a document"},
+            "processing": {"type": "boolean"},
+        },
+        {
+            "content_types": "--content-type",
+            "max_mb": "--max-mb",
+            "multiple": "--multiple",
+            "upload": "--upload",
+            "required_for": "--required-for",
+            "processing": "--processing",
+        },
+    ),
+    _part_tool(
+        "scaffold_reference",
+        "Scaffold a reference",
+        "A Reference to another resource; adds the id field to the entity, schemas and "
+        "table when they lack it.",
+        {"resource": _RESOURCE, "field": {"type": "string", "description": "customer_id"}},
+        {
+            "to": {"type": "string", "description": "The referenced resource"},
+            "relation": {"type": "string"},
+            "on_delete": {"type": "string", "enum": ["restrict", "set_null", "cascade"]},
+            "required": {"type": "boolean"},
+            "related_name": {"type": "string"},
+        },
+        {
+            "to": "--to",
+            "relation": "--relation",
+            "on_delete": "--on-delete",
+            "required": "--required",
+            "related_name": "--related-name",
+        },
+        ["to"],
+    ),
+    _part_tool(
+        "scaffold_policy",
+        "Scaffold a seed policy",
+        "A policy granting a role the resource's operations (or only reads), appended to "
+        "<package>/authz.py.",
+        {"resource": _RESOURCE},
+        {
+            "role": {"type": "string"},
+            "read_only": {"type": "boolean"},
+            "name": {"type": "string"},
+            "variable": {"type": "string", "description": "List to append to (SEED_POLICIES)"},
+        },
+        {"role": "--role", "read_only": "--read-only", "name": "--name", "variable": "--variable"},
+        ["role"],
     ),
 ]
 

@@ -727,9 +727,16 @@ $fields
         result.written.append(str(schemas_path))
         if not dry_run:
             schemas_path.write_text(existing.rstrip("\n") + "\n\n\n" + schema, encoding="utf-8")
+    declared = _declare_action(base, package, resource_name, class_name, result, dry_run)
     result.next_steps = [
-        f"On the resource: from {package}.application.actions import {class_name}; "
-        f"add {class_name} to `actions`",
+        *(
+            []
+            if declared
+            else [
+                f"On the resource: from {package}.application.actions import {class_name}; "
+                f"add {class_name} to `actions`"
+            ]
+        ),
         f"Grant it: {resource_name}:action:{action_name} in a seed policy or a system role",
         f"HTTP: POST /{resource_name}"
         + ("" if collection else "/{id}")
@@ -737,6 +744,24 @@ $fields
         "Implement execute and replace the TODO docstring (Postconditions are required)",
     ]
     return result
+
+
+def _declare_action(
+    base: Path, package: str, resource: str, class_name: str, result: Result, dry_run: bool
+) -> bool:
+    """Add the action to the resource's ``actions``; ``False`` when the
+    resource class isn't found in the module."""
+    from resource_engine_devtools import source_edit as edit
+    from resource_engine_devtools.scaffold_parts import _ResourceFile
+
+    try:
+        target = _ResourceFile(base, package, resource)
+    except ScaffoldError:
+        return False
+    target.apply(lambda s: edit.add_import(s, f"{package}.application.actions", class_name))
+    target.apply(lambda s: edit.append_to_list(s, target.class_name, "actions", class_name))
+    target.write(result, dry_run=dry_run)
+    return True
 
 
 def _existing(root: Path, package: str) -> Path:

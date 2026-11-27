@@ -218,6 +218,12 @@
   assertions, `Role` attribute mapped to realm roles, users joined to the
   Initech organization), tested end to end through the browser flow,
   including a tampered assertion.
+- Complete scaffolding: `resource-engine scaffold hook|event|slot|reference|policy`
+  (and the development MCP server's tools) write each part and declare it on
+  the resource class with comment-preserving edits; `scaffold action` now
+  declares the action too. References add the id field to the entity,
+  schemas and table; seed policies take the resource's actions from the
+  registered resource.
 
 ## Next
 
@@ -234,9 +240,6 @@ Nothing scheduled: the next items come from Later.
 - Versioning: versions of resource schemas, actions and events published side
   by side (`/v2/...`, `schema_version` per event type), deprecation notices in
   OpenAPI, AsyncAPI and GraphQL, and the contract checks comparing versions.
-- Complete scaffolding: hooks, domain events (declared on the resource),
-  document slots, references and seed policies, so every functional element
-  can start from `resource-engine scaffold` and the development MCP server.
 - Visual explorer (read-only): a local web UI with the resources, their state
   diagrams, relations, the permission matrix and a try-it console against a
   running app, for functional reviews; code stays the source of truth.
