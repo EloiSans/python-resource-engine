@@ -258,6 +258,13 @@
   allowed transitions of a record, why a call was refused) and a "what can I
   do?" panel; `mount_docs(app, "site")` serves it at `/explorer/` with a
   Content-Security-Policy. The example mounts it with `DOCS_SITE`.
+- Audit shipping and retention rules: `OutboxAuditSink` queues each entry in
+  the change's transaction and `AuditForwarder` ships it from the worker
+  (exactly once, retried, dead-lettered when refused) through `AuditExporter`s:
+  syslog RFC 5424 with CEF or JSON, HTTP (JSON lines, Splunk HEC, Elastic
+  bulk), OpenTelemetry log records. `Retention` rules per resource and outcome
+  (first match, `None` keeps forever); with a sealer, a batch goes when every
+  entry in it is past its own rule.
 
 ## Next
 
@@ -282,7 +289,6 @@ Nothing scheduled: the next items come from Later.
   that needs it; the SOAP client side already exists.
 - Policy engines: OpenFGA conditions on input values, OPA bundles, Cedar schemas
   generated from the registry.
-- Audit: external sinks (OpenTelemetry logs, SIEM); retention per resource or outcome.
 - EventBridge and Event Grid publishers.
 - SAP: OData v2/v4 repository for S/4HANA APIs on top of the REST repository,
   BTP destination service lookup.

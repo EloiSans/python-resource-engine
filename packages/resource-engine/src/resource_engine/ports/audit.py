@@ -19,3 +19,14 @@ class AuditSink(Protocol):
         attempts, audited reads) the sink writes on its own.
         """
         ...
+
+
+class AuditExporter(Protocol):
+    """Ships committed audit entries to another system (``AuditForwarder``).
+
+    Raise ``RemoteCallFailed`` (RE-E501) to have the entries retried later,
+    ``MessageRejected`` (RE-E406) for entries the other system will never take.
+    Entries may arrive more than once: dedupe by ``entry.id``.
+    """
+
+    async def export(self, entries: Sequence[AuditEntry]) -> None: ...

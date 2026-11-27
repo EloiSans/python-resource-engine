@@ -126,11 +126,67 @@ transition's `from_state`.
 |---|---|
 | `RepositoryAuditSink` | Default: the `audit_log` resource, in the operation's transaction |
 | `LoggingAuditSink` | One JSON log line per entry, for log shipping |
+| `OutboxAuditSink` | Queues each entry in the outbox for [shipping](#shipping-entries), in the same transaction |
 | `CompositeAuditSink(a, b)` | Several sinks |
 
 Entries written on their own (refusals, reads) are best effort: a failing sink is
 logged and never changes the outcome of the operation. Entries of committed
 changes are part of the transaction: if writing them fails, the change fails.
+
+## Shipping entries
+
+To send the trail to a SIEM or a log platform, don't call it from the sink.
+It would run inside the transaction, so an unreachable SIEM would block
+changes, and a rolled-back change would already have been shipped. Queue the
+entries in the outbox instead, and let the worker forward them:
+
+```python
+from resource_engine.audit import (
+    AuditForwarder,
+    CompositeAuditSink,
+    OutboxAuditSink,
+    RepositoryAuditSink,
+    SyslogAuditExporter,
+)
+from resource_engine_http import HttpAuditExporter
+from resource_engine_opentelemetry import OtelAuditExporter
+
+audit = CompositeAuditSink(RepositoryAuditSink(uow_factory), OutboxAuditSink(uow_factory))
+manager = ResourceManager(..., audit=audit, event_delivery=OutboxDelivery())
+
+forwarder = AuditForwarder(
+    HttpAuditExporter.splunk_hec(http, "https://splunk:8088", token=SECRET, index="audit")
+)
+router = ProcessRunner(manager).router().include(forwarder.router())
+processor = MessageProcessor(router, name="worker", manager=manager)
+runner.add("outbox", ProcessFeed(manager.uow_factory, processor), every=1, single=True)
+```
+
+- **Exactly what happened:**
+  - an entry of a committed change is queued with it, so it always ships;
+  - a change that rolls back leaves nothing to ship;
+  - refused attempts are queued on their own, like their database entry.
+- **Retries:**
+  - an unreachable exporter (RE-E501) is retried on later runs;
+  - entries the other side will never take (RE-E406, such as an HTTP 400)
+    are dead-lettered;
+  - the inbox stops an entry from being shipped twice.
+- **Duplicates:** with several exporters, a failure in one makes the retry
+  send to the others again. Each entry carries its `id`: Elastic uses it
+  as the document id, and other receivers can dedupe on it.
+- **One outbox:** combine the forwarder's router with the others with
+  `EventRouter.include` and keep one `ProcessFeed`. With a broker, consume
+  the `AuditRecorded` messages from it with the same router.
+
+| Exporter | Package | Sends |
+|---|---|---|
+| `SyslogAuditExporter(host, port, transport="udp"\|"tcp", format="cef"\|"json")` | `resource-engine` | RFC 5424 syslog (facility 13, log audit), CEF or JSON: QRadar, ArcSight, Sentinel and most SIEM collectors |
+| `HttpAuditExporter(client, url)` / `.splunk_hec(...)` / `.elastic(...)` | `resource-engine-http` | JSON lines, the Splunk HTTP Event Collector, Elasticsearch / OpenSearch `_bulk` |
+| `OtelAuditExporter(logger_provider)` | `resource-engine-opentelemetry` | OpenTelemetry log records (`resource_engine.audit`, `enduser.id`, `event.outcome`) through the Collector to any backend |
+| `LoggingAuditExporter()` | `resource-engine` | One JSON log line per entry |
+
+`AuditExporter` is a port (`export(entries)`), so any other destination is a
+small class.
 
 ## Tamper evidence
 
@@ -215,10 +271,33 @@ await janitor.run_once()  # from a scheduled job, or: await janitor.run_forever(
   the chain still verifies. Unsealed entries are never deleted.
 - **Without a sealer**, entries older than `retention` are deleted directly, in
   batches of `batch_size`.
-- `retention` applies to every entry, changes and refusals alike.
+- `retention` applies to every entry that no rule takes.
 - `AuditJanitor(sealer=sealer)` with no retention only seals.
 
-## Not yet
+### Per resource and outcome
 
-- External sinks (OpenTelemetry logs, SIEM).
-- Retention per resource or per outcome.
+```python
+from resource_engine.audit import Retention
+
+janitor = AuditJanitor(
+    uow_factory,
+    retention=timedelta(days=365),  # everything else
+    rules=[
+        Retention(None, resource="invoices"),  # kept forever
+        Retention(timedelta(days=30), outcome=["denied", "failed"]),
+        Retention(timedelta(days=90), resource=["tags", "invoice_tags"]),
+    ],
+    sealer=sealer,
+)
+```
+
+- **First match:** the first rule that matches an entry decides; the rest
+  follow `retention`.
+- **Keep forever:** `keep=None` keeps the matching entries forever, even
+  with a default retention.
+- **Without a sealer:** each rule deletes its own entries, with one query
+  per rule.
+- **With a sealer:** a sealed batch is deleted only once every entry in it
+  is past its own rule, so the chain still verifies. A batch holding an
+  entry kept for seven years waits for that entry. Seal more often
+  (`batch_size`) if mixed batches keep short-lived entries too long.

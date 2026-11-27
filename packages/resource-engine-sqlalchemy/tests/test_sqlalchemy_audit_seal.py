@@ -99,3 +99,23 @@ async def test_seal_verify_tamper_and_purge(setup):
     assert (stats.purged, stats.purged_seals) == (5, 3)
     report = await sealer.verify()
     assert report.ok and report.purged_seals == 3 and report.entries == 0
+
+
+async def test_retention_rules_compile_to_sql(setup):
+    from resource_engine.audit import Retention
+
+    manager, uow, engine, table = setup
+    for i in range(3):
+        await manager.create("memos", {"text": f"memo {i}"})
+    async with engine.begin() as conn:  # one refused attempt, among the changes
+        await conn.execute(update(table).where(table.c.entity_id == "1").values(outcome="denied"))
+    later = datetime.now(UTC) + timedelta(days=10)
+    rules = [Retention(timedelta(days=7), outcome="denied"), Retention(None, resource="memos")]
+    stats = await AuditJanitor(uow, retention=timedelta(days=1), rules=rules).run_once(later)
+    assert stats.purged == 1  # the denied one; other memo entries are kept forever
+    sealer = AuditSealer(uow, batch_size=1)
+    janitor = AuditJanitor(
+        uow, sealer=sealer, rules=[Retention(timedelta(days=7), resource="memos")]
+    )
+    stats = await janitor.run_once(later)
+    assert stats.seals == 2 and stats.purged_seals == 2 and (await sealer.verify()).ok

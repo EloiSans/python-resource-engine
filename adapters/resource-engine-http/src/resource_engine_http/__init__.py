@@ -7,6 +7,7 @@
 - ``OAuth2ClientCredentials``: outbound OAuth 2.0 for any of the above.
 """
 
+from resource_engine_http.audit import HttpAuditExporter
 from resource_engine_http.auth import OAuth2ClientCredentials
 from resource_engine_http.rest import (
     RemoteUnitOfWork,
@@ -19,6 +20,7 @@ from resource_engine_http.rest import (
 from resource_engine_http.webhook import WebhookMessagePublisher
 
 __all__ = [
+    "HttpAuditExporter",
     "OAuth2ClientCredentials",
     "RemoteUnitOfWork",
     "RestEndpoint",

@@ -1,8 +1,14 @@
 """Audit trail: committed changes and refused attempts, retention and
 tamper evidence. See docs/audit.md."""
 
+from resource_engine.audit.export import (
+    AuditForwarder,
+    LoggingAuditExporter,
+    OutboxAuditSink,
+    SyslogAuditExporter,
+)
 from resource_engine.audit.history import StateChange
-from resource_engine.audit.janitor import AuditJanitor, AuditJanitorStats
+from resource_engine.audit.janitor import AuditJanitor, AuditJanitorStats, Retention
 from resource_engine.audit.model import AuditEntry, AuditEntryRead, AuditSeal, AuditSealRead
 from resource_engine.audit.resource import AuditLogResource, AuditSealResource
 from resource_engine.audit.seal import AuditProblem, AuditSealer, AuditVerification
@@ -11,6 +17,7 @@ from resource_engine.audit.sink import CompositeAuditSink, LoggingAuditSink, Rep
 __all__ = [
     "AuditEntry",
     "AuditEntryRead",
+    "AuditForwarder",
     "AuditJanitor",
     "AuditJanitorStats",
     "AuditLogResource",
@@ -21,7 +28,11 @@ __all__ = [
     "AuditSealer",
     "AuditVerification",
     "CompositeAuditSink",
+    "LoggingAuditExporter",
     "LoggingAuditSink",
+    "OutboxAuditSink",
     "RepositoryAuditSink",
+    "Retention",
     "StateChange",
+    "SyslogAuditExporter",
 ]

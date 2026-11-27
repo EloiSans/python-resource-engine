@@ -223,6 +223,16 @@ See [caching](caching.md).
 
 See [email](email.md).
 
+## Audit export — `AuditExporter`
+
+| Backend | Package | Class | Tested against | Status |
+|---|---|---|---|---|
+| Syslog (RFC 5424, CEF or JSON) | `resource-engine` | `SyslogAuditExporter` | local UDP and TCP listeners | experimental |
+| HTTP: JSON lines, Splunk HEC, Elastic/OpenSearch bulk | `resource-engine-http` | `HttpAuditExporter` | mock transport | experimental |
+| OpenTelemetry logs | `resource-engine-opentelemetry` | `OtelAuditExporter` | OpenTelemetry SDK in-memory exporter | experimental |
+
+See [audit](audit.md#shipping-entries).
+
 ## Tracing — `Tracer`
 
 | Backend | Package | Class | Tested against | Status |
