@@ -14,6 +14,7 @@ import html
 import json
 import re
 from collections.abc import Callable, Mapping, Sequence
+from dataclasses import dataclass
 from typing import Any
 
 from markdown_it import MarkdownIt
@@ -44,6 +45,17 @@ def labels() -> dict[str, str]:
     }
 
 
+@dataclass(frozen=True)
+class SiteOptions:
+    asyncapi: Mapping[str, Any] | None = None
+    title: str | None = None
+    mermaid_url: str = MERMAID_URL
+    openapi: Mapping[str, Any] | None = None
+    graphql: str | None = None
+    console: bool = False
+    api_url: str = ""
+
+
 def render_site(
     model: DocumentationModel,
     *,
@@ -55,6 +67,8 @@ def render_site(
     audience: str = "technical",
     openapi: Mapping[str, Any] | None = None,
     graphql: str | None = None,
+    console: bool = False,
+    api_url: str = "",
 ) -> dict[str, str]:
     """Return ``{relative_path: content}`` of the site.
 
@@ -67,79 +81,52 @@ def render_site(
     ``audience``: ``technical`` adds class paths, endpoints, schemas, the HTTP
     API (``openapi``), the events' payloads and the GraphQL schema (``graphql``,
     SDL), with their documents; ``functional`` leaves them all out.
+
+    ``console`` (needs ``openapi``) adds a try-it panel to each resource page
+    and a "what can I do?" panel to the home page, calling the API at
+    ``api_url`` (empty: the site's own origin, as ``mount_docs`` serves it)
+    with the visitor's token. It reads by default; changes need "Allow changes".
     """
+    if console and not openapi:
+        raise ValueError("The console needs the application's OpenAPI document")
+    options = SiteOptions(asyncapi, title, mermaid_url, openapi, graphql, console, api_url)
     with docs_audience(audience):
-        return _render_sites(
-            model, asyncapi, title, mermaid_url, locales, translate, openapi, graphql
-        )
-
-
-def _render_sites(
-    model: DocumentationModel,
-    asyncapi: Mapping[str, Any] | None,
-    title: str | None,
-    mermaid_url: str,
-    locales: Sequence[str] | None,
-    translate: Callable[[str], Callable[[str], str]] | None,
-    openapi: Mapping[str, Any] | None,
-    graphql: str | None,
-) -> dict[str, str]:
-    if locales and len(locales) > 1:
-        files: dict[str, str] = {}
-        for locale in locales:
-            localised = translate_model(model, translate(locale)) if translate else model
-            with docs_locale(locale):
-                part = _render_site(
-                    localised,
-                    asyncapi,
-                    title,
-                    mermaid_url,
-                    locale=locale,
-                    others=locales,
-                    openapi=openapi,
-                    graphql=graphql,
-                )
-            files.update({f"{locale}/{path}": text for path, text in part.items()})
-        files["index.html"] = _redirect(list(locales))
-        return files
-    locale = locales[0] if locales else None
-    if locale and translate:
-        model = translate_model(model, translate(locale))
-    with docs_locale(locale):
-        return _render_site(
-            model,
-            asyncapi,
-            title,
-            mermaid_url,
-            locale=locale,
-            others=(),
-            openapi=openapi,
-            graphql=graphql,
-        )
+        if locales and len(locales) > 1:
+            files: dict[str, str] = {}
+            for locale in locales:
+                localised = translate_model(model, translate(locale)) if translate else model
+                with docs_locale(locale):
+                    part = _render_site(localised, options, locale=locale, others=locales)
+                files.update({f"{locale}/{path}": text for path, text in part.items()})
+            files["index.html"] = _redirect(list(locales))
+            return files
+        locale = locales[0] if locales else None
+        if locale and translate:
+            model = translate_model(model, translate(locale))
+        with docs_locale(locale):
+            return _render_site(model, options, locale=locale, others=())
 
 
 def _render_site(
-    model: DocumentationModel,
-    asyncapi: Mapping[str, Any] | None,
-    title: str | None,
-    mermaid_url: str,
-    *,
-    locale: str | None,
-    others: Sequence[str],
-    openapi: Mapping[str, Any] | None = None,
-    graphql: str | None = None,
+    model: DocumentationModel, options: SiteOptions, *, locale: str | None, others: Sequence[str]
 ) -> dict[str, str]:
-    LABELS = labels()
-    from resource_engine_devtools.documentation.generators.api import api_pages
+    from resource_engine_devtools.documentation.generators.api import api_pages, console_data
 
+    LABELS = labels()
+    asyncapi = options.asyncapi
     pages = render_markdown(model)
-    extra, documents = api_pages(asyncapi, openapi, graphql)
+    extra, documents = api_pages(asyncapi, options.openapi, options.graphql)
     pages.update(extra)
-    title = title or (asyncapi or {}).get("info", {}).get("title") or t("Functional documentation")
+    title = (
+        options.title
+        or (asyncapi or {}).get("info", {}).get("title")
+        or t("Functional documentation")
+    )
     md = _markdown()
     nav = _navigation(model, set(pages))
     files: dict[str, str] = dict(documents)
     search: list[dict[str, str]] = []
+    console = options.console and options.openapi is not None
     for path, text in sorted(pages.items()):
         target = path.removesuffix(".md") + ".html"
         heading = _first_heading(text) or path
@@ -151,17 +138,72 @@ def _render_site(
             nav=nav,
             current=target,
             root="../" * target.count("/"),
-            mermaid_url=mermaid_url,
+            mermaid_url=options.mermaid_url,
             locale=locale,
             others=others,
             labels=LABELS,
+            console=console,
         )
         search.append({"path": target, "title": heading, "text": _plain(text)[:4000]})
     files["assets/site.css"] = _asset("site.css")
     index = json.dumps(search, ensure_ascii=False)
     script = _asset("site.js").replace("__NO_RESULTS__", json.dumps(LABELS["no_results"]))
     files["assets/site.js"] = f"window.SITE_SEARCH = {index};\n{script}"
+    if console:
+        data = console_data(options.openapi, [r.name for r in model.resources])  # type: ignore[arg-type]
+        _localised_summaries(data, model)
+        data["api"] = options.api_url
+        data["me"] = "/authz/me" in options.openapi.get("paths", {})  # type: ignore[union-attr]
+        data["labels"] = console_labels()
+        payload = json.dumps(data, ensure_ascii=False).replace("</", "<\\/")
+        files["assets/console.js"] = f"window.CONSOLE = {payload};\n{_asset('console.js')}"
     return files
+
+
+def _localised_summaries(data: dict[str, Any], model: DocumentationModel) -> None:
+    """Operation summaries from the (translated) model rather than the
+    OpenAPI document, which keeps the source language."""
+    for resource in model.resources:
+        known = {
+            (op.method, re.sub(r"\{[^}]+\}", "{}", op.path)): op.doc.summary
+            for op in resource.operations
+            if op.doc.summary
+        }
+        for op in data["resources"].get(resource.name, []):
+            summary = known.get((op["method"], re.sub(r"\{[^}]+\}", "{}", op["path"])))
+            if summary:
+                op["summary"] = summary
+
+
+def console_labels() -> dict[str, str]:
+    return {
+        "try_it": t("Try it"),
+        "intro": t("Calls the running API with your token. Reads only, unless you allow changes."),
+        "token": t("Access token or API key"),
+        "token_hint": t("Kept in this browser tab only"),
+        "allow_changes": t("Allow changes (create, update, delete, transitions, actions)"),
+        "changes_off": t("This operation changes data: tick “Allow changes” first."),
+        "operation": t("Operation"),
+        "header": t("header"),
+        "body": t("Body (JSON)"),
+        "send": t("Send"),
+        "send_change": t("Send the change"),
+        "sending": t("Sending…"),
+        "missing": t("Fill in"),
+        "bad_json": t("The body is not valid JSON"),
+        "unreachable": t("The API could not be reached"),
+        "why": t("Why was it refused?"),
+        "next": t("Allowed transitions now"),
+        "none": t("none"),
+        "upload_note": t("Files are uploaded with the multipart form; use another client."),
+        "who_am_i": t("What can I do?"),
+        "who_intro": t("Your roles and the actions you may perform, from the running API."),
+        "explain_editors": t(
+            "Only policy editors can see the full explanation. What the API says about you:"
+        ),
+        "your_roles": t("Your roles"),
+        "not_granted": t("not granted"),
+    }
 
 
 def render_events(asyncapi: Mapping[str, Any]) -> str:
@@ -291,6 +333,7 @@ def _page(
     locale: str | None = None,
     others: Sequence[str] = (),
     labels: Mapping[str, str],
+    console: bool = False,
 ) -> str:
     LABELS = labels
     links = []
@@ -320,7 +363,7 @@ def _page(
 <title>{html.escape(heading)} · {html.escape(title)}</title>
 <link rel="stylesheet" href="{root}assets/site.css">
 </head>
-<body data-root="{root}">
+<body data-root="{root}"{_page_data(current) if console else ""}>
 <header><button id="menu-toggle" aria-controls="nav" aria-expanded="false">☰</button>
 <a class="brand" href="{root}index.html">{html.escape(title)}</a>
 <input id="search" type="search" placeholder="{LABELS["search"]}" aria-label="{LABELS["search"]}">
@@ -335,10 +378,19 @@ def _page(
 </div>
 <footer>{LABELS["generated"]}</footer>
 <script src="{root}assets/site.js"></script>
+{f'<script src="{root}assets/console.js"></script>' if console else ""}
 {mermaid}
 </body>
 </html>
 """
+
+
+def _page_data(current: str) -> str:
+    """Tells the console which panel the page gets."""
+    if current.startswith("resources/"):
+        name = current.removeprefix("resources/").removesuffix(".html")
+        return f' data-resource="{html.escape(name)}"'
+    return ' data-page="index"' if current == "index.html" else ""
 
 
 def _switcher(
@@ -390,4 +442,4 @@ def _asset(name: str) -> str:
     return (files(__package__) / "site_assets" / name).read_text(encoding="utf-8")
 
 
-__all__ = ["MERMAID_URL", "labels", "render_events", "render_site"]
+__all__ = ["MERMAID_URL", "SiteOptions", "console_labels", "labels", "render_events", "render_site"]

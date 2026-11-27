@@ -260,11 +260,11 @@ def _audience(args: argparse.Namespace) -> str:
     return args.audience or str(find_config(Path.cwd()).get("docs_audience") or "technical")
 
 
-def _technical_documents(audience: str) -> dict[str, object]:
+def _technical_documents(audience: str, *, openapi: bool = False) -> dict[str, object]:
     """The application's OpenAPI (``[tool.resource-engine] app``: a FastAPI app or
     a factory) and GraphQL SDL (``graphql``: a ``GraphQLSchema`` or a factory),
     for the technical audience. Building the app runs nothing (no lifespan)."""
-    if audience != "technical":
+    if audience != "technical" and not openapi:
         return {}
     from resource_engine_devtools.loader import load_object
 
@@ -275,7 +275,7 @@ def _technical_documents(audience: str) -> dict[str, object]:
         if callable(app) and not hasattr(app, "openapi"):
             app = app()
         out["openapi"] = app.openapi()  # type: ignore[union-attr]
-    if config.get("graphql"):
+    if config.get("graphql") and audience == "technical":
         from graphql import GraphQLSchema, print_schema
 
         schema = load_object(str(config["graphql"]))
@@ -326,6 +326,13 @@ def cmd_docs_site(args: argparse.Namespace) -> int:
     from resource_engine_devtools.i18n import iter_docs_locales, po_gettext
 
     audience = _audience(args)
+    if args.console and not find_config(Path.cwd()).get("app"):
+        _emit(
+            args,
+            {"error": "the console needs [tool.resource-engine] app"},
+            'error: --console needs the application: [tool.resource-engine] app = "pkg.app:app"',
+        )
+        return 2
     registry = _registry(args)
     model = introspect(registry, load_authz(Path.cwd()), **_templates())
     asyncapi = _asyncapi(args, registry)
@@ -339,7 +346,9 @@ def cmd_docs_site(args: argparse.Namespace) -> int:
         locales=locales or None,
         translate=(lambda locale: po_gettext(config, locale)) if config else None,
         audience=audience,
-        **_technical_documents(audience),  # type: ignore[arg-type]
+        console=args.console,
+        api_url=args.api_url or "",
+        **_technical_documents(audience, openapi=args.console),  # type: ignore[arg-type]
     )
     out = Path(args.out)
     for rel, content in files.items():
@@ -771,6 +780,17 @@ def build_parser() -> argparse.ArgumentParser:
         action="append",
         help="a language of the site (repeatable; default: every i18n locale). With several, "
         "each gets its own folder and a language switcher",
+    )
+    p.add_argument(
+        "--console",
+        action="store_true",
+        help="a try-it console on each resource page, calling the running API with the "
+        "visitor's token (needs [tool.resource-engine] app); serve it with mount_docs",
+    )
+    p.add_argument(
+        "--api-url",
+        help="where the console calls the API (default: the site's own origin, as "
+        "mount_docs serves it; elsewhere the API must allow the site's origin, CORS)",
     )
     p.add_argument(
         "--audience",

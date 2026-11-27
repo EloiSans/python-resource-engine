@@ -88,6 +88,62 @@ else `technical`:
 To publish both, build each into its own folder (`site/` and
 `site/functional/`) and deploy the parent.
 
+## Explorer: served by the app, with a try-it console
+
+```bash
+uv run resource-engine docs site --out site --console     # at build time
+```
+
+```python
+from resource_engine_fastapi import mount_docs
+
+mount_docs(app, "site")  # http://127.0.0.1:8000/explorer/
+```
+
+With `--console`, the site gets two panels:
+
+- **Each resource page:** a **Try it** panel. Pick an operation; its form
+  has the path, query and header parameters (`If-Match`,
+  `Idempotency-Key`) and a JSON body that starts from the required fields.
+  The answer shows its status, timing, `Content-Language`, `ETag` and
+  request id, and the body. Reading a record lists the transitions allowed
+  now as buttons that open them with the id filled in. A 403 offers **Why
+  was it refused?**: `/authz/explain` for policy editors, or otherwise the
+  caller's roles and that action's status from `/authz/me`.
+- **The home page:** a **What can I do?** panel with the caller's roles and
+  every action they may perform.
+
+**Safety:**
+
+- **Your own token:** the console calls the API with the visitor's token,
+  so it sees what that user may see and do. Permissions, tenancy and
+  rate limits apply as for any client.
+- **Reads only by default:** writes (create, update, delete, transitions,
+  actions) need **Allow changes**.
+- **Stored per tab:** the token and the switch stay in this browser tab
+  only (session storage).
+- **Shown as text:** answers are never rendered as HTML.
+- **Headers:** `mount_docs` sends a Content-Security-Policy that lets the
+  pages call only their own origin, plus `nosniff` and `no-referrer`.
+
+**Where the site lives:**
+
+- **Built, then served:** the site is plain files built by the CLI. The app
+  only serves them, so it needs no devtools at runtime.
+- **One build per audience:** a functional site with the console suits
+  business reviewers; a technical one adds the API pages.
+- **Hosted elsewhere:** `--api-url https://api.example.com` points the
+  console at the API, which must then allow the site's origin (CORS).
+- **Files the console can't send:** document uploads (multipart). Use
+  another client for those.
+
+The example mounts it when `DOCS_SITE` names the built folder:
+
+```bash
+uv run resource-engine docs site --out site --console
+DOCS_SITE=site uv run uvicorn invoices.app:create_app --factory --app-dir examples
+```
+
 ## Languages
 
 With `[tool.resource-engine.i18n]` configured, the site is built once per

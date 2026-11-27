@@ -6,6 +6,7 @@ import json
 import re
 from dataclasses import dataclass
 
+import pytest
 from invoices.bootstrap import authz, registry
 from pydantic import BaseModel
 from resource_engine import Resource, ResourceRegistry
@@ -237,3 +238,63 @@ def test_cli_audience_from_the_option_and_the_config(tmp_path):
     assert main(["docs", "generate", "--out", str(technical)]) == 0  # the default
     assert (technical / "api.md").is_file() and (technical / "openapi.json").is_file()
     assert json.loads((technical / "openapi.json").read_text())["paths"]
+
+
+def test_console_data_and_pages():
+    from invoices.app import create_app
+    from resource_engine_devtools.documentation.generators.api import (
+        catalogue_action,
+        console_data,
+        example,
+    )
+
+    assert catalogue_action("invoices", "GET", "/invoices") == "invoices:list"
+    assert catalogue_action("invoices", "POST", "/invoices") == "invoices:create"
+    assert catalogue_action("invoices", "PATCH", "/invoices/{entity_id}") == "invoices:update"
+    assert catalogue_action("invoices", "DELETE", "/invoices/{entity_id}") == "invoices:delete"
+    assert (
+        catalogue_action("invoices", "POST", "/invoices/{entity_id}/transitions/approve")
+        == "invoices:transition:approve"
+    )
+    assert (
+        catalogue_action("invoices", "POST", "/invoices/actions/export") == "invoices:action:export"
+    )
+    assert catalogue_action("invoices", "GET", "/invoices/{entity_id}/history") is None
+    schemas = {"Thing": {"properties": {"a": {"type": "string"}, "b": {"type": "integer"}},
+                         "required": ["b"]}}  # fmt: skip
+    assert example({"$ref": "#/components/schemas/Thing"}, schemas) == {"b": 0}
+    assert example({"properties": {"when": {"format": "date"}}}, {}) == {"when": "2026-01-31"}
+
+    openapi = create_app().openapi()
+    data = console_data(openapi, ["invoices"])
+    ops = {(o["method"], o["path"]): o for o in data["resources"]["invoices"]}
+    create = ops[("POST", "/invoices")]
+    assert create["action"] == "invoices:create" and create["body"] == {"customer": "", "amount": 0}
+    reject = ops[("POST", "/invoices/{entity_id}/transitions/reject")]
+    assert reject["body"] == {"reason": ""}
+    assert {p["name"] for p in reject["params"]} >= {"entity_id", "If-Match", "Idempotency-Key"}
+
+    files = _site(openapi=openapi, console=True, api_url="https://api.example.com")
+    script = files["assets/console.js"]
+    payload = json.loads(script.split("window.CONSOLE = ", 1)[1].split(";\n", 1)[0])
+    assert payload["api"] == "https://api.example.com" and payload["me"] is True
+    assert payload["labels"]["try_it"] == "Prova-ho"  # the page's language
+    listing = next(o for o in payload["resources"]["invoices"] if o["path"] == "/invoices")
+    assert listing["summary"] == "Llista les factures, filtrables per estat i client."
+    page = files["resources/invoices.html"]
+    assert 'data-resource="invoices"' in page and 'src="../assets/console.js"' in page
+    assert 'data-page="index"' in files["index.html"]
+    assert "console.js" not in _site(openapi=openapi)["resources/invoices.html"]
+    with pytest.raises(ValueError):
+        _site(console=True)  # no OpenAPI to build it from
+
+
+def test_cli_console_needs_the_app(tmp_path, monkeypatch, capsys):
+    out = tmp_path / "site"
+    assert main(["docs", "site", "--out", str(out), "--console", "--locale", "en"]) == 0
+    assert (out / "assets" / "console.js").is_file()
+    monkeypatch.chdir(tmp_path)  # no pyproject: no app
+    capsys.readouterr()
+    args = ["docs", "site", "--out", str(out), "--console", "--app", "invoices.bootstrap:registry"]
+    assert main(args) == 2
+    assert "needs the application" in capsys.readouterr().out

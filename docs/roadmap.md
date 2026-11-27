@@ -252,6 +252,12 @@
   `asyncapi.json` and `schema.graphql`; functional keeps the plain-words
   pages only. The site workflow takes the audience as an input (or the
   `DOCS_AUDIENCE` variable).
+- Explorer: `docs site --console` adds a try-it panel to every resource page
+  (operations from the app's OpenAPI with their parameters and a starting
+  JSON body, the visitor's token, reads only unless "Allow changes", the
+  allowed transitions of a record, why a call was refused) and a "what can I
+  do?" panel; `mount_docs(app, "site")` serves it at `/explorer/` with a
+  Content-Security-Policy. The example mounts it with `DOCS_SITE`.
 
 ## Next
 
@@ -261,9 +267,7 @@ what follows builds on it.
 
 ### Soon
 
-- Visual explorer (read-only): a local web UI with the resources, their state
-  diagrams, relations, the permission matrix and a try-it console against a
-  running app, for functional reviews; code stays the source of truth.
+Nothing scheduled: the next items come from Later.
 
 ### Later
 
@@ -287,3 +291,11 @@ what follows builds on it.
 - Azure Blob Storage (`azure[blob]`) and Google Cloud Storage (`gcp[storage]`) blob stores; reference document
   processors (ClamAV scan, text extraction).
 - NoSQL repositories (DynamoDB, Cosmos DB, Firestore) after adding capability flags.
+- Query-engine adapters over data lakes: Amazon Athena, Google BigQuery, Azure
+  Synapse serverless SQL, Trino/Presto (and Databricks SQL, Snowflake). Read-only
+  repositories for view resources: filters, sorting and paging compiled to the
+  engine's SQL, the caller's row filter and tenant pushed down, asynchronous
+  queries (start, poll, read pages) with timeouts and a scanned-bytes or cost
+  limit, results cached with the `Cache` port. Tested against Trino in compose
+  (MinIO or Garage with Iceberg or Hive tables); the managed services through
+  their emulators where they exist.

@@ -8,6 +8,7 @@ from resource_engine_fastapi.auth import (
     forwarded_client_certificate,
     request_credentials,
 )
+from resource_engine_fastapi.docs import mount_docs
 from resource_engine_fastapi.errors import install_exception_handlers, status_for
 from resource_engine_fastapi.events import build_event_receiver, default_decoder
 from resource_engine_fastapi.i18n import LocaleMiddleware, install_locale
@@ -27,6 +28,7 @@ __all__ = [
     "install_exception_handlers",
     "install_locale",
     "mount_asyncapi",
+    "mount_docs",
     "mount_resources",
     "request_credentials",
     "status_for",
