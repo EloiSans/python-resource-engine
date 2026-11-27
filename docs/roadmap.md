@@ -284,6 +284,11 @@
   a shared token, `EmailEventHandler` suppressing hard bounces, complaints and
   unsubscribes in a `SuppressionList` (in memory or `SqlAlchemySuppressionList`),
   and the mailer leaving suppressed recipients out.
+- Cloud adapters: `AzureBlobStore` (block uploads committed at the end, SAS
+  URLs; Azurite) and `GcsBlobStore` (resumable uploads cancelled on failure,
+  V4 signed URLs; fake-gcs-server) pass `BlobStoreContract`;
+  `EventBridgePublisher` (`PutEvents`, `detail-type` = event type) and
+  `EventGridPublisher` (CloudEvents batches under 1 MB, topic key or Entra).
 
 ## Next
 
@@ -304,13 +309,11 @@ Nothing scheduled: the next items come from Later.
   OpenAPI, AsyncAPI and GraphQL, and the contract checks comparing versions.
 - SOAP server adapter (WSDL from the schemas), only for a concrete integration
   that needs it; the SOAP client side already exists.
-- EventBridge and Event Grid publishers.
 - SAP: OData v2/v4 repository for S/4HANA APIs on top of the REST repository,
   BTP destination service lookup.
 - Composite unit of work (SQL resources and remote resources in one operation) and
   compensation hooks for remote writes.
-- Azure Blob Storage (`azure[blob]`) and Google Cloud Storage (`gcp[storage]`) blob stores; reference document
-  processors (ClamAV scan, text extraction).
+- Reference document processors (ClamAV scan, text extraction).
 - NoSQL repositories (DynamoDB, Cosmos DB, Firestore) after adding capability flags.
 - Query-engine adapters over data lakes: Amazon Athena, Google BigQuery, Azure
   Synapse serverless SQL, Trino/Presto (and Databricks SQL, Snowflake). Read-only

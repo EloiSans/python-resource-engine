@@ -24,6 +24,7 @@ dependencies = ["resource-engine>=0.1.0.dev0,<0.2"]
 sqs = ["aiobotocore>=2.13"]
 sns = ["aiobotocore>=2.13"]
 ses = ["aiobotocore>=2.13"]
+eventbridge = ["aiobotocore>=2.13"]
 all = ["aiobotocore>=2.13"]
 
 [project.urls]

@@ -22,9 +22,9 @@ moved to its own repository without code changes.
 | `resource-engine-mcp` | `resource_engine_mcp` | core, mcp | MCP server: every operation as a tool for AI agents, over stdio or Streamable HTTP with bearer tokens |
 | `resource-engine-sqlalchemy` | `resource_engine_sqlalchemy` | core, SQLAlchemy 2 (async) | Persistence adapter: repository, unit of work, outbox, inbox, documents, permission and audit tables, job leases, Alembic setup (`[alembic]`) |
 | `resource-engine-devtools` | `resource_engine_devtools` | core, docstring-parser | `resource-engine` CLI: inspect, check (architecture and hook/effect lints), docs and AsyncAPI, AI skill and context (`ai install`, `ai sync`), scaffold (modules and every part of one, consumers), worker, development MCP server (`[mcp]`) |
-| `resource-engine-aws` | `resource_engine_aws` | core, `[sqs,sns,ses]` → aiobotocore | SQS/SNS publishers, SQS consumer source, SES email sender |
-| `resource-engine-azure` | `resource_engine_azure` | core, `[servicebus]` → azure-servicebus | Service Bus publisher and consumer source |
-| `resource-engine-gcp` | `resource_engine_gcp` | core, `[pubsub]` → google-cloud-pubsub | Pub/Sub publisher, pull source, push decoder |
+| `resource-engine-aws` | `resource_engine_aws` | core, `[sqs,sns,ses,eventbridge]` → aiobotocore | SQS/SNS/EventBridge publishers, SQS consumer source, SES email sender |
+| `resource-engine-azure` | `resource_engine_azure` | core, `[servicebus]`, `[blob]`, `[eventgrid]` | Service Bus publisher and consumer source, Blob Storage documents, Event Grid publisher |
+| `resource-engine-gcp` | `resource_engine_gcp` | core, `[pubsub]`, `[storage]` | Pub/Sub publisher, pull source, push decoder, Cloud Storage documents |
 | `resource-engine-http` | `resource_engine_http` | core, httpx, `[soap]` → zeep | REST and SOAP repositories, webhook publisher, OAuth2 client credentials |
 | `resource-engine-s3` | `resource_engine_s3` | core, aiobotocore | Document storage on S3-compatible stores (AWS S3, Garage, MinIO, R2) |
 | `resource-engine-rabbitmq` | `resource_engine_rabbitmq` | core, aio-pika | RabbitMQ publisher (confirms) and quorum-queue consumer source |

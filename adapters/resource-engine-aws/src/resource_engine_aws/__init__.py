@@ -10,10 +10,24 @@ from resource_engine_aws.sqs import SqsMessagePublisher
 from resource_engine_aws.sqs_source import SqsMessageSource, decode_sqs_body
 
 __all__ = [
+    "decode_sqs_body",
+    "EventBridgePublisher",
+    "parse_ses",
     "SesEmailSender",
     "SnsMessagePublisher",
     "SqsMessagePublisher",
     "SqsMessageSource",
-    "decode_sqs_body",
-    "parse_ses",
 ]
+
+#: Imported on first use, so each needs only its own extra.
+_LAZY = {
+    "EventBridgePublisher": "resource_engine_aws.eventbridge",
+}
+
+
+def __getattr__(name: str):  # type: ignore[no-untyped-def]
+    if name in _LAZY:
+        import importlib
+
+        return getattr(importlib.import_module(_LAZY[name]), name)
+    raise AttributeError(name)

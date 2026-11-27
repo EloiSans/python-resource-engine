@@ -110,3 +110,61 @@ def test_ses_notifications():
         {"emailAddress": "b@x.com"}]}}  # fmt: skip
     assert parse_ses(complaint)[0].kind == "complaint"
     assert parse_ses({"Type": "SubscriptionConfirmation", "SubscribeURL": "https://x"}) == []
+
+
+@pytest.mark.emulator("aws")
+async def test_eventbridge_accepts_the_events():
+    from datetime import UTC, datetime
+
+    from resource_engine.messaging import EventEnvelope
+    from resource_engine_aws import EventBridgePublisher
+
+    async with get_session().create_client(
+        "events",
+        endpoint_url=ENDPOINT,
+        region_name="us-east-1",
+        aws_access_key_id="emulator",
+        aws_secret_access_key="emulator",
+        verify=CA,
+        config=AioConfig(inject_host_prefix=False),
+    ) as events:
+        bus = f"bus-{uuid.uuid4().hex[:8]}"
+        await events.create_event_bus(Name=bus)
+        publisher = EventBridgePublisher(events, bus=bus, source="com.example.invoices")
+        sent = [
+            EventEnvelope(type="InvoiceApproved", payload={"n": n}, occurred_at=datetime.now(UTC))
+            for n in range(12)  # two batches
+        ]
+        await publisher.publish(sent)
+
+
+async def test_eventbridge_entries_and_failures():
+    import json
+    from datetime import UTC, datetime
+
+    from resource_engine.errors import PublishFailed
+    from resource_engine.messaging import EventEnvelope
+    from resource_engine_aws import EventBridgePublisher
+
+    calls = []
+
+    class Events:
+        async def put_events(self, Entries):
+            calls.append(Entries)
+            return {
+                "Entries": [{"EventId": "1"}, {"ErrorCode": "ThrottlingException"}][: len(Entries)]
+            }
+
+    sent = [
+        EventEnvelope(type="InvoiceApproved", payload={"n": n}, occurred_at=datetime.now(UTC),
+                      resource="invoices")
+        for n in range(2)
+    ]  # fmt: skip
+    publisher = EventBridgePublisher(Events(), bus="invoices", source="com.example.invoices")
+    with pytest.raises(PublishFailed) as info:
+        await publisher.publish(sent)
+    assert info.value.failed_ids == [sent[1].id]
+    entry = calls[0][0]
+    assert entry["DetailType"] == "InvoiceApproved" and entry["EventBusName"] == "invoices"
+    assert json.loads(entry["Detail"])["id"] == sent[0].id
+    assert entry["Resources"] == ["com.example.invoices:invoices"]

@@ -38,8 +38,8 @@ on MinIO and R2, so it lives in `resource-engine-s3`, not in `aws`.
 | Azure Service Bus | `resource-engine-azure[servicebus]` | `ServiceBusMessagePublisher` | `sessions=True`: session = envelope key | Unit tests only (see below) | experimental |
 | Google Pub/Sub | `resource-engine-gcp[pubsub]` | `PubSubMessagePublisher` | `ordering=True`: ordering key = envelope key | Official Pub/Sub emulator | experimental |
 | RabbitMQ | `resource-engine-rabbitmq` | `RabbitMqMessagePublisher` | publisher confirms; routing key `<resource>.<type>` | RabbitMQ 4 (compose) | experimental |
-| Amazon EventBridge | `resource-engine-aws[eventbridge]` | – | – | – | planned |
-| Azure Event Grid | `resource-engine-azure[eventgrid]` | – | – | – | planned |
+| Amazon EventBridge | `resource-engine-aws[eventbridge]` | `EventBridgePublisher` | – (rules route by `source` and `detail-type`) | Official AWS Emulator (accepts events; it doesn't route them) | experimental |
+| Azure Event Grid | `resource-engine-azure[eventgrid]` | `EventGridPublisher` | – (CloudEvents 1.0, topic key or Entra token) | Mock transport | experimental |
 | SAP Event Mesh | `resource-engine-sap[event-mesh]` | `EventMeshMessagePublisher` | Topic or queue; `x-qos: 1` by default | Recorded HTTP exchanges | experimental |
 | SAP advanced event mesh (Solace) | `resource-engine-sap[advanced-event-mesh]` | `AdvancedEventMeshPublisher` | `JMSXGroupID` = envelope key (partitioned queues) | Recorded HTTP exchanges | experimental |
 | Webhook (any HTTP endpoint) | `resource-engine-http` | `WebhookMessagePublisher` | – (`Idempotency-Key` = envelope id) | Fake endpoint | experimental |
@@ -161,7 +161,8 @@ the two rollback tests.
 |---|---|---|---|---|---|
 | S3 API (AWS S3, Garage, MinIO, Ceph RGW, Cloudflare R2) | `resource-engine-s3` | `S3BlobStore` | GET and PUT | Garage (compose) | experimental |
 | In-memory | `resource-engine` (`resource_engine.testing`) | `InMemoryBlobStore` | fake (`memory://`) | contract | experimental |
-| Azure Blob Storage, Google Cloud Storage | `resource-engine-azure[blob]`, `resource-engine-gcp[storage]` | – | – | – | planned |
+| Azure Blob Storage | `resource-engine-azure[blob]` | `AzureBlobStore` | GET and PUT (SAS, with the account key) | Azurite (compose) | experimental |
+| Google Cloud Storage | `resource-engine-gcp[storage]` | `GcsBlobStore` | GET and PUT (V4 signed, with a signer) | fake-gcs-server (compose; no signed URLs) | experimental |
 
 `BlobStoreContract` checks round trips, sha256, streaming, `max_bytes` aborts
 without leftovers, deletes, listing and presigned upload/download. Use
@@ -324,6 +325,8 @@ uv run pytest -m emulator
 | RabbitMQ | `rabbitmq:4-management` | http://127.0.0.1:15672 (guest/guest) | AMQP on :5672. |
 | Valkey | `valkey/valkey:8-alpine` | no UI; Redis protocol on :6380 | Rate-limit counters (`resource-engine-redis`). |
 | Mailpit | `axllent/mailpit:v1.27.0` | http://127.0.0.1:8026; SMTP on :1026 | Catches every email (`resource-engine-smtp`, the example's worker). Not the usual 1025/8025, so it can run next to another project's Mailpit. |
+| Azurite | `mcr.microsoft.com/azure-storage/azurite:3.34.0` | Blob on :10000 | `AzureBlobStore`, with the well-known development account. |
+| fake-gcs-server | `fsouza/fake-gcs-server:1.52.2` | JSON API on :4443 | `GcsBlobStore`. |
 | Gotenberg | `gotenberg/gotenberg:8.17.3` | API on :3010 | HTML to PDF for generated documents (`GotenbergPdfConverter`). |
 | Keycloak | `quay.io/keycloak/keycloak:26.4` | http://127.0.0.1:8180 (admin/admin) | Realm imported from `docker/keycloak/`. |
 | OPA | `openpolicyagent/opa:1.22.4` | REST on :8181 | Serves `docker/opa/*.rego` and reloads on change. |

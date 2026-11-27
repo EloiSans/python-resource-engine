@@ -104,6 +104,20 @@ services:
       interval: 3s
       retries: 40
 
+  azurite:
+    # Azure Storage emulator: Blob on :10000 (devstoreaccount1, the well-known dev key).
+    image: mcr.microsoft.com/azure-storage/azurite:3.34.0
+    command: ["azurite-blob", "--blobHost", "0.0.0.0", "--skipApiVersionCheck", "--loose"]
+    ports:
+      - "127.0.0.1:10000:10000"
+
+  fake-gcs:
+    # Google Cloud Storage emulator (JSON API) on :4443, plain HTTP.
+    image: fsouza/fake-gcs-server:1.52.2
+    command: ["-scheme", "http", "-port", "4443", "-public-host", "127.0.0.1:4443"]
+    ports:
+      - "127.0.0.1:4443:4443"
+
   keycloak:
     # Admin console: http://127.0.0.1:8180 (admin / admin). Realms "resource-engine",
     # "invoices" (the example app) and "partner" (a SAML IdP federated into "invoices").
