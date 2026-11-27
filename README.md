@@ -37,7 +37,7 @@ moved to its own repository without code changes.
 | `resource-engine-jinja` | `resource_engine_jinja` | core, Jinja2 | Templates for emails and documents (`JinjaTemplates`): locales, sandbox, autoescaping |
 | `resource-engine-smtp` | `resource_engine_smtp` | core, aiosmtplib | Email over SMTP (`SmtpEmailSender`) |
 | `resource-engine-sentry` | `resource_engine_sentry` | core, sentry-sdk | Error reporting to Sentry, GlitchTip, Bugsink (`SentryReporter`) |
-| `resource-engine-sap` | `resource_engine_sap` | core, resource-engine-http | SAP Event Mesh (publisher, queue consumer) and advanced event mesh publisher |
+| `resource-engine-sap` | `resource_engine_sap` | core, resource-engine-http | SAP Event Mesh (publisher, queue consumer), advanced event mesh publisher, OData v2/v4 repositories, BTP destinations |
 
 Core packages are in `packages/`, cloud, SAP, storage, identity, policy-engine, observability and HTTP adapters in `adapters/` (see the
 [adapter catalogue](docs/adapters.md)).
@@ -169,6 +169,7 @@ uv run uvicorn invoices.app:app --app-dir examples --reload   # then open /docs 
 - [Documentation site](docs/docs-site.md) — the docs as a static website, for a technical or a functional audience: diagrams, permission matrix, events, emails, the HTTP API, search, several languages; served by the app as an explorer with a try-it console. The example's is published at <https://eloisans.github.io/python-resource-engine/>.
 - [Translations](docs/i18n.md) — gettext catalogues for error titles, templates, your messages and the documentation site; locale per request.
 - [Data-lake views](docs/query-engines.md) — Athena, BigQuery and Trino tables as read-only resources with filters, permissions and tenancy.
+- [SAP](docs/sap.md) — S/4HANA OData APIs as resources, with BTP destinations for the URL and credentials.
 - [NoSQL stores](docs/nosql.md) — DynamoDB, Firestore and Cosmos DB repositories, with capability flags for what each store can query.
 - [Composite stores](docs/composite.md) — SQL, remote and data-lake resources in one operation, with compensations for remote writes.
 - [Table export](docs/exports.md) — any list as CSV or XLSX, with the caller's filters and permissions.

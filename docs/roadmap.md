@@ -312,6 +312,12 @@
   them at commit in one store transaction (`TransactionTooLarge`, RE-E012);
   `DynamoDbStore`, `FirestoreStore` and `CosmosStore` pass the repository,
   condition and new version contracts against their emulators.
+- SAP (`docs/sap.md`): `ODataRepository` over v2 and v4 entity sets on top
+  of `RestRepository` (`$filter` from filters and row filters, `$orderby`,
+  paging and counts, v2 dates and exact decimals, CSRF tokens, ETags as
+  `If-Match`), and `DestinationService` / `destination_client` (bindings from
+  Cloud Foundry or Kyma, `authTokens` headers renewed on expiry and 401,
+  principal propagation; on-premise destinations refused).
 
 ## Next
 
@@ -328,6 +334,4 @@ Nothing scheduled: the next items come from Later.
 - Versioning: versions of resource schemas, actions and events published side
   by side (`/v2/...`, `schema_version` per event type), deprecation notices in
   OpenAPI, AsyncAPI and GraphQL, and the contract checks comparing versions.
-- SAP: OData v2/v4 repository for S/4HANA APIs on top of the REST repository,
-  BTP destination service lookup.
 - Reference document processors (ClamAV scan, text extraction).

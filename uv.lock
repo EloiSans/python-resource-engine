@@ -2713,7 +2713,7 @@ requires-dist = [
     { name = "resource-engine", editable = "packages/resource-engine" },
     { name = "resource-engine-http", editable = "adapters/resource-engine-http" },
 ]
-provides-extras = ["event-mesh", "advanced-event-mesh", "all"]
+provides-extras = ["event-mesh", "advanced-event-mesh", "odata", "destinations", "all"]
 
 [[package]]
 name = "resource-engine-sentry"

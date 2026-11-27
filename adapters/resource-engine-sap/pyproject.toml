@@ -1,7 +1,7 @@
 [project]
 name = "resource-engine-sap"
 version = "0.1.0.dev0"
-description = "SAP BTP adapters for Resource Engine (SAP Event Mesh and Advanced Event Mesh publishers)."
+description = "SAP BTP adapters for Resource Engine: Event Mesh, advanced event mesh, OData repositories and BTP destinations."
 readme = "README.md"
 requires-python = ">=3.12"
 license = "Apache-2.0"
@@ -23,6 +23,8 @@ dependencies = ["resource-engine>=0.1.0.dev0,<0.2", "resource-engine-http>=0.1.0
 [project.optional-dependencies]
 event-mesh = []
 advanced-event-mesh = []
+odata = []
+destinations = []
 all = []
 
 [project.urls]
