@@ -21,6 +21,10 @@ class ListQuery:
     filters: Mapping[str, Any] = field(default_factory=dict)
     order_by: Sequence[str] = ()
     condition: Any = None
+    #: Translatable fields of the resource, and the languages to compare and
+    #: sort them in (set by the engine; see ``resource_engine.translatable``).
+    translatable: frozenset[str] = frozenset()
+    locales: Sequence[str] = ()
 
 
 @dataclass(frozen=True)

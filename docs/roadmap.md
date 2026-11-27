@@ -294,6 +294,11 @@
   sorting and paging to parameterised SQL per dialect; `TrinoEngine` and
   `BigQueryEngine` (`resource-engine-http`), `AthenaEngine` (`[athena]`), each
   with a scan or billing limit and a timeout; Trino in compose.
+- Translatable data: `Resource.translatable` fields stored as `{locale: text}`,
+  read in the request's language with fallbacks (base language,
+  `default_locale`, any), written per language or all at once
+  (`<field>_translations`), filtered and sorted in that language in memory and
+  in SQL (`COALESCE` over JSON paths).
 
 ## Next
 
@@ -307,8 +312,6 @@ Nothing scheduled: the next items come from Later.
 
 ### Later
 
-- Translatable data fields (a product name per language): storage,
-  filtering, sorting and the language a read returns.
 - Versioning: versions of resource schemas, actions and events published side
   by side (`/v2/...`, `schema_version` per event type), deprecation notices in
   OpenAPI, AsyncAPI and GraphQL, and the contract checks comparing versions.

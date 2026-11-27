@@ -909,6 +909,14 @@ class ResourceManager:
                 scoped = await self._related_scope(ctx, scoped, related)
             if scoped is None:
                 return Page([], 0, query.offset, query.limit)
+            if definition.resource_cls.translatable:
+                from resource_engine.translatable import locale_chain
+
+                scoped = dataclasses.replace(
+                    scoped,
+                    translatable=frozenset(definition.resource_cls.translatable),
+                    locales=tuple(locale_chain(definition.resource_cls.default_locale)),
+                )
             page = await ctx.repository().list(scoped)
             result = page.map(lambda e: self._to_read(ctx, e, rules))
             if expand:

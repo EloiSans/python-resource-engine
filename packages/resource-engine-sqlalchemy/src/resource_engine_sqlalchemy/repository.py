@@ -35,15 +35,24 @@ class SqlAlchemyRepository[E]:
     async def get(self, entity_id: Any) -> E | None:
         return await self.session.get(self.entity_cls, entity_id)
 
+    def _column(self, name: str, query: ListQuery) -> Any:
+        """A column, or for a translatable (JSON) one its text in the query's
+        languages: ``COALESCE(name->>'ca-ES', name->>'ca', ...)``."""
+        column = getattr(self.entity_cls, name)
+        if name not in query.translatable or not query.locales:
+            return column
+        texts = [column[locale].as_string() for locale in query.locales]
+        return func.coalesce(*texts) if len(texts) > 1 else texts[0]
+
     async def list(self, query: ListQuery) -> Page[E]:
         stmt = select(self.entity_cls)
         for field, value in query.filters.items():
-            stmt = stmt.where(getattr(self.entity_cls, field) == value)
+            stmt = stmt.where(self._column(field, query) == value)
         if query.condition is not None:
             stmt = stmt.where(compile_condition(query.condition, self.entity_cls))
         total = await self.session.scalar(select(func.count()).select_from(stmt.subquery()))
         for key in query.order_by:
-            column = getattr(self.entity_cls, key.lstrip("-"))
+            column = self._column(key.lstrip("-"), query)
             stmt = stmt.order_by(column.desc() if key.startswith("-") else column.asc())
         stmt = stmt.offset(query.offset).limit(query.limit)
         items = list((await self.session.scalars(stmt)).all())

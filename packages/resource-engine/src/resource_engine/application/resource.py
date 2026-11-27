@@ -179,26 +179,65 @@ class Resource:
     view: ClassVar[Any] = None
     cache_ttl: ClassVar[float | None] = None
     cache_control: ClassVar[str | None] = None
+    #: Fields holding one text per language (``{locale: text}``), read and
+    #: written in the request's language (``resource_engine.translatable``).
+    translatable: ClassVar[Sequence[str]] = ()
+    #: The language of translatable fields when the request names none.
+    default_locale: ClassVar[str | None] = None
 
     # --- Mapping between schemas and entities. Override when needed. ---
 
     @classmethod
     def build_entity(cls, data: BaseModel, ctx: OperationContext) -> Any:
         """Build a new entity from validated ``create`` input."""
-        return cls.model(**data.model_dump())
+        values = data.model_dump()
+        if cls.translatable:
+            from resource_engine.translatable import merge, write_locale
+
+            locale = write_locale(cls.default_locale)
+            for name in cls.translatable:
+                text = values.pop(name, None)
+                translations = values.pop(f"{name}_translations", None)
+                values[name] = merge({}, text, translations, locale)
+        return cls.model(**values)
 
     @classmethod
     def apply_update(cls, entity: Any, data: BaseModel, ctx: OperationContext) -> None:
         """Apply validated ``update`` input to an entity (only fields actually sent)."""
         protected = {cls.id_field, cls.version_field, *cls.definition().state_fields}
-        for key, value in data.model_dump(exclude_unset=True).items():
+        values = data.model_dump(exclude_unset=True)
+        if cls.translatable:
+            from resource_engine.translatable import merge, write_locale
+
+            locale = write_locale(cls.default_locale)
+            for name in cls.translatable:
+                if name in values or f"{name}_translations" in values:
+                    text = values.pop(name, None)
+                    translations = values.pop(f"{name}_translations", None)
+                    setattr(entity, name, merge(getattr(entity, name), text, translations, locale))
+        for key, value in values.items():
             if key not in protected:
                 setattr(entity, key, value)
 
     @classmethod
     def to_read(cls, entity: Any, ctx: OperationContext) -> Any:
         """Convert an entity into the ``read`` schema."""
-        return cls.schemas["read"].model_validate(entity, from_attributes=True)
+        read = cls.schemas["read"]
+        if not cls.translatable:
+            return read.model_validate(entity, from_attributes=True)
+        from resource_engine.translatable import locale_chain, localise
+
+        chain = locale_chain(cls.default_locale)
+        values = {}
+        for name in read.model_fields:
+            base = name.removesuffix("_translations")
+            if name != base and base in cls.translatable:
+                values[name] = dict(getattr(entity, base, None) or {})
+            elif name in cls.translatable:
+                values[name] = localise(getattr(entity, name, None), chain)
+            elif hasattr(entity, name):
+                values[name] = getattr(entity, name)
+        return read.model_validate(values)
 
     # --- Definition ---
 

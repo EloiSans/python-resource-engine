@@ -135,20 +135,23 @@ class InMemoryRepository[E]:
 
     async def list(self, query: ListQuery) -> Page[E]:
         from resource_engine.authz.conditions import matches
+        from resource_engine.translatable import localise
+
+        def value(entity: Any, name: str) -> Any:
+            found = getattr(entity, name, None)
+            return localise(found, query.locales) if name in query.translatable else found
 
         items = [
             e
             for e in self._table.values()
             if _of_kind(e, self._family)
-            and all(getattr(e, k, None) == v for k, v in query.filters.items())
+            and all(value(e, k) == v for k, v in query.filters.items())
             and matches(query.condition, e)
         ]
         for key in reversed(list(query.order_by)):
             desc = key.startswith("-")
             name = key.lstrip("-")
-            items.sort(
-                key=lambda e: (getattr(e, name, None) is None, getattr(e, name, None)), reverse=desc
-            )
+            items.sort(key=lambda e: (value(e, name) is None, value(e, name)), reverse=desc)
         total = len(items)
         return Page(
             items[query.offset : query.offset + query.limit], total, query.offset, query.limit
