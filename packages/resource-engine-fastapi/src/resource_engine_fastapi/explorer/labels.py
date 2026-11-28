@@ -115,6 +115,27 @@ LABELS: dict[str, str] = {
     "group_events": "Events (pub/sub)",
     "group_schedule": "Schedule (cron)",
     "group_other": "Other",
+    # publishing (PUB)
+    "dry_run": "Dry run",
+    "publish": "Publish",
+    "confirm_type": "Type the event's name to publish it",
+    "confirm_needed": "Type {type} in the confirmation field to publish it.",
+    "publish_off": "Publishing by hand is turned off in this application; dry runs work.",
+    "publish_note": (
+        "A dry run checks the payload against the event and the consumers that read it. "
+        "Publishing writes it to the outbox, tagged origin=console and audited; the "
+        "worker sends it like any other event."
+    ),
+    "no_problems": "The payload fits the event and its consumers.",
+    "problems_blocking": "The payload doesn't fit the event: it can't be published.",
+    "problems_consumers": "The event accepts it, but some consumers would refuse it.",
+    "published": "Published to the outbox:",
+    "deprecated": "deprecated",
+    "check": "Check",
+    "field": "Field",
+    "message": "Message",
+    "check_event": "the event",
+    "check_consumer": "consumer",
 }
 
 

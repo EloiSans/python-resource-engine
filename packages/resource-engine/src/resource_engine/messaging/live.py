@@ -124,7 +124,9 @@ class LiveEvents:
             if versions and str(envelope.schema_version) not in versions:
                 return False
             about, about_id = self.about(envelope)
-            if resource is not None and about != resource:
+            # the channel: the resource it is about, else the one that published it
+            channel = about or (envelope.payload or {}).get("resource") or envelope.resource
+            if resource is not None and channel != resource:
                 return False
             if entity_id is not None and about_id != entity_id:
                 return False

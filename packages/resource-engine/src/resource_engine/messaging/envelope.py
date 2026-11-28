@@ -36,6 +36,9 @@ class EventEnvelope:
         schema_version: Version of the payload's shape for this event type
             (``"1"`` unless the event declares one; older versions published
             side by side carry theirs, see ``resource_engine.versions``).
+        tags: Extra string attributes (``origin=console`` on events published
+            by hand from the explorer), sent as broker attributes and as
+            CloudEvents extensions. Names are lowercase letters and digits.
     """
 
     type: str
@@ -47,6 +50,7 @@ class EventEnvelope:
     key: str | None = None
     trace: Mapping[str, str] | None = None
     schema_version: str = SCHEMA_VERSION
+    tags: Mapping[str, str] | None = None
 
     def attributes(self) -> dict[str, str]:
         """String attributes for broker-level routing and filtering."""
@@ -60,6 +64,8 @@ class EventEnvelope:
         if self.correlation_id:
             attrs["correlation_id"] = self.correlation_id
         attrs.update(self.trace or {})
+        for name, value in (self.tags or {}).items():
+            attrs.setdefault(name, value)
         return attrs
 
     def to_dict(self) -> dict[str, Any]:
@@ -75,6 +81,8 @@ class EventEnvelope:
         }
         if self.trace:
             data["trace"] = dict(self.trace)
+        if self.tags:
+            data["tags"] = dict(self.tags)
         return data
 
     def to_json(self) -> str:
@@ -92,6 +100,7 @@ class EventEnvelope:
             payload=data.get("payload") or {},
             trace=data.get("trace") or None,
             schema_version=str(data.get("schema_version") or SCHEMA_VERSION),
+            tags=dict(data["tags"]) if data.get("tags") else None,
         )
 
     @classmethod

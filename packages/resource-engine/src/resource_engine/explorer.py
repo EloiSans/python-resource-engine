@@ -72,7 +72,9 @@ def register_explorer(
     if jobs:
         actions += [JOBS_READ, JOBS_RUN]
     if publish:
-        actions += [publish_action(event.__name__) for event in registry.event_types()]
+        from resource_engine.messaging.publishing import publishable_events
+
+        actions += [publish_action(event.__name__) for event in publishable_events(registry)]
     registry.register_actions(*actions)
 
 

@@ -328,3 +328,76 @@ def test_timers_become_cron_rows():
     assert reject["event"] == "reject" and reject["after_seconds"] == 30 * 86400
     assert reject["states"] == ["pending"] and reject["since"] == "status_changed_at"
     assert "customers" not in rows  # no timers declared
+
+
+# ----------------------------------------------------------------- PUB
+
+
+async def test_pub_dry_run_and_publish_over_http():
+    from dataclasses import dataclass as _dataclass
+
+    from resource_engine.domain.events import DomainEvent
+    from resource_engine.messaging import OutboxDelivery
+    from resource_engine.messaging.publishing import EventPublishing
+
+    @_dataclass(frozen=True, kw_only=True)
+    class NotePinned(DomainEvent):
+        """A note was pinned to the top."""
+
+        note_id: int
+
+    class PinnedNotes(NoteResource):
+        name = "pinned"
+        events = [NotePinned]
+
+    registry = ResourceRegistry()
+    registry.register(PinnedNotes)
+    registry.register_authz()
+    registry.register_audit()
+    register_explorer(registry)
+    store = InMemoryStore.from_registry(registry)
+    config = AuthzConfig(
+        role_source=IdpRoleSource({"operators": "operator", "watchers": "watcher"}),
+        system_roles=[
+            SystemRole("operator", grants=["events:publish:NotePinned"]),
+            SystemRole("watcher", grants=["*"], include_sensitive=True),
+        ],
+    )
+    manager = ResourceManager(
+        registry,
+        store.unit_of_work,
+        authorizer=PolicyAuthorizer(config, store.unit_of_work),
+        event_delivery=OutboxDelivery(),
+        audit=True,
+    )
+    app = FastAPI()
+    mount_resources(app, registry, manager, actor_dependency=actor)
+    publishing = EventPublishing(manager, allow_publish=True)
+    mount_explorer(app, manager, actor_dependency=actor, publish=publishing)
+    operator = {"Authorization": "Bearer operator"}
+    async with client(app) as api:
+        config_js = (await api.get("/explorer/config.js")).text
+        data = json.loads(config_js.removeprefix("window.CONSOLE = ").rstrip(";\n"))
+        [pinned] = data["publish"]["events"]["pinned"]
+        assert pinned["type"] == "NotePinned" and pinned["versions"][0]["example"] == {"note_id": 0}
+
+        body = {"type": "NotePinned", "payload": {"note_id": "x"}}
+        bad = await api.post("/_explorer/publish/dry-run", json=body, headers=operator)
+        assert bad.json()["blocking"] and bad.json()["problems"][0]["path"] == "note_id"
+        refused = await api.post("/_explorer/publish", json=body, headers=operator)
+        assert refused.status_code == 422  # the event refuses it: nothing is published
+
+        good = {"type": "NotePinned", "payload": {"note_id": 3}}
+        sent = await api.post("/_explorer/publish", json=good, headers=operator)
+        assert sent.status_code == 202
+        [envelope] = sent.json()["envelopes"]
+        assert envelope["tags"]["origin"] == "console" and envelope["resource"] == "pinned"
+
+        watcher = {"Authorization": "Bearer watcher"}  # "*": not enough to publish
+        assert (await api.post("/_explorer/publish", json=good, headers=watcher)).status_code == 403
+        unknown = {"type": "Nope", "payload": {}}
+        assert (await api.post("/_explorer/publish/dry-run", json=unknown,
+                               headers=operator)).status_code == 404  # fmt: skip
+    async with store.unit_of_work() as uow:
+        [record] = await uow.outbox().pending(10)
+    assert record.envelope.id == envelope["id"]

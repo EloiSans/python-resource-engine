@@ -115,6 +115,14 @@
       rows[rows.length - 1].op = op;
       add(kindOf(name, op), element);
     });
+    var publishable = C.publish && C.publish.events ? C.publish.events[name] || [] : [];
+    publishable.forEach(function (event) {
+      var current = event.versions[event.versions.length - 1];
+      var version = el("span", { className: "badge", text: "v" + current.version });
+      add("events", row(name, "PUB", name + "/" + event.type, event.summary, function () {
+        return R.publish(name, event);
+      }, version));
+    });
     var events = C.events && C.events.channels ? C.events.channels[name] || [] : [];
     events.forEach(function (event) {
       var version = el("span", { className: "badge", text: "v" + event.version });

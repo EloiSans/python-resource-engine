@@ -89,4 +89,3 @@ Els rols de sistema es defineixen al codi i no es poden modificar des del front-
 | `jobs:run` | ✓ |  |
 | `events:publish:InvoiceTotalsRecalculated` |  |  |
 | `events:publish:PaymentOverdue` |  |  |
-| `events:publish:PolicyChanged` |  |  |

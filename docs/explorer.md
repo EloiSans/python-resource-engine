@@ -10,7 +10,7 @@ to the HTTP verbs it lists what else the application does:
 | `GET` `POST` `PUT` `PATCH` `DELETE` | An HTTP operation (`/invoices/{entity_id}`) | Its parameters and a JSON body to start from. A record read lists its allowed transitions; a refusal explains itself (`/authz/explain`); files (exports, printouts, documents) come as download links |
 | `SUB` | An event type a resource publishes (`invoices/ResourceCreated`, with its schema version) | Its committed events, live, filtered by record id; each with its envelope, payload, record and which consumers handled it |
 | `CRON` | A timed transition (`invoices/reject`), or a worker job in the `worker` section | When it fires and when it is due for one record; a job's schedule, runs and "run now" |
-| `PUB` | An event the application lets you publish by hand (coming next) | — |
+| `PUB` | An event the application lets people publish by hand (`invoices/InvoiceTotalsRecalculated`) | A payload to start from per schema version, a dry run against the event and its consumers, and publishing through the outbox |
 
 Inside each resource the rows are grouped in collapsible blocks by what they
 do. Only CRUD is open at first, and each header shows how many rows it holds
@@ -22,7 +22,7 @@ and which verbs:
 - **Relations:** related records (`/customers/{id}/invoices`).
 - **Documents:** attaching, uploading and removing documents.
 - **Export and print:** the exports and printouts.
-- **Events (pub/sub):** the `SUB` (and `PUB`) rows.
+- **Events (pub/sub):** the `PUB` and `SUB` rows.
 - **Schedule (cron):** the timed transitions.
 
 A box at the top filters the rows by verb, path or description. While it
@@ -56,7 +56,7 @@ if settings.explorer:  # off in production unless you decide
 ```
 
 `http://localhost:8000/explorer/` serves the page. `SUB` rows need `events`,
-and `CRON` rows need `jobs`.
+`CRON` rows need `jobs`, and `PUB` rows need `publish`.
 
 - **No build step and no devtools:** the page and its scripts ship with
   `resource-engine-fastapi` and are built from the running app's OpenAPI
@@ -74,6 +74,7 @@ Arguments of `mount_explorer`:
 | `events` | An `EventHub` fed with committed events: the `SUB` rows |
 | `activity` | An `ActivityLog`: which consumers handled each event, and the workers' jobs |
 | `jobs` | The `CRON` rows: needs `activity`, the same log the workers write to |
+| `publish` | An `EventPublishing`: the `PUB` rows |
 | `path`, `api_prefix` | Where the page (`/explorer`) and its endpoints (`/_explorer`) are served |
 | `open` | Allow the endpoints without an authorizer. **Local development only**: anyone could watch every event |
 | `title`, `csp` | The page's title, and its Content-Security-Policy (the same default as `mount_docs`) |
@@ -88,7 +89,7 @@ see them like any other action ([permissions](permissions.md#actions)):
 |---|---|
 | `events:read` | Every committed event with its payload, including events about no record |
 | `jobs:read`, `jobs:run` | The workers' jobs and their runs; asking for a run now |
-| `events:publish:<Event>` | Publishing that event by hand (later parts). **Exact:** no wildcard grants it, not even `*` |
+| `events:publish:<Event>` | A dry run of that event, and publishing it by hand. **Exact:** no wildcard grants it, not even `*` |
 
 Without `events:read`, a caller still sees the events about records they can
 read: their permission, row filter and tenant apply. They see the record as
@@ -212,6 +213,57 @@ In the page, "Run now" needs "Allow changes", like any write. The page then
 follows the request until a worker finishes it. The timers form shows each
 transition waiting on a record, with its due time; overdue ones run on the
 next `TimerJob` run.
+
+## PUB
+
+Testing a consumer often needs one particular event: an invoice approved with
+an odd amount, an older schema version, a payment that never arrives. A `PUB`
+row lets an authorized person write it and send it the way the application
+sends its own:
+
+```python
+from resource_engine.messaging.publishing import EventPublishing
+
+publishing = EventPublishing(manager, consumers=[billing_router], allow_publish=settings.publish)
+mount_explorer(app, manager, ..., publish=publishing)
+```
+
+- **Which events:** those the application's resources declare
+  (`Resource.events`), in every version they publish (`schema_version` and
+  `previous_versions`). Engine events (`ResourceCreated`...) can't be
+  published by hand: they describe changes that must really happen.
+- **Dry run** (`POST /_explorer/publish/dry-run`): the payload is checked
+  against the event's own model for that version, then against the payload
+  model of each consumer given (`consumers=`, `EventRouter`s) that reads
+  that version. The problems come back with the check, the field and the
+  message. Nothing is written.
+- **Publishing** (`POST /_explorer/publish`):
+  - It needs `allow_publish=True`; without it only dry runs work.
+  - The payload must fit the event, which is a 422 otherwise. A payload a
+    consumer would refuse can still go out, to test how that consumer copes
+    (retries, dead letters).
+  - The envelope goes into the outbox in its own transaction, with an
+    audit entry, and the relay sends it like any other event. It never
+    goes straight to a broker.
+  - The envelope is tagged `origin=console` and `publishedby=<actor>`. The
+    tags travel as broker attributes and CloudEvents extensions, so
+    consumers can tell.
+  - Publishing the current version also publishes the older versions the
+    event keeps, converted. An older version is published alone.
+- **Permission:** `events:publish:<Event>`, for the dry run too. It is
+  exact: grant it by name, one event at a time. No role has it by default,
+  not even the administrator's `*`. Policy editors can't grant what they
+  don't hold, so it comes from code:
+  - a system role naming it,
+    `SystemRole("integrator", grants=["events:publish:PaymentOverdue"])`;
+  - or a seed policy written as the system principal, as the example's
+    `invoices.authz.seed` does for its policies.
+- **In the page:** "Publish" needs "Allow changes" and the event's name
+  typed in the confirmation field. The new event then appears in the
+  matching `SUB` row.
+
+The example mounts it with its process managers as consumers. Dry runs always
+work; `EXPLORER_PUBLISH=1` turns publishing on.
 
 ## In production
 

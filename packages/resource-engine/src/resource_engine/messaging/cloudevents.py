@@ -15,6 +15,7 @@ CloudEvents         EventEnvelope
 ``correlationid``   ``correlation_id`` (extension)
 ``resource``        ``resource`` (extension)
 ``partitionkey``    ``key`` (partitioning extension)
+other extensions    ``tags`` (``origin=console``...)
 ==================  =========================================
 """
 
@@ -28,6 +29,15 @@ from typing import Any
 from resource_engine.messaging.envelope import SCHEMA_VERSION, EventEnvelope
 
 CONTENT_TYPE = "application/cloudevents+json; charset=utf-8"
+
+#: Attributes this mapping reads; any other extension becomes a tag.
+KNOWN = frozenset(
+    {
+        "specversion", "id", "source", "type", "time", "datacontenttype", "dataschema",
+        "schemaversion", "data", "data_base64", "subject", "partitionkey", "correlationid",
+        "resource", "traceparent", "tracestate",
+    }
+)  # fmt: skip
 
 
 def to_cloudevent(envelope: EventEnvelope, *, source: str, type_prefix: str = "") -> dict[str, Any]:
@@ -52,6 +62,8 @@ def to_cloudevent(envelope: EventEnvelope, *, source: str, type_prefix: str = ""
     for name in ("traceparent", "tracestate"):  # distributed tracing extension
         if envelope.trace and envelope.trace.get(name):
             event[name] = envelope.trace[name]
+    for name, value in (envelope.tags or {}).items():
+        event.setdefault(name, value)
     return event
 
 
@@ -81,4 +93,5 @@ def from_cloudevent(
         key=data.get("partitionkey") or data.get("subject"),
         trace={k: data[k] for k in ("traceparent", "tracestate") if data.get(k)} or None,
         schema_version=str(data.get("schemaversion") or SCHEMA_VERSION),
+        tags={k: str(v) for k, v in data.items() if k not in KNOWN} or None,
     )

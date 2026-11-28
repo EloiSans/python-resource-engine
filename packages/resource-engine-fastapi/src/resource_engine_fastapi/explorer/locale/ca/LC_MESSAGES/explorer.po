@@ -290,3 +290,57 @@ msgstr "Programació (cron)"
 msgid "Other"
 msgstr "Altres"
 
+msgid "Dry run"
+msgstr "Prova sense publicar"
+
+msgid "Publish"
+msgstr "Publica"
+
+msgid "Type the event's name to publish it"
+msgstr "Escriu el nom de l'esdeveniment per publicar-lo"
+
+#, python-brace-format
+msgid "Type {type} in the confirmation field to publish it."
+msgstr "Escriu {type} al camp de confirmació per publicar-lo."
+
+msgid "Publishing by hand is turned off in this application; dry runs work."
+msgstr "Publicar a mà està desactivat en aquesta aplicació; les proves sí que funcionen."
+
+msgid ""
+"A dry run checks the payload against the event and the consumers that read it. Publishing writes "
+"it to the outbox, tagged origin=console and audited; the worker sends it like any other event."
+msgstr ""
+"La prova comprova les dades contra l'esdeveniment i els consumidors que el llegeixen. Publicar "
+"l'escriu a la sortida (outbox), marcat amb origin=console i auditat; el treballador l'envia com "
+"qualsevol altre esdeveniment."
+
+msgid "The payload fits the event and its consumers."
+msgstr "Les dades encaixen amb l'esdeveniment i els seus consumidors."
+
+msgid "The payload doesn't fit the event: it can't be published."
+msgstr "Les dades no encaixen amb l'esdeveniment: no es pot publicar."
+
+msgid "The event accepts it, but some consumers would refuse it."
+msgstr "L'esdeveniment les accepta, però alguns consumidors les rebutjarien."
+
+msgid "Published to the outbox:"
+msgstr "Publicat a la sortida (outbox):"
+
+msgid "deprecated"
+msgstr "obsoleta"
+
+msgid "Check"
+msgstr "Comprovació"
+
+msgid "Field"
+msgstr "Camp"
+
+msgid "Message"
+msgstr "Missatge"
+
+msgid "the event"
+msgstr "l'esdeveniment"
+
+msgid "consumer"
+msgstr "consumidor"
+

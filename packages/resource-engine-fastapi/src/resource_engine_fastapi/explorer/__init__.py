@@ -17,6 +17,8 @@ Laid out like Swagger UI: a section per resource, a row per verb.
   ``ActivityLog``).
 - ``CRON`` (``jobs=True``, with ``activity``): each timed transition, and each
   worker job with its runs and "run now".
+- ``PUB`` (``publish=`` an ``EventPublishing``): each event the application
+  lets people publish by hand, with a dry run.
 
 Everything calls the running API with the visitor's own token: they see and
 do exactly what they may. Reads only, until they tick "Allow changes". The
@@ -46,7 +48,7 @@ from resource_engine_fastapi.explorer import data, labels
 from resource_engine_fastapi.explorer.data import console_data
 from resource_engine_fastapi.explorer.labels import locales
 
-ASSETS = ("console.js", "events.js", "jobs.js", "explorer.js", "explorer.css")
+ASSETS = ("console.js", "events.js", "jobs.js", "publish.js", "explorer.js", "explorer.css")
 
 
 def asset(name: str) -> str:
@@ -144,6 +146,7 @@ def explorer_config(
     deliveries: bool,
     locale: str | None,
     jobs: bool = False,
+    publish: Any = None,
 ) -> dict[str, Any]:
     """What the explorer's scripts read as ``window.CONSOLE``."""
     openapi = app.openapi()
@@ -173,6 +176,10 @@ def explorer_config(
             "timer_resources": [d.name for d in manager.registry if d.timers],
             "timers_by_resource": timer_rows(manager.registry),
         }
+    if publish is not None:
+        from resource_engine_fastapi.explorer.publish import publish_config
+
+        config["publish"] = publish_config(publish, api_prefix)
     return config
 
 
@@ -202,6 +209,7 @@ def _page(title: str, locale: str | None, root: str) -> str:
             "assets/console.js",
             "assets/events.js",
             "assets/jobs.js",
+            "assets/publish.js",
             "assets/explorer.js",
         )
     )
@@ -233,6 +241,7 @@ def mount_explorer(
     events: Any = None,
     activity: Any = None,
     jobs: bool = False,
+    publish: Any = None,
     open: bool = False,
     title: str | None = None,
     csp: str | None = CSP,
@@ -246,6 +255,8 @@ def mount_explorer(
             (with ``jobs``) the workers' jobs and runs.
         jobs: The ``CRON`` rows: needs ``activity``, and workers built with
             ``JobRunner(activity=...)`` on the same log.
+        publish: An ``EventPublishing``: the ``PUB`` rows (a dry run, and
+            publishing when it allows it).
         open: Allow the explorer's endpoints without an authorizer (local
             development only: anyone could see every event).
         csp: Content-Security-Policy of the page.
@@ -274,6 +285,10 @@ def mount_explorer(
         api.include_router(
             build_jobs_router(manager, activity, actor_dependency=actor_dependency, open=open)
         )
+    if publish is not None:
+        from resource_engine_fastapi.explorer.publish import build_publish_router
+
+        api.include_router(build_publish_router(publish, actor_dependency=actor_dependency))
     app.include_router(api)
     root = path.rstrip("/")
     page_title = title or getattr(app, "title", None) or "API"
@@ -299,6 +314,7 @@ def mount_explorer(
             deliveries=activity is not None,
             locale=_locale(request),
             jobs=jobs,
+            publish=publish,
         )
         body = json.dumps(payload, ensure_ascii=False).replace("</", "<\\/")
         return Response(

@@ -368,6 +368,13 @@
   type, `CRON` for timed transitions and worker jobs), each opening into its
   form, with a filter; `OutboxDelivery(live=hub)` hands committed envelopes to
   live subscribers too; holders of `events:read` see every committed event.
+- Explorer PUB (`docs/explorer.md#pub`): `EventPublishing` lists the
+  application's events per schema version with an example payload, dry-runs
+  a payload against the event and its consumers' payload models, and
+  publishes through the outbox in its own audited transaction, tagged
+  `origin=console` (`EventEnvelope.tags`, also broker attributes and
+  CloudEvents extensions); `events:publish:<Event>` is exact and publishing
+  needs `allow_publish=True`.
 
 ## Next
 
@@ -377,10 +384,7 @@ what follows builds on it.
 
 ### Soon
 
-- Explorer, part 3: a dry run of publishing an event, validated against its
-  schema and the app's consumers.
-- Explorer, part 4: publishing an event by hand through the outbox, tagged
-  and audited.
+Nothing scheduled: the next items come from Later.
 
 ### Later
 

@@ -26,7 +26,9 @@ from resource_engine.authz import ApiKeyAuthenticator, PolicyAuthorizer, system_
 from resource_engine.cache import InMemoryCache
 from resource_engine.i18n import set_translations
 from resource_engine.messaging import EventHub, OutboxDelivery
+from resource_engine.messaging.publishing import EventPublishing
 from resource_engine.ports.identity import Authenticator
+from resource_engine.processes import ProcessRunner
 from resource_engine.ratelimit import (
     InMemoryRateLimitStore,
     Limit,
@@ -184,6 +186,13 @@ def create_app(
             events=hub,  # SUB: committed events, live
             activity=activity_log(session_factory),
             jobs=True,
+            # PUB: dry runs against the process managers; publishing for real only
+            # with EXPLORER_PUBLISH=1, and for roles granted events:publish:<Event>
+            publish=EventPublishing(
+                manager,
+                consumers=[ProcessRunner(manager).router()],
+                allow_publish=os.getenv("EXPLORER_PUBLISH") == "1",
+            ),
         )
     mount_asyncapi(app, registry)  # GET /asyncapi.json: the events it publishes
     return app

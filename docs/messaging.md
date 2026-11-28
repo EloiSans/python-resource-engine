@@ -48,6 +48,9 @@ class InvoiceResource(Resource):
 The outbox needs a unit of work with `outbox()` (`SupportsOutbox`):
 `InMemoryUnitOfWork`, or `SqlAlchemyUnitOfWork(..., outbox_table=outbox_table(metadata))`.
 Using `OutboxDelivery` with another unit of work fails with RE-E403.
+Envelopes may carry `tags`, extra string attributes such as `origin=console`
+on events published by hand from the [explorer](explorer.md#pub). They are
+sent as broker attributes and CloudEvents extensions.
 `OutboxDelivery(live=hub)` also hands the same envelopes to an `EventHub` in
 this process right after the commit, for [live subscribers](#live-subscribers)
 such as the explorer. It is best effort, and the outbox stays the source of

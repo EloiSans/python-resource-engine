@@ -288,3 +288,17 @@ async def test_the_outbox_also_feeds_live_subscribers():
         [stored] = await uow.outbox().pending(10)
     assert live.id == stored.envelope.id  # the same envelope: deliveries line up
     assert live.payload["entity_id"] == bill.id
+
+
+async def test_a_resource_channel_includes_its_events_about_no_record():
+    hub = EventHub()
+    manager, _ = build(hub)
+    live = LiveEvents(manager, hub)
+    watcher = asyncio.create_task(take(live.stream(WATCHER, resource="bills", everything=True), 1))
+    reader = asyncio.create_task(take(live.stream(READER, resource="bills"), 1, timeout=0.3))
+    await started(hub, 1)
+    await hub.publish([EventEnvelope(type="BillPaid", payload={"bill_id": 1}, resource="bills",
+                                     occurred_at=datetime.now(UTC))])  # fmt: skip
+    [paid] = await watcher
+    assert paid.envelope.type == "BillPaid" and paid.resource is None
+    assert await reader == []  # about no record: only with events:read

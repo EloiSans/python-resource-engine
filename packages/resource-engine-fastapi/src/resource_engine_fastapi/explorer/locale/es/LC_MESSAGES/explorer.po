@@ -290,3 +290,57 @@ msgstr "Programación (cron)"
 msgid "Other"
 msgstr "Otros"
 
+msgid "Dry run"
+msgstr "Probar sin publicar"
+
+msgid "Publish"
+msgstr "Publicar"
+
+msgid "Type the event's name to publish it"
+msgstr "Escribe el nombre del evento para publicarlo"
+
+#, python-brace-format
+msgid "Type {type} in the confirmation field to publish it."
+msgstr "Escribe {type} en el campo de confirmación para publicarlo."
+
+msgid "Publishing by hand is turned off in this application; dry runs work."
+msgstr "Publicar a mano está desactivado en esta aplicación; las pruebas sí funcionan."
+
+msgid ""
+"A dry run checks the payload against the event and the consumers that read it. Publishing writes "
+"it to the outbox, tagged origin=console and audited; the worker sends it like any other event."
+msgstr ""
+"La prueba comprueba los datos contra el evento y los consumidores que lo leen. Publicar lo "
+"escribe en la salida (outbox), marcado con origin=console y auditado; el trabajador lo envía como"
+" cualquier otro evento."
+
+msgid "The payload fits the event and its consumers."
+msgstr "Los datos encajan con el evento y sus consumidores."
+
+msgid "The payload doesn't fit the event: it can't be published."
+msgstr "Los datos no encajan con el evento: no se puede publicar."
+
+msgid "The event accepts it, but some consumers would refuse it."
+msgstr "El evento los acepta, pero algunos consumidores los rechazarían."
+
+msgid "Published to the outbox:"
+msgstr "Publicado en la salida (outbox):"
+
+msgid "deprecated"
+msgstr "obsoleta"
+
+msgid "Check"
+msgstr "Comprobación"
+
+msgid "Field"
+msgstr "Campo"
+
+msgid "Message"
+msgstr "Mensaje"
+
+msgid "the event"
+msgstr "el evento"
+
+msgid "consumer"
+msgstr "consumidor"
+
