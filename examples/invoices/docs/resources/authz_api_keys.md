@@ -1,7 +1,5 @@
 # authz_api_keys
 
-`resource_engine.authz.apikeys.ApiKeyResource` — entitat `ApiKey`
-
 API keys for machine clients that cannot use OAuth.
 
 ## Àmbit de negoci
@@ -10,21 +8,17 @@ Permissions
 
 ## Operacions
 
-| Operació | Tipus | Endpoint | Entrada | Sortida | Descripció |
-|---|---|---|---|---|---|
-| `list` | crud | `GET /authz_api_keys` |  | ApiKeyRead | Lists the API keys (never their secrets). |
-| `get` | crud | `GET /authz_api_keys/{id}` |  | ApiKeyRead | Returns an API key (never its secret). |
-| `create` | crud | `POST /authz_api_keys` | ApiKeyCreate | ApiKeyRead | Creates an API key; the response carries the full key, once. |
-| `update` | crud | `PATCH /authz_api_keys/{id}` | ApiKeyUpdate | ApiKeyRead | Renames a key or changes its expiry. |
-| `revoke` | transition | `POST /authz_api_keys/{id}/transitions/revoke` |  | ApiKeyRead | Withdraw the key at once. |
-
-Filtres: `status`, `tenant`, `created_by` · Ordenació: `name`, `created_at`, `last_used_at`, `expires_at`
+| Operació | Tipus | Descripció |
+|---|---|---|
+| `list` | crud | Lists the API keys (never their secrets). |
+| `get` | crud | Returns an API key (never its secret). |
+| `create` | crud | Creates an API key; the response carries the full key, once. |
+| `update` | crud | Renames a key or changes its expiry. |
+| `revoke` | transition | Withdraw the key at once. |
 
 Auditoria: s'auditen els canvis i els intents denegats.
 
 ## Màquina d'estats
-
-`resource_engine.authz.apikeys.ApiKeyStates` — camp `status`
 
 Lifecycle of an API key.
 
@@ -52,55 +46,18 @@ Els passos **abans de confirmar** són dins la transacció: si un falla, el canv
 
 ### Crear (`create`)
 
-1. Es valida l'entrada (`ApiKeyCreate`).
-2. Abans de desar: `_check_new_key` — The roles exist and grant nothing the creator lacks; the tenant is the
+1. Es valida l'entrada.
+2. Abans de desar: The roles exist and grant nothing the creator lacks; the tenant is the
 3. Es desa el registre nou.
 4. Es confirma el canvi, amb l'auditoria i els esdeveniments.
 
 ```mermaid
 flowchart LR
     s0["Validar"]
-    s1["_check_new_key"]
+    s1["The roles exist and grant nothing the c…"]
     s0 --> s1
     s2["Desar"]
     s1 --> s2
     s3{{"Confirmar"}}
     s2 --> s3
 ```
-
-| Punt | Hook | Efectes externs | Descripció |
-|---|---|---|---|
-| `before_create` | `_check_new_key` | no | The roles exist and grant nothing the creator lacks; the tenant is the |
-
-## Esquemes
-
-### ApiKeyCreate (create)
-
-| Camp | Tipus | Obligatori | Descripció |
-|---|---|---|---|
-| `name` | `str` | sí | What the key is for |
-| `roles` | `list[str]` | sí | Roles the key acts with (at most the creator's) |
-| `expires_at` | `datetime \| None` | no | When it stops working |
-| `tenant` | `str \| None` | no | Tenant it acts in (default: the creator's) |
-
-### ApiKeyUpdate (update)
-
-| Camp | Tipus | Obligatori | Descripció |
-|---|---|---|---|
-| `name` | `str \| None` | no | — |
-| `expires_at` | `datetime \| None` | no | — |
-
-### ApiKeyRead (read)
-
-| Camp | Tipus | Obligatori | Descripció |
-|---|---|---|---|
-| `id` | `str` | sí | Key id: the key starts with rek_<id>_ |
-| `name` | `str` | sí | — |
-| `roles` | `list[str]` | sí | — |
-| `tenant` | `str \| None` | no | — |
-| `status` | `str` | sí | active or revoked |
-| `expires_at` | `datetime \| None` | no | — |
-| `last_used_at` | `datetime \| None` | no | Last request (to a minute) |
-| `created_at` | `datetime \| None` | no | — |
-| `created_by` | `str \| None` | no | — |
-| `key` | `str \| None` | no | The full key, only in the create response: store it now, it is not shown again |

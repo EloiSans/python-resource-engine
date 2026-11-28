@@ -4,7 +4,7 @@ Els processos amb estats de cada recurs, dibuixats a partir de la definició exe
 
 ## invoices: approval
 
-Recurs [invoices](resources/invoices.md) — camp `status` — `invoices.domain.state_machine.InvoiceStateMachine`
+Recurs [invoices](resources/invoices.md)
 
 Procés d'aprovació i cobrament d'una factura.
 
@@ -28,7 +28,7 @@ Transicions automàtiques: `reject` després de 30d.
 
 ## invoices: delivery
 
-Recurs [invoices](resources/invoices.md) — camp `delivery_status` — `invoices.domain.state_machine.InvoiceDelivery`
+Recurs [invoices](resources/invoices.md)
 
 Enviament d'una factura al client, independent de la seva aprovació.
 
@@ -45,7 +45,7 @@ stateDiagram-v2
 
 ## invoice_payments: status
 
-Recurs [invoice_payments](resources/invoice_payments.md) — camp `status` — `invoices.domain.state_machine.PaymentFlow`
+Recurs [invoice_payments](resources/invoice_payments.md)
 
 Cobrament d'una factura aprovada.
 
@@ -65,7 +65,7 @@ Transicions automàtiques: `expire` després de 15d.
 
 ## documents: status
 
-Recurs [documents](resources/documents.md) — camp `status` — `resource_engine.documents.machine.DocumentStateMachine`
+Recurs [documents](resources/documents.md)
 
 Life of a document from upload to deletion.
 
@@ -91,7 +91,7 @@ stateDiagram-v2
 
 ## authz_api_keys: status
 
-Recurs [authz_api_keys](resources/authz_api_keys.md) — camp `status` — `resource_engine.authz.apikeys.ApiKeyStates`
+Recurs [authz_api_keys](resources/authz_api_keys.md)
 
 Lifecycle of an API key.
 

@@ -20,3 +20,10 @@ Tots els diagrames d'estats: [màquines d'estats](state-machines.md).
 Els correus que envia l'aplicació: [correus](emails.md).
 
 Vegeu també la [matriu de permisos](permissions.md).
+
+## Documents de l'API
+
+Descripcions de l'API llegibles per màquina:
+
+- [`openapi.json`](openapi.json): OpenAPI: l'API HTTP
+- [`asyncapi.json`](asyncapi.json): AsyncAPI: els esdeveniments publicats i consumits

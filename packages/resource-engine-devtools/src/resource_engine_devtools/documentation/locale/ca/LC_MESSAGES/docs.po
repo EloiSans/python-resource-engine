@@ -33,10 +33,6 @@ msgstr "el camp es buida"
 msgid "deleted in cascade"
 msgstr "s'eliminen en cascada"
 
-#, python-brace-format
-msgid "`{qualname}` — entity `{model}`"
-msgstr "`{qualname}` — entitat `{model}`"
-
 msgid "Operations"
 msgstr "Operacions"
 
@@ -46,14 +42,8 @@ msgstr "Operació"
 msgid "Kind"
 msgstr "Tipus"
 
-msgid "Endpoint"
-msgstr "Endpoint"
-
 msgid "Input"
 msgstr "Entrada"
-
-msgid "Output"
-msgstr "Sortida"
 
 msgid "Description"
 msgstr "Descripció"
@@ -88,35 +78,12 @@ msgstr ""
 "comuns, les màquines d'estats i els hooks."
 
 #, python-brace-format
-msgid "Filters: {filters} · Sorting: {sorting}"
-msgstr "Filtres: {filters} · Ordenació: {sorting}"
-
-#, python-brace-format
 msgid ""
 "Multi-tenant: each record belongs to the tenant in `{field}`; operations are limited to the "
 "caller's tenant."
 msgstr ""
 "Multi-inquilí: cada registre pertany a l'inquilí del camp `{field}`; les operacions es limiten a "
 "l'inquilí de qui crida."
-
-#, python-brace-format
-msgid ""
-"Optimistic concurrency: `{field}` is the record's version (`ETag` header); updates send `If-"
-"Match` and an old version is refused with 409."
-msgstr ""
-"Concurrència optimista: el camp `{field}` és la versió del registre (capçalera `ETag`); les "
-"modificacions envien `If-Match` i una versió antiga es rebutja amb 409."
-
-msgid "Writes without a version are refused (428)."
-msgstr "Les escriptures sense versió es rebutgen (428)."
-
-#, python-brace-format
-msgid ""
-"Restricted fields: {fields} — they need an explicit grant (`{name}:read:<field>`, "
-"`{name}:write:<field>`); otherwise they are left out of the answers."
-msgstr ""
-"Camps restringits: {fields} — cal una concessió explícita (`{name}:read:<camp>`, "
-"`{name}:write:<camp>`); si no, s'ometen de les respostes."
 
 msgid "not audited."
 msgstr "no s'audita."
@@ -141,10 +108,6 @@ msgstr "Màquina d'estats `{name}`"
 
 msgid "State machine"
 msgstr "Màquina d'estats"
-
-#, python-brace-format
-msgid "`{qualname}` — field `{field}`"
-msgstr "`{qualname}` — camp `{field}`"
 
 msgid "State"
 msgstr "Estat"
@@ -222,29 +185,12 @@ msgstr "Recurs"
 msgid "When it is deleted"
 msgstr "En eliminar-lo"
 
-msgid ""
-"With `expand` (`?expand=` over HTTP) the answer includes the related record; `<relation>.<field>`"
-" filters use the related resource's filterable fields."
-msgstr ""
-"Amb `expand` (`?expand=` per HTTP) la resposta inclou el registre relacionat; els filtres "
-"`<relació>.<camp>` filtren pels camps filtrables del recurs relacionat."
-
 #, python-brace-format
 msgid "Referenced by: {refs}."
 msgstr "Hi fan referència: {refs}."
 
-msgid "Reverse relation"
-msgstr "Relació inversa"
-
 msgid "Records"
 msgstr "Registres"
-
-msgid "Route"
-msgstr "Ruta"
-
-#, python-brace-format
-msgid "| `{name}` or `{name}:25` (one page) |"
-msgstr "| `{name}` o `{name}:25` (una pàgina) |"
 
 msgid "Many-to-many relations"
 msgstr "Relacions molts a molts"
@@ -313,9 +259,6 @@ msgid ""
 msgstr ""
 "Es demanen dins la transacció i s'envien quan el canvi s'ha confirmat; si el canvi es desfà, no "
 "s'envien."
-
-msgid "Schemas"
-msgstr "Esquemes"
 
 #, python-brace-format
 msgid "on the `{name}` action"
@@ -439,10 +382,6 @@ msgstr ""
 "es desa res. Els passos **després de confirmar** s'executen amb el canvi ja desat: un error queda"
 " registrat, però no el desfà."
 
-#, python-brace-format
-msgid "The input is validated (`{schema}`)"
-msgstr "Es valida l'entrada (`{schema}`)"
-
 msgid "The input is validated"
 msgstr "Es valida l'entrada"
 
@@ -478,15 +417,6 @@ msgstr "Correu {name}"
 
 msgid "After any committed change of this resource:"
 msgstr "Després de qualsevol canvi confirmat d'aquest recurs:"
-
-msgid "Point"
-msgstr "Punt"
-
-msgid "Hook"
-msgstr "Hook"
-
-msgid "External effects"
-msgstr "Efectes externs"
 
 msgid "external effect"
 msgstr "efecte extern"
@@ -564,10 +494,6 @@ msgstr ""
 "màquina. Els detalls de cada estat i transició són a la pàgina del recurs."
 
 #, python-brace-format
-msgid "Resource [{name}](resources/{name}.md) — field `{field}` — `{qualname}`"
-msgstr "Recurs [{name}](resources/{name}.md) — camp `{field}` — `{qualname}`"
-
-#, python-brace-format
 msgid "`{event}` after {after}"
 msgstr "`{event}` després de {after}"
 
@@ -637,46 +563,21 @@ msgstr "Camps restringits: {fields} — només els veuen o modifiquen els rols a
 msgid "Resource [{name}](resources/{name}.md)"
 msgstr "Recurs [{name}](resources/{name}.md)"
 
-msgid "HTTP API"
-msgstr "API HTTP"
-
-msgid "GraphQL"
-msgstr "GraphQL"
-
 msgid "Messages the application publishes after each committed change."
 msgstr "Missatges que l'aplicació publica després de cada canvi confirmat."
-
-#, python-brace-format
-msgid "{title} {version}, from the OpenAPI document of the application: [`openapi.json`](openapi.json)."
-msgstr "{title} {version}, a partir del document OpenAPI de l'aplicació: [`openapi.json`](openapi.json)."
-
-msgid "Other"
-msgstr "Altres"
-
-msgid "Method"
-msgstr "Mètode"
-
-msgid "Path"
-msgstr "Ruta"
-
-msgid "Summary"
-msgstr "Resum"
-
-msgid "Body"
-msgstr "Cos"
-
-msgid "Responses"
-msgstr "Respostes"
-
-msgid "Payloads"
-msgstr "Dades dels missatges"
-
-msgid "The JSON schema of each message, from [`asyncapi.json`](asyncapi.json)."
-msgstr "L'esquema JSON de cada missatge, a partir de [`asyncapi.json`](asyncapi.json)."
 
 msgid "GraphQL schema"
 msgstr "Esquema GraphQL"
 
-msgid "The schema the application serves: [`schema.graphql`](schema.graphql)."
-msgstr "L'esquema que serveix l'aplicació: [`schema.graphql`](schema.graphql)."
+msgid "API documents"
+msgstr "Documents de l'API"
+
+msgid "Machine-readable descriptions of the API:"
+msgstr "Descripcions de l'API llegibles per màquina:"
+
+msgid "OpenAPI: the HTTP API"
+msgstr "OpenAPI: l'API HTTP"
+
+msgid "AsyncAPI: the published and consumed events"
+msgstr "AsyncAPI: els esdeveniments publicats i consumits"
 

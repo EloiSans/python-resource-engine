@@ -349,7 +349,13 @@
   `MessagingJanitor`); engine actions (`registry.register_actions`,
   `register_explorer`) with `exact` actions no wildcard grants; and
   `manager.audit_event` for audit entries outside operations.
-
+- Documentation and explorer apart: the generated documentation (`docs
+  generate`, `docs site`) is functional only, with `openapi.json`,
+  `asyncapi.json` and `schema.graphql` written next to it and linked from the
+  home page; the technical audience and its API pages, and the site's try-it
+  console (`--console`, `--api-url`), are gone in favour of the explorer;
+  `mount_docs` serves at `/documentation/`, and the explorer's endpoints stay
+  out of the app's OpenAPI document.
 ## Next
 
 Ordered by priority. The MVP of the

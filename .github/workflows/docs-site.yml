@@ -1,24 +1,13 @@
 name: Documentation site
 
 # The example application's functional documentation (resource-engine docs site),
-# published to GitHub Pages on every push to main. Needs Settings → Pages →
-# Source: "GitHub Actions".
-#
-# Audience: "technical" adds class paths, endpoints, schemas and the API pages
-# (OpenAPI, AsyncAPI, GraphQL) with their documents; "functional" leaves them out.
-# Pushes use the repository variable DOCS_AUDIENCE (Settings → Secrets and
-# variables → Actions → Variables), else technical; a manual run picks one.
+# with its openapi.json and asyncapi.json, published to GitHub Pages on every
+# push to main. Needs Settings → Pages → Source: "GitHub Actions".
 
 on:
   push:
     branches: [main]
   workflow_dispatch:
-    inputs:
-      audience:
-        description: Who the site is for
-        type: choice
-        options: [technical, functional]
-        default: technical
 
 permissions:
   contents: read
@@ -41,10 +30,8 @@ jobs:
       - name: The documentation is complete
         run: uv run resource-engine docs validate --strict
       - name: Build the site from the example (pyproject [tool.resource-engine])
-        env:
-          AUDIENCE: ${{ inputs.audience || vars.DOCS_AUDIENCE || 'technical' }}
         run: >-
-          uv run resource-engine docs site --out site --audience "$AUDIENCE"
+          uv run resource-engine docs site --out site
           --title "Resource Engine · exemple de factures"
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3

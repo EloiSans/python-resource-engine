@@ -9,20 +9,21 @@ if settings.explorer:                                   # off unless you turn it
 # http://localhost:8000/explorer/
 ```
 
-- **Operations:** every resource's HTTP operations, with a form per operation
-  (the documentation site's try-it console).
+- **Operations:** every resource's HTTP operations, with a form per operation.
 - **Events:** committed events, live (``events=`` an ``EventHub``), and which
   consumers handled each one (``activity=`` an ``ActivityLog``).
 
 Everything calls the running API with the visitor's own token: they see and
 do exactly what they may. Reads only, until they tick "Allow changes". The
-explorer's own endpoints live under ``api_prefix`` (``/_explorer``) and are
-behind their permissions (``register_explorer`` adds them to the catalogue)
-and audited. Without an authorizer they are refused, unless ``open=True``
-(local development only).
+explorer's own endpoints live under ``api_prefix`` (``/_explorer``), out of
+the application's OpenAPI document (they are a tool, not its API), behind
+their permissions (``register_explorer`` adds them to the catalogue) and
+audited. Without an authorizer they are refused, unless ``open=True`` (local
+development only).
 
-With the documentation site (``resource-engine docs site --console`` and
-``mount_docs``) pass ``ui=False``: the site's pages use the same endpoints.
+The documentation site (``resource-engine docs site``, ``mount_docs``) is the
+functional documentation and links the API's documents; the explorer is
+where the API is tried.
 """
 
 from __future__ import annotations
@@ -88,7 +89,6 @@ def explorer_config(
     events: bool,
     deliveries: bool,
     locale: str | None,
-    standalone: bool = True,
 ) -> dict[str, Any]:
     """What the explorer's scripts read as ``window.CONSOLE``."""
     openapi = app.openapi()
@@ -96,7 +96,6 @@ def explorer_config(
     config = console_data(openapi, names)
     config.update(
         api="",
-        standalone=standalone,
         me="/authz/me" in openapi.get("paths", {}),
         labels=labels.labels(locale),
     )
@@ -156,7 +155,6 @@ def mount_explorer(
     *,
     path: str = "/explorer",
     api_prefix: str = "/_explorer",
-    ui: bool = True,
     actor_dependency: Any = _no_actor,
     events: Any = None,
     activity: Any = None,
@@ -170,12 +168,11 @@ def mount_explorer(
         actor_dependency: The same dependency as ``mount_resources``'s.
         events: An ``EventHub`` fed with committed events: the Events tab.
         activity: An ``ActivityLog``: which consumers handled each event.
-        ui: Serve the page (``False``: only the endpoints, for the docs site).
         open: Allow the explorer's endpoints without an authorizer (local
             development only: anyone could see every event).
         csp: Content-Security-Policy of the page.
     """
-    api = APIRouter(prefix=api_prefix)
+    api = APIRouter(prefix=api_prefix, include_in_schema=False)
     if events is not None:
         from resource_engine_fastapi.explorer.events import build_events_router
 
@@ -185,8 +182,6 @@ def mount_explorer(
             )
         )
     app.include_router(api)
-    if not ui:
-        return
     root = path.rstrip("/")
     page_title = title or getattr(app, "title", None) or "API"
     headers = {"X-Content-Type-Options": "nosniff", "Referrer-Policy": "no-referrer"}

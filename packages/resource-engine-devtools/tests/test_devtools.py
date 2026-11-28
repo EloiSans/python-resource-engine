@@ -27,7 +27,7 @@ def test_markdown_uses_docstrings_and_definitions():
     page = pages["resources/invoices.md"]
     assert "Gestió de factures de l'organització." in page
     assert "## Actors" in page
-    assert "`POST /invoices/{id}/transitions/reject` | RejectInvoice" in page
+    assert "| `reject` | transition |" in page and "POST /invoices" not in page  # functional
     assert "```mermaid" in page
     assert "[invoices](resources/invoices.md)" in pages["index.md"]
 

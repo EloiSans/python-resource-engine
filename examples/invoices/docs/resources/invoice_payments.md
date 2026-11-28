@@ -1,7 +1,5 @@
 # invoice_payments
 
-`invoices.application.processes.InvoicePaymentProcess` — entitat `InvoicePayment`
-
 Cobrament de les factures aprovades.
 
 Comença quan s'aprova una factura, espera l'esdeveniment ``PaymentReceived``
@@ -19,23 +17,19 @@ Facturació
 
 ## Operacions
 
-| Operació | Tipus | Endpoint | Entrada | Sortida | Descripció |
-|---|---|---|---|---|---|
-| `list` | crud | `GET /invoice_payments` |  | PaymentRead | Llista els cobraments en curs i acabats. |
-| `get` | crud | `GET /invoice_payments/{id}` |  | PaymentRead | Consulta el cobrament d'una factura. |
-| `create` | crud | `POST /invoice_payments` | PaymentStart | PaymentRead | El crea el procés quan s'aprova una factura. |
-| `receive` | transition | `POST /invoice_payments/{id}/transitions/receive` |  | PaymentRead | El servei de pagaments ha cobrat la factura. |
-| `expire` | transition | `POST /invoice_payments/{id}/transitions/expire` |  | PaymentRead | Han passat 15 dies sense cobrament. |
-
-Filtres: `status`, `invoice_id` · Ordenació: `id`
+| Operació | Tipus | Descripció |
+|---|---|---|
+| `list` | crud | Llista els cobraments en curs i acabats. |
+| `get` | crud | Consulta el cobrament d'una factura. |
+| `create` | crud | El crea el procés quan s'aprova una factura. |
+| `receive` | transition | El servei de pagaments ha cobrat la factura. |
+| `expire` | transition | Han passat 15 dies sense cobrament. |
 
 Multi-inquilí: cada registre pertany a l'inquilí del camp `organization`; les operacions es limiten a l'inquilí de qui crida.
 
 Auditoria: s'auditen els canvis i els intents denegats.
 
 ## Màquina d'estats
-
-`invoices.domain.state_machine.PaymentFlow` — camp `status`
 
 Cobrament d'una factura aprovada.
 
@@ -86,13 +80,9 @@ Cada registre és una instància del procés, una per valor de `invoice_id`. Rea
 |---|---|---|---|---|
 | `invoice` | `invoice_id` | [invoices](invoices.md) | es denega mentre hi hagi referències | — |
 
-Amb `expand` (`?expand=` per HTTP) la resposta inclou el registre relacionat; els filtres `<relació>.<camp>` filtren pels camps filtrables del recurs relacionat.
-
 ## Esdeveniments de domini
 
 ### `PaymentOverdue`
-
-`invoices.domain.events.PaymentOverdue`
 
 Una factura aprovada fa 15 dies que espera el cobrament.
 
@@ -108,7 +98,7 @@ Els passos **abans de confirmar** són dins la transacció: si un falla, el canv
 
 1. Es valida l'entrada.
 2. Canvia l'estat.
-3. Abans de confirmar: `announce_overdue` — Emet ``PaymentOverdue`` perquè altres serveis (recordatoris) en tinguin notícia.
+3. Abans de confirmar: Emet ``PaymentOverdue`` perquè altres serveis (recordatoris) en tinguin notícia.
 4. Es confirma el canvi, amb l'auditoria i els esdeveniments.
 
 ```mermaid
@@ -116,32 +106,8 @@ flowchart LR
     s0["Validar"]
     s1["Canviar l'estat"]
     s0 --> s1
-    s2["announce_overdue"]
+    s2["Emet ``PaymentOverdue`` perquè altres s…"]
     s1 --> s2
     s3{{"Confirmar"}}
     s2 --> s3
 ```
-
-| Punt | Hook | Efectes externs | Descripció |
-|---|---|---|---|
-| `after_transition:expire` | `announce_overdue` | no | Emet ``PaymentOverdue`` perquè altres serveis (recordatoris) en tinguin notícia. |
-
-## Esquemes
-
-### PaymentStart (create)
-
-| Camp | Tipus | Obligatori | Descripció |
-|---|---|---|---|
-| `invoice_id` | `int` | sí | Factura aprovada |
-| `amount` | `Decimal` | sí | Import a cobrar |
-
-### PaymentRead (read)
-
-| Camp | Tipus | Obligatori | Descripció |
-|---|---|---|---|
-| `invoice_id` | `int` | sí | Factura aprovada |
-| `amount` | `Decimal` | sí | Import a cobrar |
-| `id` | `int` | sí | — |
-| `status` | `str` | sí | awaiting, overdue o settled |
-| `status_changed_at` | `datetime \| None` | no | Últim canvi d'estat |
-| `organization` | `str \| None` | no | Organització propietària (tenant); la posa el motor a partir del token |

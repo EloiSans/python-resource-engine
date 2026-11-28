@@ -35,10 +35,8 @@ jobs:
         run: |
           uv run resource-engine docs generate --out examples/invoices/docs
           git diff --exit-code -- examples/invoices/docs
-      - name: The documentation site builds, for both audiences
-        run: |
-          uv run resource-engine docs site --out site --audience technical
-          uv run resource-engine docs site --out site-functional --audience functional
+      - name: The documentation site builds
+        run: uv run resource-engine docs site --out site
       - run: uv run pytest -m "not emulator"
 
   build:

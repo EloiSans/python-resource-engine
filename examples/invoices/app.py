@@ -159,9 +159,9 @@ def create_app(
     mount_resources(app, registry, manager, actor_dependency=actor, access_log=True)
     set_translations(translations)  # Catalan by default; English and Spanish catalogues
     install_locale(app, translations)  # Accept-Language → error titles, Content-Language
-    site = os.getenv("DOCS_SITE")  # resource-engine docs site --out site --console
+    site = os.getenv("DOCS_SITE")  # resource-engine docs site --out site
     if site:
-        mount_docs(app, site)  # the explorer at /explorer/, with a try-it console
+        mount_docs(app, site)  # the functional documentation at /documentation/
     mount_asyncapi(app, registry)  # GET /asyncapi.json: the events it publishes
     return app
 

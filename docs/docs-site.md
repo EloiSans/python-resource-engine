@@ -4,22 +4,30 @@
 website for people who don't read the repository: product owners, testers,
 support, the teams that consume the API or its events.
 
+The site explains the application. It doesn't describe or try the API page
+by page:
+
+- **The API's own documents** sit next to the pages and are linked from the
+  home page: `openapi.json`, `asyncapi.json` and `schema.graphql`.
+- **Trying the API** is the [explorer's](explorer.md) job: it is served by
+  the running application, like FastAPI's `/docs`.
+
 ```bash
 uv run resource-engine docs site --out site --title "Facturació"
 python -m http.server --directory site     # or open site/index.html
 ```
 
 It's built from the same model as `docs generate`, which is the code itself:
-resource and state-machine docstrings, schemas, permissions and events.
+resource and state-machine docstrings, permissions and events.
 
 | Page | Contents |
 |---|---|
-| `index.html` | Catalogue of resources with their description and operations. |
-| `resources/<name>.html` | Description, business area and actors; operations and endpoints; filters, tenancy, versions, restricted fields; references and relations; state machines with their diagram, states, transitions and timers; documents; the emails it sends; what happens in each operation; schemas. |
+| `index.html` | Catalogue of resources with their description and operations, and links to the API documents. |
+| `resources/<name>.html` | Description, business area and actors; operations; tenancy and restricted fields; references and relations; state machines with their diagram, states, transitions and timers; documents; the emails it sends; what happens in each operation, in plain words. |
 | `emails.html` | Every email template set, with a preview per locale (with `[tool.resource-engine] templates`). |
 | `permissions.html` | The system roles and the matrix of actions each one grants (with an authorization config). |
-| `events.html` | The published events per channel, with their data; for the technical audience also each message's JSON schema and `asyncapi.json`. |
-| `api.html`, `graphql.html` | Technical audience: the HTTP API from the app's OpenAPI (`openapi.json`) and the GraphQL schema (`schema.graphql`). |
+| `events.html` | The published events per channel, with their data. |
+| `openapi.json`, `asyncapi.json`, `schema.graphql` | The API's machine-readable documents (see [API documents](#api-documents)). |
 
 Every page has the menu and a search box (press `/`) over the text of every
 page. It works offline. Diagrams are drawn in the browser by Mermaid, loaded
@@ -37,8 +45,7 @@ hook's docstring summary, and a small diagram shows the same sequence. Steps
 before the commit are inside the transaction (a failure refuses the change);
 steps after it run with the change saved. `after_commit` hooks run after
 every change of the resource, so they are listed once; say in their
-docstring which operations they act on. The technical table (hook point,
-function, external effect) follows.
+docstring which operations they act on.
 
 ## Emails
 
@@ -54,97 +61,41 @@ the trigger and the recipients as written in the code.
 Documentation text is Markdown. Raw HTML in a docstring is shown as text,
 never run.
 
-## Audience
+## API documents
 
-The same code gives two sites, chosen with `--audience` (or
-`[tool.resource-engine] docs_audience`):
+The site, and `docs generate`, write the application's machine-readable
+documents next to the pages, and the home page links them:
 
-| | `technical` (default) | `functional` |
-|---|---|---|
-| For | Developers, integrators, the teams consuming the API or the events | Product owners, testers, support, business reviewers |
-| Resources | Class paths, endpoints, input and output schemas, filters, concurrency, `expand`, routes, hook functions | What each resource is, its operations, states, rules, documents, emails and what happens in each operation, in plain words |
-| API pages | **HTTP API** (from the app's OpenAPI: endpoints per tag, bodies, responses, schemas), the events' **payloads**, the **GraphQL schema** | — |
-| Documents | `openapi.json`, `asyncapi.json`, `schema.graphql`, next to the pages | none |
+- `asyncapi.json`: the published and consumed events, always written.
+- `openapi.json`: the HTTP API. Needs `[tool.resource-engine] app =
+  "invoices.app:create_app"` (a FastAPI app, or a function returning one).
+  Building the app runs nothing: no lifespan, no database.
+- `schema.graphql`: the GraphQL schema. Needs `graphql = "pkg.module:schema"`
+  (a `GraphQLSchema`, or a function returning one).
 
-The HTTP API page needs the application: `[tool.resource-engine] app =
-"invoices.app:create_app"` (a FastAPI app, or a function returning one).
-Building the app runs nothing: no lifespan, no database. The GraphQL page
-needs `graphql = "pkg.module:schema"` (a `GraphQLSchema`, or a function
-returning one). Without them, those pages are left out.
+They suit code generators, API gateways and catalogues. To read the API
+interactively and try it, mount the [explorer](explorer.md) in the running
+application.
 
-`docs generate` takes the same option for the Markdown pages.
-
-In CI, the example's site workflow builds the audience from the manual
-run's choice. On a push it uses the repository variable `DOCS_AUDIENCE`,
-else `technical`:
-
-```yaml
-- name: Build the site
-  env:
-    AUDIENCE: ${{ inputs.audience || vars.DOCS_AUDIENCE || 'technical' }}
-  run: uv run resource-engine docs site --out site --audience "$AUDIENCE"
-```
-
-To publish both, build each into its own folder (`site/` and
-`site/functional/`) and deploy the parent.
-
-## Explorer: served by the app, with a try-it console
-
-```bash
-uv run resource-engine docs site --out site --console     # at build time
-```
+## Serving it from the application
 
 ```python
 from resource_engine_fastapi import mount_docs
 
-mount_docs(app, "site")  # http://127.0.0.1:8000/explorer/
+mount_docs(app, "site")  # http://127.0.0.1:8000/documentation/
 ```
-
-With `--console`, the site gets two panels:
-
-- **Each resource page:** a **Try it** panel. Pick an operation; its form
-  has the path, query and header parameters (`If-Match`,
-  `Idempotency-Key`) and a JSON body that starts from the required fields.
-  The answer shows its status, timing, `Content-Language`, `ETag` and
-  request id, and the body. Reading a record lists the transitions allowed
-  now as buttons that open them with the id filled in. A 403 offers **Why
-  was it refused?**: `/authz/explain` for policy editors, or otherwise the
-  caller's roles and that action's status from `/authz/me`.
-- **The home page:** a **What can I do?** panel with the caller's roles and
-  every action they may perform.
-
-**Safety:**
-
-- **Your own token:** the console calls the API with the visitor's token,
-  so it sees what that user may see and do. Permissions, tenancy and
-  rate limits apply as for any client.
-- **Reads only by default:** writes (create, update, delete, transitions,
-  actions) need **Allow changes**.
-- **Stored per tab:** the token and the switch stay in this browser tab
-  only (session storage).
-- **Shown as text:** answers are never rendered as HTML.
-- **Headers:** `mount_docs` sends a Content-Security-Policy that lets the
-  pages call only their own origin, plus `nosniff` and `no-referrer`.
-
-**Where the site lives:**
 
 - **Built, then served:** the site is plain files built by the CLI. The app
   only serves them, so it needs no devtools at runtime.
-- **One build per audience:** a functional site with the console suits
-  business reviewers; a technical one adds the API pages.
-- **Hosted elsewhere:** `--api-url https://api.example.com` points the
-  console at the API, which must then allow the site's origin (CORS).
-- **Files the console can't send:** document uploads (multipart). Use
-  another client for those.
-- **Live events:** with the [explorer's](explorer.md#with-the-documentation-site)
-  endpoints mounted, the events page gets a live panel too.
-- **Without a build step:** `mount_explorer` serves the same console as a
-  single page, built from the running app ([explorer](explorer.md)).
+- **Headers:** `mount_docs` sends a Content-Security-Policy that lets the
+  pages call only their own origin, plus `nosniff` and `no-referrer`.
+- **Next to the explorer:** the explorer lives at `/explorer/` by default,
+  so both can be mounted.
 
-The example mounts it when `DOCS_SITE` names the built folder:
+The example mounts the site when `DOCS_SITE` names the built folder:
 
 ```bash
-uv run resource-engine docs site --out site --console
+uv run resource-engine docs site --out site
 DOCS_SITE=site uv run uvicorn invoices.app:create_app --factory --app-dir examples
 ```
 

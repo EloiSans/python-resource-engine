@@ -1,5 +1,4 @@
-/* Try-it console: the documentation site's panels (resource-engine docs site
-   --console) and the standalone explorer's Operations tab (mount_explorer).
+/* Try-it console: the explorer's Operations tab (mount_explorer).
    Calls the running API with the visitor's own token; reads by default, changes
    only after "Allow changes". Everything from the API is shown as text.
    Other panels (events.js, explorer.js) use window.ResourceExplorer. */
@@ -297,28 +296,4 @@
     settings: settings, call: call, show: show, fetchFile: fetchFile, showFile: showFile,
     resourceConsole: resourceConsole, whoAmI: whoAmI, panels: {},
   };
-  if (C.standalone) return;  // explorer.js lays out the page
-
-  // ------------------------------------------- a page of the documentation site
-  function start() {
-    var main = document.querySelector("main");
-    var heading = main && main.querySelector("h1");
-    if (!heading) return;
-    var resource = document.body.dataset.resource;
-    var page = document.body.dataset.page;
-    var panel = null;
-    if (resource && C.resources[resource] && C.resources[resource].length) {
-      panel = resourceConsole(resource, C.resources[resource]);
-    } else if (page === "index" && C.me) {
-      panel = whoAmI();
-    } else if (page && window.ResourceExplorer.panels[page]) {
-      panel = el("details", { className: "console", id: "try-it" }, [
-        el("summary", { text: L.try_it }), settings(), window.ResourceExplorer.panels[page](),
-      ]);
-    }
-    if (panel) heading.insertAdjacentElement("afterend", panel);
-  }
-  // after the other scripts (events.js...) have registered their panels
-  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", start);
-  else setTimeout(start, 0);
 })();

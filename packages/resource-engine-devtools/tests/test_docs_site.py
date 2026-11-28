@@ -6,7 +6,6 @@ import json
 import re
 from dataclasses import dataclass
 
-import pytest
 from invoices.bootstrap import authz, registry
 from pydantic import BaseModel
 from resource_engine import Resource, ResourceRegistry
@@ -107,7 +106,8 @@ def test_cli_writes_the_site(tmp_path, capsys):
     assert "Gestión de las facturas de la organización." in spanish and "Operaciones" in spanish
     asyncapi = json.loads((out / "ca" / "asyncapi.json").read_text())  # next to its pages
     assert asyncapi["asyncapi"].startswith("3.")
-    assert (out / "en" / "api.html").is_file() and (out / "en" / "openapi.json").is_file()
+    assert (out / "en" / "openapi.json").is_file() and not (out / "en" / "api.html").exists()
+    assert 'href="openapi.json"' in (out / "en" / "index.html").read_text()
     assert json.loads(capsys.readouterr().out)["index"].endswith("index.html")
 
 
@@ -159,88 +159,57 @@ def test_hooks_are_described_per_operation_in_lifecycle_order():
     with docs_locale("ca"):
         pages = render_markdown(introspect(registry, authz, templates=templates))
     page = pages["resources/invoices.md"]
-    section = page.split("## Què passa en cada operació")[1].split("## Schemas")[0]
+    section = page.split("## Què passa en cada operació")[1]
     approve = section.split("### Transició `approve`")[1].split("###")[0]
     steps = re.findall(r"^\d+\. (.+)$", approve, re.MULTILINE)
     assert steps[0].startswith("Es valida l'entrada")
     assert steps[1] == "Cal un document disponible a `signed_pdf`."
     assert steps[2] == "Canvia l'estat."
-    assert steps[3].startswith("Abans de confirmar: `request_approval_email`")
+    assert steps[3].startswith("Abans de confirmar: Demana el correu d'aprovació")
     assert steps[4].startswith("Es confirma el canvi")
     assert steps[5].startswith("Després de confirmar: s'envia el correu")
     assert 's4{{"Confirmar"}}' in approve  # the commit in the diagram
     update = section.split("### Modificar (`update`)")[1].split("###")[0]
-    assert "Abans de desar: `ensure_editable`" in update
-    assert "Abans de confirmar: `validate_amount`" in update
+    assert "Abans de desar: Només es poden modificar o eliminar factures" in update
+    assert "Abans de confirmar: Rebutja factures amb import negatiu." in update
     assert "### Transició `submit`" not in section  # nothing of its own to show
-    assert "Després de qualsevol canvi confirmat" in section and "`notify_approval`" in section
+    assert "Després de qualsevol canvi confirmat" in section
+    assert "Notifica el client que la factura ha estat aprovada. (efecte extern)" in section
 
 
-def test_the_audience_decides_the_technical_content():
+def test_the_site_is_functional_and_links_the_api_documents():
     from graphql import GraphQLField, GraphQLObjectType, GraphQLSchema, GraphQLString, print_schema
 
-    openapi = {
-        "openapi": "3.1.0",
-        "info": {"title": "Factures", "version": "1.0"},
-        "paths": {
-            "/invoices": {
-                "post": {
-                    "tags": ["invoices"],
-                    "summary": "Crea una factura.",
-                    "requestBody": {
-                        "content": {
-                            "application/json": {
-                                "schema": {"$ref": "#/components/schemas/InvoiceCreate"}
-                            }
-                        }
-                    },
-                    "responses": {"201": {"content": {"application/json": {"schema": {
-                        "$ref": "#/components/schemas/InvoiceRead"}}}}},
-                }
-            }
-        },
-        "components": {"schemas": {"InvoiceCreate": {
-            "properties": {"amount": {"type": "string", "description": "Import"}},
-            "required": ["amount"],
-        }}},
-    }  # fmt: skip
+    openapi = {"openapi": "3.1.0", "info": {"title": "Factures", "version": "1.0"}, "paths": {}}
     sdl = print_schema(
         GraphQLSchema(GraphQLObjectType("Query", {"hello": GraphQLField(GraphQLString)}))
     )
-    technical = _site(openapi=openapi, graphql=sdl)
-    assert {"api.html", "graphql.html", "openapi.json", "asyncapi.json", "schema.graphql"} <= set(
-        technical
-    )
-    api = technical["api.html"]
-    assert "<code>/invoices</code>" in api and "<code>InvoiceCreate</code>" in api
-    assert "Import" in api and 'href="openapi.json"' in api
-    assert "Dades dels missatges" in technical["events.html"]  # payload schemas
-    assert (
-        'href="api.html"' in technical["index.html"] and "type Query" in technical["graphql.html"]
-    )
-    assert "invoices.application.resource.InvoiceResource" in technical["resources/invoices.html"]
-
-    functional = _site(openapi=openapi, graphql=sdl, audience="functional")
-    assert not {"api.html", "graphql.html", "openapi.json", "asyncapi.json"} & set(functional)
-    page = functional["resources/invoices.html"]
+    files = _site(openapi=openapi, graphql=sdl)
+    assert {"openapi.json", "asyncapi.json", "schema.graphql"} <= set(files)
+    assert not {"api.html", "graphql.html"} & set(files)  # no rendered API pages
+    assert json.loads(files["openapi.json"])["info"]["title"] == "Factures"
+    index = files["index.html"]
+    assert "Documents de l&#x27;API" in index or "Documents de l'API" in index
+    for name in ("openapi.json", "asyncapi.json", "schema.graphql"):
+        assert f'href="{name}"' in index
+    page = files["resources/invoices.html"]
     assert "InvoiceResource" not in page and "/invoices/{id}" not in page
-    assert "InvoiceCreate" not in page and "Esquemes" not in page  # no schemas
+    assert "Esquemes" not in page  # no schemas
     assert "Rebutja factures amb import negatiu." in page  # what the hooks do stays
     assert "validate_amount" not in page  # their function names don't
-    assert "events.html" in functional and "Dades dels missatges" not in functional["events.html"]
+    assert "Dades dels missatges" not in files["events.html"]
+    assert "console.js" not in page and "data-resource" not in page  # no try-it console
 
 
-def test_cli_audience_from_the_option_and_the_config(tmp_path):
-    out = tmp_path / "f"
-    assert main(["docs", "generate", "--out", str(out), "--audience", "functional"]) == 0
-    assert not (out / "asyncapi.json").exists() and not (out / "api.md").exists()
-    technical = tmp_path / "t"
-    assert main(["docs", "generate", "--out", str(technical)]) == 0  # the default
-    assert (technical / "api.md").is_file() and (technical / "openapi.json").is_file()
-    assert json.loads((technical / "openapi.json").read_text())["paths"]
+def test_docs_generate_writes_the_api_documents(tmp_path):
+    out = tmp_path / "docs"
+    assert main(["docs", "generate", "--out", str(out)]) == 0
+    assert json.loads((out / "openapi.json").read_text())["paths"]
+    assert (out / "asyncapi.json").is_file() and not (out / "api.md").exists()
+    assert "(openapi.json)" in (out / "index.md").read_text()
 
 
-def test_console_data_and_pages():
+def test_explorer_console_data():
     from invoices.app import create_app
     from resource_engine_fastapi.explorer.data import catalogue_action, console_data, example
 
@@ -277,49 +246,3 @@ def test_console_data_and_pages():
     assert {p["name"] for p in reject["params"]} >= {"entity_id", "If-Match", "Idempotency-Key"}
     assert ops[("GET", "/invoices/export")]["download"] is True  # a file: a download link
     assert create["download"] is False and create["safe"] is False
-
-    files = _site(openapi=openapi, console=True, api_url="https://api.example.com")
-    script = files["assets/console.js"]
-    payload = json.loads(script.split("window.CONSOLE = ", 1)[1].split(";\n", 1)[0])
-    assert payload["api"] == "https://api.example.com" and payload["me"] is True
-    assert payload["labels"]["try_it"] == "Prova-ho"  # the page's language
-    listing = next(o for o in payload["resources"]["invoices"] if o["path"] == "/invoices")
-    assert listing["summary"] == "Llista les factures, filtrables per estat i client."
-    page = files["resources/invoices.html"]
-    assert 'data-resource="invoices"' in page and 'src="../assets/console.js"' in page
-    assert 'data-page="index"' in files["index.html"]
-    assert "console.js" not in _site(openapi=openapi)["resources/invoices.html"]
-    with pytest.raises(ValueError):
-        _site(console=True)  # no OpenAPI to build it from
-
-
-def test_the_events_page_gets_the_live_panel_when_the_app_has_it():
-    from invoices.app import create_app
-
-    openapi = create_app().openapi()
-    plain = _site(openapi=openapi, console=True)
-    assert '"events"' not in plain["assets/console.js"].split("\n", 1)[0]
-    openapi["paths"]["/_explorer/events/stream"] = {
-        "get": {"operationId": "explorer_event_stream", "tags": ["explorer"], "responses": {}}
-    }
-    files = _site(openapi=openapi, console=True)
-    payload = json.loads(
-        files["assets/console.js"].split("window.CONSOLE = ", 1)[1].split(";\n", 1)[0]
-    )
-    events = payload["events"]
-    assert events["stream"] == "/_explorer/events/stream" and events["deliveries"] is None
-    assert "invoices" in events["resources"] and events["types"]
-    assert payload["labels"]["connect"] == "Connecta"  # the explorer's catalogue, in Catalan
-    assert "R.panels.events = panel" in files["assets/console.js"]
-    assert 'data-page="events"' in files["events.html"]
-
-
-def test_cli_console_needs_the_app(tmp_path, monkeypatch, capsys):
-    out = tmp_path / "site"
-    assert main(["docs", "site", "--out", str(out), "--console", "--locale", "en"]) == 0
-    assert (out / "assets" / "console.js").is_file()
-    monkeypatch.chdir(tmp_path)  # no pyproject: no app
-    capsys.readouterr()
-    args = ["docs", "site", "--out", str(out), "--console", "--app", "invoices.bootstrap:registry"]
-    assert main(args) == 2
-    assert "needs the application" in capsys.readouterr().out

@@ -1,6 +1,9 @@
 """A browsable static site of the functional documentation: the same pages as
 ``docs generate`` (resources, state diagrams, permission matrix) plus the
-published events, as plain HTML with navigation and search.
+published events, as plain HTML with navigation and search. The API's
+machine-readable documents (``openapi.json``, ``asyncapi.json``,
+``schema.graphql``) are written next to it and linked from the home page; to
+try the API, use the explorer (``mount_explorer``, docs/explorer.md).
 
 ``resource-engine docs site --out site/`` writes it; any static host serves it
 (GitHub Pages, S3, an intranet server). Diagrams are drawn in the browser by
@@ -19,7 +22,6 @@ from typing import Any
 
 from markdown_it import MarkdownIt
 
-from resource_engine_devtools.documentation.audience import docs_audience
 from resource_engine_devtools.documentation.generators.markdown import render_markdown
 from resource_engine_devtools.documentation.i18n import docs_locale, t, translate_model
 from resource_engine_devtools.documentation.model import DocumentationModel
@@ -40,8 +42,6 @@ def labels() -> dict[str, str]:
         "no_results": t("No results"),
         "generated": t("Generated from the code with Resource Engine"),
         "language": t("Language"),
-        "api": t("HTTP API"),
-        "graphql": t("GraphQL"),
     }
 
 
@@ -52,8 +52,6 @@ class SiteOptions:
     mermaid_url: str = MERMAID_URL
     openapi: Mapping[str, Any] | None = None
     graphql: str | None = None
-    console: bool = False
-    api_url: str = ""
 
 
 def render_site(
@@ -64,11 +62,8 @@ def render_site(
     mermaid_url: str = MERMAID_URL,
     locales: Sequence[str] | None = None,
     translate: Callable[[str], Callable[[str], str]] | None = None,
-    audience: str = "technical",
     openapi: Mapping[str, Any] | None = None,
     graphql: str | None = None,
-    console: bool = False,
-    api_url: str = "",
 ) -> dict[str, str]:
     """Return ``{relative_path: content}`` of the site.
 
@@ -78,45 +73,40 @@ def render_site(
     gives the application's gettext for a locale (its docstrings and
     descriptions); the generator's own texts come with devtools.
 
-    ``audience``: ``technical`` adds class paths, endpoints, schemas, the HTTP
-    API (``openapi``), the events' payloads and the GraphQL schema (``graphql``,
-    SDL), with their documents; ``functional`` leaves them all out.
-
-    ``console`` (needs ``openapi``) adds a try-it panel to each resource page
-    and a "what can I do?" panel to the home page, calling the API at
-    ``api_url`` (empty: the site's own origin, as ``mount_docs`` serves it)
-    with the visitor's token. It reads by default; changes need "Allow changes".
+    ``openapi`` and ``graphql`` (SDL), with ``asyncapi``, are written as
+    files next to the pages and linked from the home page.
     """
-    if console and not openapi:
-        raise ValueError("The console needs the application's OpenAPI document")
-    options = SiteOptions(asyncapi, title, mermaid_url, openapi, graphql, console, api_url)
-    with docs_audience(audience):
-        if locales and len(locales) > 1:
-            files: dict[str, str] = {}
-            for locale in locales:
-                localised = translate_model(model, translate(locale)) if translate else model
-                with docs_locale(locale):
-                    part = _render_site(localised, options, locale=locale, others=locales)
-                files.update({f"{locale}/{path}": text for path, text in part.items()})
-            files["index.html"] = _redirect(list(locales))
-            return files
-        locale = locales[0] if locales else None
-        if locale and translate:
-            model = translate_model(model, translate(locale))
-        with docs_locale(locale):
-            return _render_site(model, options, locale=locale, others=())
+    options = SiteOptions(asyncapi, title, mermaid_url, openapi, graphql)
+    if locales and len(locales) > 1:
+        files: dict[str, str] = {}
+        for locale in locales:
+            localised = translate_model(model, translate(locale)) if translate else model
+            with docs_locale(locale):
+                part = _render_site(localised, options, locale=locale, others=locales)
+            files.update({f"{locale}/{path}": text for path, text in part.items()})
+        files["index.html"] = _redirect(list(locales))
+        return files
+    locale = locales[0] if locales else None
+    if locale and translate:
+        model = translate_model(model, translate(locale))
+    with docs_locale(locale):
+        return _render_site(model, options, locale=locale, others=())
 
 
 def _render_site(
     model: DocumentationModel, options: SiteOptions, *, locale: str | None, others: Sequence[str]
 ) -> dict[str, str]:
-    from resource_engine_devtools.documentation.generators.api import api_pages
+    from resource_engine_devtools.documentation.generators.api import (
+        api_pages,
+        documents_section,
+    )
 
     LABELS = labels()
     asyncapi = options.asyncapi
     pages = render_markdown(model)
     extra, documents = api_pages(asyncapi, options.openapi, options.graphql)
     pages.update(extra)
+    pages["index.md"] = pages.get("index.md", "") + documents_section(documents)
     title = (
         options.title
         or (asyncapi or {}).get("info", {}).get("title")
@@ -126,7 +116,6 @@ def _render_site(
     nav = _navigation(model, set(pages))
     files: dict[str, str] = dict(documents)
     search: list[dict[str, str]] = []
-    console = options.console and options.openapi is not None
     for path, text in sorted(pages.items()):
         target = path.removesuffix(".md") + ".html"
         heading = _first_heading(text) or path
@@ -142,88 +131,13 @@ def _render_site(
             locale=locale,
             others=others,
             labels=LABELS,
-            console=console,
         )
         search.append({"path": target, "title": heading, "text": _plain(text)[:4000]})
     files["assets/site.css"] = _asset("site.css")
     index = json.dumps(search, ensure_ascii=False)
     script = _asset("site.js").replace("__NO_RESULTS__", json.dumps(LABELS["no_results"]))
     files["assets/site.js"] = f"window.SITE_SEARCH = {index};\n{script}"
-    if console:
-        explorer = _explorer()
-        data = explorer.data.console_data(options.openapi, [r.name for r in model.resources])  # type: ignore[arg-type]
-        _localised_summaries(data, model)
-        data["api"] = options.api_url
-        data["me"] = "/authz/me" in options.openapi.get("paths", {})  # type: ignore[union-attr]
-        data["labels"] = console_labels()
-        events = _operation_path(options.openapi, "explorer_event_stream")  # type: ignore[arg-type]
-        if events:
-            deliveries = _operation_path(options.openapi, "explorer_event_deliveries")  # type: ignore[arg-type]
-            data["events"] = {
-                "stream": events,
-                "deliveries": deliveries,
-                "resources": [r.name for r in model.resources],
-                "types": _event_types(asyncapi),
-            }
-        payload = json.dumps(data, ensure_ascii=False).replace("</", "<\\/")
-        scripts = explorer.asset("console.js") + "\n" + explorer.asset("events.js")
-        files["assets/console.js"] = f"window.CONSOLE = {payload};\n{scripts}"
     return files
-
-
-def _operation_path(openapi: Mapping[str, Any], operation_id: str) -> str | None:
-    """The path of the operation ``operation_id`` (the explorer's endpoints,
-    wherever the app mounted them)."""
-    for path, item in openapi.get("paths", {}).items():
-        if any(isinstance(op, dict) and op.get("operationId") == operation_id
-               for op in item.values()):  # fmt: skip
-            return str(path)
-    return None
-
-
-def _event_types(asyncapi: Mapping[str, Any] | None) -> list[dict[str, Any]]:
-    """Published event types, for the live events' filter."""
-    names = {
-        str(message.get("name"))
-        for message in (asyncapi or {}).get("components", {}).get("messages", {}).values()
-        if message.get("name")
-    }
-    return [{"type": name, "versions": []} for name in sorted(names)]
-
-
-def _localised_summaries(data: dict[str, Any], model: DocumentationModel) -> None:
-    """Operation summaries from the (translated) model rather than the
-    OpenAPI document, which keeps the source language."""
-    for resource in model.resources:
-        known = {
-            (op.method, re.sub(r"\{[^}]+\}", "{}", op.path)): op.doc.summary
-            for op in resource.operations
-            if op.doc.summary
-        }
-        for op in data["resources"].get(resource.name, []):
-            summary = known.get((op["method"], re.sub(r"\{[^}]+\}", "{}", op["path"])))
-            if summary:
-                op["summary"] = summary
-
-
-def console_labels() -> dict[str, str]:
-    """The console's texts in the docs locale (they live with the explorer,
-    in ``resource-engine-fastapi``)."""
-    from resource_engine_devtools.documentation.i18n import current
-
-    return _explorer().labels.labels(current())
-
-
-def _explorer() -> Any:
-    """``resource_engine_fastapi.explorer``: the console's code and texts."""
-    try:
-        import resource_engine_fastapi.explorer as explorer
-    except ImportError as exc:  # pragma: no cover - depends on the install
-        raise ValueError(
-            "The console comes from resource-engine-fastapi: install "
-            "resource-engine-devtools[explorer]"
-        ) from exc
-    return explorer
 
 
 def render_events(asyncapi: Mapping[str, Any]) -> str:
@@ -332,8 +246,6 @@ def _navigation(model: DocumentationModel, pages: set[str]) -> list[tuple]:
         ("emails.md", "emails"),
         ("permissions.md", "permissions"),
         ("events.md", "events"),
-        ("api.md", "api"),
-        ("graphql.md", "graphql"),
     ):
         if page in pages:
             items.append((page.removesuffix(".md") + ".html", LABELS[label], None))
@@ -353,7 +265,6 @@ def _page(
     locale: str | None = None,
     others: Sequence[str] = (),
     labels: Mapping[str, str],
-    console: bool = False,
 ) -> str:
     LABELS = labels
     links = []
@@ -383,7 +294,7 @@ def _page(
 <title>{html.escape(heading)} · {html.escape(title)}</title>
 <link rel="stylesheet" href="{root}assets/site.css">
 </head>
-<body data-root="{root}"{_page_data(current) if console else ""}>
+<body data-root="{root}">
 <header><button id="menu-toggle" aria-controls="nav" aria-expanded="false">☰</button>
 <a class="brand" href="{root}index.html">{html.escape(title)}</a>
 <input id="search" type="search" placeholder="{LABELS["search"]}" aria-label="{LABELS["search"]}">
@@ -398,21 +309,10 @@ def _page(
 </div>
 <footer>{LABELS["generated"]}</footer>
 <script src="{root}assets/site.js"></script>
-{f'<script src="{root}assets/console.js"></script>' if console else ""}
 {mermaid}
 </body>
 </html>
 """
-
-
-def _page_data(current: str) -> str:
-    """Tells the console which panel the page gets."""
-    if current.startswith("resources/"):
-        name = current.removeprefix("resources/").removesuffix(".html")
-        return f' data-resource="{html.escape(name)}"'
-    if current == "events.html":
-        return ' data-page="events"'
-    return ' data-page="index"' if current == "index.html" else ""
 
 
 def _switcher(
@@ -464,4 +364,4 @@ def _asset(name: str) -> str:
     return (files(__package__) / "site_assets" / name).read_text(encoding="utf-8")
 
 
-__all__ = ["MERMAID_URL", "SiteOptions", "console_labels", "labels", "render_events", "render_site"]
+__all__ = ["MERMAID_URL", "SiteOptions", "labels", "render_events", "render_site"]

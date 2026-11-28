@@ -66,7 +66,7 @@ def actor(authorization: str | None = Header(None)) -> Principal | None:
     return PEOPLE.get((authorization or "").removeprefix("Bearer "))
 
 
-def build(*, ui: bool = True):  # noqa: ANN201
+def build():  # noqa: ANN201
     registry = ResourceRegistry()
     registry.register(NoteResource)
     registry.register_authz()
@@ -91,7 +91,7 @@ def build(*, ui: bool = True):  # noqa: ANN201
     activity = InMemoryActivityLog()
     app = FastAPI(title="Notes")
     mount_resources(app, registry, manager, actor_dependency=actor)
-    mount_explorer(app, manager, actor_dependency=actor, events=hub, activity=activity, ui=ui)
+    mount_explorer(app, manager, actor_dependency=actor, events=hub, activity=activity)
     return app, manager, hub, activity
 
 
@@ -111,7 +111,7 @@ async def test_the_page_config_and_assets_need_no_build_step():
         assert (await api.get("/explorer")).status_code == 307
         config = await api.get("/explorer/config.js", params={"lang": "es"})
         data = json.loads(config.text.removeprefix("window.CONSOLE = ").rstrip(";\n"))
-        assert data["standalone"] is True and data["labels"]["connect"] == "Conectar"
+        assert data["labels"]["connect"] == "Conectar"
         assert {o["path"] for o in data["resources"]["notes"]} >= {"/notes", "/notes/{entity_id}"}
         assert data["events"]["stream"] == "/_explorer/events/stream"
         assert data["events"]["deliveries"] == "/_explorer/events/{message_id}/deliveries"
@@ -120,15 +120,7 @@ async def test_the_page_config_and_assets_need_no_build_step():
             assert (await api.get(f"/explorer/assets/{name}")).status_code == 200
         assert (await api.get("/explorer/assets/../../etc")).status_code == 404
         paths = (await api.get("/openapi.json")).json()["paths"]
-        assert "/_explorer/events/stream" in paths and "/explorer/" not in paths
-
-
-async def test_ui_false_serves_only_the_endpoints():
-    app, *_ = build(ui=False)
-    async with client(app) as api:
-        assert (await api.get("/explorer/")).status_code == 404
-        refused = await api.get("/_explorer/events/stream")  # no token: refused before streaming
-        assert refused.status_code == 403
+        assert not [p for p in paths if "explorer" in p]  # a tool, not the app's API
 
 
 # ---------------------------------------------------------- the stream

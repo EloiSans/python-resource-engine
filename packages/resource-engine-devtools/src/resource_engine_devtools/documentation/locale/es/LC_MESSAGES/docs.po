@@ -33,10 +33,6 @@ msgstr "el campo se vacía"
 msgid "deleted in cascade"
 msgstr "se eliminan en cascada"
 
-#, python-brace-format
-msgid "`{qualname}` — entity `{model}`"
-msgstr "`{qualname}` — entidad `{model}`"
-
 msgid "Operations"
 msgstr "Operaciones"
 
@@ -46,14 +42,8 @@ msgstr "Operación"
 msgid "Kind"
 msgstr "Tipo"
 
-msgid "Endpoint"
-msgstr "Endpoint"
-
 msgid "Input"
 msgstr "Entrada"
-
-msgid "Output"
-msgstr "Salida"
 
 msgid "Description"
 msgstr "Descripción"
@@ -88,35 +78,12 @@ msgstr ""
 "las máquinas de estados y los hooks."
 
 #, python-brace-format
-msgid "Filters: {filters} · Sorting: {sorting}"
-msgstr "Filtros: {filters} · Ordenación: {sorting}"
-
-#, python-brace-format
 msgid ""
 "Multi-tenant: each record belongs to the tenant in `{field}`; operations are limited to the "
 "caller's tenant."
 msgstr ""
 "Multiinquilino: cada registro pertenece al inquilino del campo `{field}`; las operaciones se "
 "limitan al inquilino de quien llama."
-
-#, python-brace-format
-msgid ""
-"Optimistic concurrency: `{field}` is the record's version (`ETag` header); updates send `If-"
-"Match` and an old version is refused with 409."
-msgstr ""
-"Concurrencia optimista: el campo `{field}` es la versión del registro (cabecera `ETag`); las "
-"modificaciones envían `If-Match` y una versión antigua se rechaza con 409."
-
-msgid "Writes without a version are refused (428)."
-msgstr "Las escrituras sin versión se rechazan (428)."
-
-#, python-brace-format
-msgid ""
-"Restricted fields: {fields} — they need an explicit grant (`{name}:read:<field>`, "
-"`{name}:write:<field>`); otherwise they are left out of the answers."
-msgstr ""
-"Campos restringidos: {fields} — hace falta una concesión explícita (`{name}:read:<campo>`, "
-"`{name}:write:<campo>`); si no, se omiten de las respuestas."
 
 msgid "not audited."
 msgstr "no se audita."
@@ -141,10 +108,6 @@ msgstr "Máquina de estados `{name}`"
 
 msgid "State machine"
 msgstr "Máquina de estados"
-
-#, python-brace-format
-msgid "`{qualname}` — field `{field}`"
-msgstr "`{qualname}` — campo `{field}`"
 
 msgid "State"
 msgstr "Estado"
@@ -220,29 +183,12 @@ msgstr "Recurso"
 msgid "When it is deleted"
 msgstr "Al eliminarlo"
 
-msgid ""
-"With `expand` (`?expand=` over HTTP) the answer includes the related record; `<relation>.<field>`"
-" filters use the related resource's filterable fields."
-msgstr ""
-"Con `expand` (`?expand=` por HTTP) la respuesta incluye el registro relacionado; los filtros "
-"`<relación>.<campo>` filtran por los campos filtrables del recurso relacionado."
-
 #, python-brace-format
 msgid "Referenced by: {refs}."
 msgstr "Hacen referencia a él: {refs}."
 
-msgid "Reverse relation"
-msgstr "Relación inversa"
-
 msgid "Records"
 msgstr "Registros"
-
-msgid "Route"
-msgstr "Ruta"
-
-#, python-brace-format
-msgid "| `{name}` or `{name}:25` (one page) |"
-msgstr "| `{name}` o `{name}:25` (una página) |"
 
 msgid "Many-to-many relations"
 msgstr "Relaciones muchos a muchos"
@@ -311,9 +257,6 @@ msgid ""
 msgstr ""
 "Se piden dentro de la transacción y se envían cuando el cambio se ha confirmado; si el cambio se "
 "deshace, no se envían."
-
-msgid "Schemas"
-msgstr "Esquemas"
 
 #, python-brace-format
 msgid "on the `{name}` action"
@@ -437,10 +380,6 @@ msgstr ""
 "rechaza y no se guarda nada. Los pasos **después de confirmar** se ejecutan con el cambio ya "
 "guardado: un error queda registrado, pero no lo deshace."
 
-#, python-brace-format
-msgid "The input is validated (`{schema}`)"
-msgstr "Se valida la entrada (`{schema}`)"
-
 msgid "The input is validated"
 msgstr "Se valida la entrada"
 
@@ -476,15 +415,6 @@ msgstr "Correo {name}"
 
 msgid "After any committed change of this resource:"
 msgstr "Después de cualquier cambio confirmado de este recurso:"
-
-msgid "Point"
-msgstr "Punto"
-
-msgid "Hook"
-msgstr "Hook"
-
-msgid "External effects"
-msgstr "Efectos externos"
 
 msgid "external effect"
 msgstr "efecto externo"
@@ -562,10 +492,6 @@ msgstr ""
 "máquina. Los detalles de cada estado y transición están en la página del recurso."
 
 #, python-brace-format
-msgid "Resource [{name}](resources/{name}.md) — field `{field}` — `{qualname}`"
-msgstr "Recurso [{name}](resources/{name}.md) — campo `{field}` — `{qualname}`"
-
-#, python-brace-format
 msgid "`{event}` after {after}"
 msgstr "`{event}` después de {after}"
 
@@ -635,48 +561,21 @@ msgstr "Campos restringidos: {fields} — solo los ven o modifican los roles con
 msgid "Resource [{name}](resources/{name}.md)"
 msgstr "Recurso [{name}](resources/{name}.md)"
 
-msgid "HTTP API"
-msgstr "API HTTP"
-
-msgid "GraphQL"
-msgstr "GraphQL"
-
 msgid "Messages the application publishes after each committed change."
 msgstr "Mensajes que la aplicación publica después de cada cambio confirmado."
-
-#, python-brace-format
-msgid "{title} {version}, from the OpenAPI document of the application: [`openapi.json`](openapi.json)."
-msgstr ""
-"{title} {version}, a partir del documento OpenAPI de la aplicación: "
-"[`openapi.json`](openapi.json)."
-
-msgid "Other"
-msgstr "Otros"
-
-msgid "Method"
-msgstr "Método"
-
-msgid "Path"
-msgstr "Ruta"
-
-msgid "Summary"
-msgstr "Resumen"
-
-msgid "Body"
-msgstr "Cuerpo"
-
-msgid "Responses"
-msgstr "Respuestas"
-
-msgid "Payloads"
-msgstr "Datos de los mensajes"
-
-msgid "The JSON schema of each message, from [`asyncapi.json`](asyncapi.json)."
-msgstr "El esquema JSON de cada mensaje, a partir de [`asyncapi.json`](asyncapi.json)."
 
 msgid "GraphQL schema"
 msgstr "Esquema GraphQL"
 
-msgid "The schema the application serves: [`schema.graphql`](schema.graphql)."
-msgstr "El esquema que sirve la aplicación: [`schema.graphql`](schema.graphql)."
+msgid "API documents"
+msgstr "Documentos de la API"
+
+msgid "Machine-readable descriptions of the API:"
+msgstr "Descripciones de la API legibles por máquina:"
+
+msgid "OpenAPI: the HTTP API"
+msgstr "OpenAPI: la API HTTP"
+
+msgid "AsyncAPI: the published and consumed events"
+msgstr "AsyncAPI: los eventos publicados y consumidos"
 

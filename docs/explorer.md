@@ -4,11 +4,17 @@ The explorer lets developers and operators try the running application from
 the browser. It works like FastAPI's `/docs`, but covers the whole
 application, not only its HTTP routes:
 
-- **Operations:** each resource's HTTP operations, one form per operation.
-  This is the documentation site's [try-it console](docs-site.md#explorer-served-by-the-app-with-a-try-it-console).
+- **Operations:** each resource's HTTP operations, one form per operation,
+  with the parameters and a JSON body to start from. A record read lists its
+  allowed transitions; a refusal explains itself (`/authz/explain`); files
+  (exports, printouts, documents) come as download links.
 - **Events:** committed events, live, and which consumers handled each one.
 
-It works like the console:
+The [documentation site](docs-site.md) is separate: it explains the
+application for people who don't read code, and links the API's
+`openapi.json` and `asyncapi.json`. The explorer is where the API is tried.
+
+How it works:
 
 - **The visitor's own token:** each call is made as that visitor, so they
   see and do only what they may.
@@ -37,8 +43,8 @@ the application enabled.
   document.
 - **Language:** English, Catalan or Spanish, from the browser's
   `Accept-Language` (or `?lang=ca`).
-- **Endpoints:** they live under `api_prefix` (`/_explorer`) and appear in
-  the OpenAPI document under the `explorer` tag.
+- **Endpoints:** they live under `api_prefix` (`/_explorer`), out of the
+  application's OpenAPI document: they are a tool, not part of its API.
 
 Arguments of `mount_explorer`:
 
@@ -48,7 +54,6 @@ Arguments of `mount_explorer`:
 | `events` | An `EventHub` fed with committed events: the Events tab |
 | `activity` | An `ActivityLog`: which consumers handled each event |
 | `path`, `api_prefix` | Where the page (`/explorer`) and its endpoints (`/_explorer`) are served |
-| `ui` | `False` serves only the endpoints (for the [documentation site](#with-the-documentation-site)) |
 | `open` | Allow the endpoints without an authorizer. **Local development only**: anyone could watch every event |
 | `title`, `csp` | The page's title, and its Content-Security-Policy (the same default as `mount_docs`) |
 
@@ -142,18 +147,6 @@ How the log is kept:
   memory.
 - **Retention:** `MessagingJanitor(activity=activity_log,
   activity_retention=timedelta(days=7))` deletes old records.
-
-## With the documentation site
-
-The documentation site's console (`resource-engine docs site --console`,
-served with `mount_docs`) uses the same panels and the same texts:
-
-- **The events page:** it gets the live panel when the app's OpenAPI
-  document has the explorer's stream route.
-- **Without the explorer's page:** mount only the endpoints, with
-  `mount_explorer(..., ui=False)`, next to `mount_docs`.
-- **Install:** the site generator takes the console from
-  `resource-engine-fastapi` (`resource-engine-devtools[explorer]`).
 
 ## In production
 

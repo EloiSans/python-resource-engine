@@ -17,14 +17,14 @@ async def test_the_site_is_served_with_security_headers(tmp_path):
     async with httpx.AsyncClient(
         transport=httpx.ASGITransport(app=app), base_url="http://api"
     ) as client:
-        root = await client.get("/explorer/")
+        root = await client.get("/documentation/")
         assert root.status_code == 200 and "<title>Docs</title>" in root.text
-        english = await client.get("/explorer/en/")
+        english = await client.get("/documentation/en/")
         assert "English" in english.text
         assert "connect-src 'self'" in english.headers["content-security-policy"]
         assert english.headers["x-content-type-options"] == "nosniff"
         assert english.headers["referrer-policy"] == "no-referrer"
-        assert (await client.get("/explorer/missing.html")).status_code == 404
+        assert (await client.get("/documentation/missing.html")).status_code == 404
 
 
 def test_a_site_that_was_not_built_is_reported(tmp_path):
