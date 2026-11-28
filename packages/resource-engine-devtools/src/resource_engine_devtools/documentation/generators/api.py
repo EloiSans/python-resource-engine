@@ -170,8 +170,13 @@ def console_data(openapi: Mapping[str, Any], resources: list[str]) -> dict[str, 
             content = operation.get("requestBody", {}).get("content", {})
             if "application/json" in content:
                 body = example(content["application/json"].get("schema", {}), schemas)
+            ok = operation.get("responses", {}).get("200", {}).get("content", {})
             out[resource].append(
                 {
+                    # a file, not JSON: the console offers it for download
+                    "download": bool(ok) and "application/json" not in ok,
+                    # starting an export changes no data
+                    "safe": method == "post" and path.endswith("/exports"),
                     "method": method.upper(),
                     "path": path,
                     "summary": operation.get("summary") or "",
@@ -202,6 +207,10 @@ def catalogue_action(resource: str, method: str, path: str) -> str | None:
     rest = parts[1:]
     if not rest:
         return f"{resource}:{'list' if method == 'GET' else 'create'}"
+    if rest in (["export"], ["exports"]):
+        return f"{resource}:list"
+    if len(rest) == 3 and rest[1] == "printouts":
+        return f"{resource}:get"
     if len(rest) == 1 and rest[0].startswith("{"):
         return f"{resource}:" + {"GET": "get", "PATCH": "update", "PUT": "update"}.get(
             method, "delete"

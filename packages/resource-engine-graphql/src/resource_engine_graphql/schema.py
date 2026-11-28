@@ -12,6 +12,9 @@ For each resource (``invoices``):
   one per transition (``approveInvoice``) and action
   (``recalculateTotalsInvoice``), with ``idempotencyKey`` and
   ``expectedVersion``.
+- **Exports** (with a blob store): ``exportInvoices(format, orderBy,
+  filter)`` queues a background export and ``export(id)`` follows it; the
+  file is downloaded from ``contentPath`` or ``downloadUrl``.
 
 See docs/graphql.md.
 """
@@ -32,6 +35,7 @@ from typing import Any
 from graphql import (
     GraphQLArgument,
     GraphQLBoolean,
+    GraphQLEnumType,
     GraphQLField,
     GraphQLFloat,
     GraphQLInputField,
@@ -646,6 +650,15 @@ class SchemaBuilder:
             for key in (r.single, r.plural):
                 if key in out:
                     out[key] = _deprecated(out[key], d)
+        if self.manager.exports is not None and any(
+            r.definition.exposed("list") for r in self.resources.values()
+        ):
+            out["export"] = GraphQLField(
+                self.export_type(),
+                args={"id": GraphQLArgument(GraphQLNonNull(GraphQLString))},
+                resolve=self._export_status,
+                description="A background export of yours",
+            )
         return out
 
     # -------------------------------------------------------- mutations
@@ -768,7 +781,103 @@ class SchemaBuilder:
                     ),
                     name,
                 )
+            if self.manager.exports is not None and d.exposed("list"):
+                args = self.list_args(name)
+                args.pop("offset")
+                args.pop("limit")
+                args["format"] = GraphQLArgument(
+                    GraphQLNonNull(self.export_format()), default_value="csv"
+                )
+                add(
+                    f"export{pascal(d.name)}",
+                    GraphQLField(
+                        GraphQLNonNull(self.export_type()),
+                        args=args,
+                        resolve=self._export(name),
+                        description=f"Export {name} as CSV or XLSX in the background, with the "
+                        "list's filters, sorting and permissions; follow it with export(id)",
+                    ),
+                    name,
+                )
         return out
+
+    # ---------------------------------------------------------- exports
+
+    def export_format(self) -> GraphQLEnumType:
+        if "ExportFormat" not in self.types:
+            self.types["ExportFormat"] = GraphQLEnumType(
+                "ExportFormat", {"CSV": "csv", "XLSX": "xlsx"}, description="Export file format"
+            )
+        return self.types["ExportFormat"]
+
+    def export_type(self) -> GraphQLObjectType:
+        if "Export" in self.types:
+            return self.types["Export"]
+        exports = self.manager.exports
+        assert exports is not None
+
+        def key(name: str) -> GraphQLField:
+            return GraphQLField(GraphQLString, resolve=lambda job, _info: job.get(name))
+
+        async def download_url(job: Mapping[str, Any], info: Any) -> str | None:
+            from resource_engine.ports.storage import SupportsPresignedUrls
+
+            if job["status"] != "done" or not isinstance(exports.store, SupportsPresignedUrls):
+                return None
+            url = await exports.download_url(job["id"], actor=self._ctx(info).actor)
+            return url.url
+
+        gql = GraphQLObjectType(
+            "Export",
+            {
+                "id": GraphQLField(GraphQLNonNull(GraphQLString)),
+                "resource": GraphQLField(GraphQLNonNull(GraphQLString)),
+                "format": GraphQLField(GraphQLNonNull(self.export_format())),
+                "status": GraphQLField(
+                    GraphQLNonNull(GraphQLString),
+                    description="pending, running, done or failed",
+                ),
+                "rows": GraphQLField(GraphQLInt, description="Rows that matched when requested"),
+                "filename": key("filename"),
+                "size": GraphQLField(GraphQLInt),
+                "createdAt": key("created_at"),
+                "startedAt": key("started_at"),
+                "finishedAt": key("finished_at"),
+                "expiresAt": key("expires_at"),
+                "error": GraphQLField(JSONScalar),
+                "contentPath": GraphQLField(
+                    GraphQLNonNull(GraphQLString),
+                    resolve=lambda job, _info: f"/{exports.path}/{job['id']}/content",
+                    description="HTTP path of the file, once done",
+                ),
+                "downloadUrl": GraphQLField(
+                    GraphQLString,
+                    resolve=download_url,
+                    description="A presigned URL of the file, once done (stores that sign URLs)",
+                ),
+            },
+            description="A background export",
+        )
+        self.types["Export"] = gql
+        return gql
+
+    def _export(self, resource: str) -> Callable[..., Any]:
+        async def resolve(_root: Any, info: Any, **kw: Any) -> Any:
+            c = self._ctx(info)
+            job = await c.manager.exports.request(
+                resource,
+                self._query(resource, kw),
+                format=kw.get("format") or "csv",
+                actor=c.actor,
+                tenant=kw.get("tenant"),
+            )
+            return job.to_dict()
+
+        return resolve
+
+    async def _export_status(self, _root: Any, info: Any, **kw: Any) -> Any:
+        c = self._ctx(info)
+        return (await c.manager.exports.get(kw["id"], actor=c.actor)).to_dict()
 
     # -------------------------------------------------------- resolvers
 

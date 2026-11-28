@@ -45,6 +45,7 @@ async def test_payment_process(tmp_path):
     assert {r.job: r.outcome for r in await runner.run_once()} == {
         "processes": "ok",
         "timers": "ok",
+        "exports": "ok",
     }
     [payment] = (await manager.list("invoice_payments", ListQuery(), actor=ELI)).items
     assert (payment.status, payment.organization) == ("awaiting", "acme")

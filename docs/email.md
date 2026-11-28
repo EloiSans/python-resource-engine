@@ -46,14 +46,44 @@ async def request_approval_email(ctx: OperationContext) -> None:
   outbox is closed. An `after_commit` hook can call `Mailer.send` directly,
   but it then has no retries or exactly-once guarantee.
 - **Fields:** `template`, `to`, `context`, `locale`, `cc`, `bcc`,
-  `reply_to`, and optionally `resource` / `entity_id` (the ordering key and
-  traceability).
+  `reply_to`, `documents` ([attachments](#attachments)), and optionally
+  `resource` / `entity_id` (the ordering key and traceability).
 - **Context:** it travels as JSON, so decimals and dates reach the template
   as strings. It is stored in the outbox and, with a broker, published like
   other events, so keep it to what the template needs.
 - **Declaring:** `EmailRequested` is an engine event. It needs no entry in
   `Resource.events` (RE-C006) and isn't part of the module's AsyncAPI
   contract.
+
+## Attachments
+
+Every sender (SMTP, SES, Postmark, SendGrid, Microsoft Graph) sends
+attachments. There are two ways to give them:
+
+- **Stored documents**, for requested emails: name their ids in
+  `EmailRequested(documents=[...])`, and give the mailer the document manager.
+  A document generated in the same operation works too:
+
+  ```python
+  pdf = await generator.attach(ctx, "printed", "invoice", format="pdf")
+  ctx.record_event(EmailRequested(template="invoice_sent", to=[email], documents=[pdf.id]))
+
+  mailer = Mailer(sender, templates, from_address=..., documents=manager.documents)
+  ```
+
+- **Bytes**, when sending directly:
+  `mailer.send(template, to, context, attachments=[attachment("a.pdf", data)])`.
+
+How stored documents are attached:
+
+- **When they are read:** when the email is sent, without a permission
+  check. The operation that recorded the request chose them.
+- **Not ready yet:** a document still `pending` or `processing` (scanned by
+  the pipeline, for example) raises RE-E605, and the request is retried
+  later.
+- **Refused:** a missing, rejected or deleted document, or attachments
+  heavier than `max_attachment_bytes` together (10 MB), refuse the request
+  (RE-E406, dead-lettered).
 
 ## Sending it
 

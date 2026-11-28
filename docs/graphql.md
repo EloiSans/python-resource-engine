@@ -87,6 +87,9 @@ type Mutation {
   ```
 - **Tenants:** tenant-scoped resources take `tenant` on queries and mutations,
   for cross-tenant callers only.
+- **Exports:** with a blob store, `exportInvoices(format, orderBy, filter)`
+  queues a background export and `export(id)` follows it (see
+  [exports](exports.md#graphql-and-mcp)).
 
 ## Relations
 

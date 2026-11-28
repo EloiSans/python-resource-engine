@@ -203,6 +203,8 @@ def console_labels() -> dict[str, str]:
         ),
         "your_roles": t("Your roles"),
         "not_granted": t("not granted"),
+        "download": t("Download"),
+        "export_check": t("Check the export"),
     }
 
 

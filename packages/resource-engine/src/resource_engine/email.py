@@ -12,6 +12,14 @@ The worker sends it: ``Mailer.router()`` handles the requests, through a
 ``MessageProcessor`` with the inbox, fed from the outbox (``ProcessFeed``) or
 from a broker. Outside a transaction (a job, a script) call ``Mailer.send``.
 
+Stored documents go along as attachments: name them in ``documents`` (their
+ids) and give the Mailer the document manager (``Mailer(...,
+documents=manager.documents)``). A document generated in the same operation
+works too::
+
+    pdf = await generator.attach(ctx, "printed", "invoice", format="pdf")
+    ctx.record_event(EmailRequested(template="invoice_sent", to=[email], documents=[pdf.id]))
+
 A template set ``invoice_approved`` is three files under ``email/``:
 ``invoice_approved.subject.txt``, ``invoice_approved.txt`` and
 ``invoice_approved.html`` (text or html may be missing, not both).
@@ -63,6 +71,9 @@ class EmailRequested(DomainEvent):
     reply_to: Sequence[str] = ()
     resource: str | None = None
     entity_id: Any = None
+    #: Ids of stored documents to attach. They are read when the email is
+    #: sent, without a permission check: the operation that asked chose them.
+    documents: Sequence[str] = ()
 
 
 type ContextFactory = Callable[[], Mapping[str, Any]] | Mapping[str, Any]
@@ -83,6 +94,10 @@ class Mailer:
             returning them; the request's context wins on a clash.
         suppressions: A ``SuppressionList``: suppressed recipients are left
             out of every message, and a message with nobody left isn't sent.
+        documents: The ``DocumentManager`` that requested ``documents`` are
+            read from (``manager.documents``).
+        max_attachment_bytes: The most the attachments of one message may
+            weigh together; above it the request is refused (dead-lettered).
     """
 
     def __init__(
@@ -96,6 +111,8 @@ class Mailer:
         prefix: str = "email/",
         globals: ContextFactory | None = None,
         suppressions: SuppressionList | None = None,
+        documents: Any = None,
+        max_attachment_bytes: int = 10 * 1024 * 1024,
     ) -> None:
         if "@" not in parseaddr(from_address)[1]:
             raise ConfigurationError(f"Invalid from_address {from_address!r}")
@@ -107,6 +124,8 @@ class Mailer:
         self.prefix = prefix
         self.globals = globals
         self.suppressions = suppressions
+        self.documents = documents
+        self.max_attachment_bytes = max_attachment_bytes
 
     @property
     def domain(self) -> str:
@@ -206,6 +225,7 @@ class Mailer:
         """Send the email an ``EmailRequested`` envelope asks for. Its
         ``Message-ID`` comes from the envelope id, so a retry is the same message."""
         data = dict(envelope.payload)
+        attachments = await self.document_attachments(list(data.get("documents") or ()))
         await self.send(
             str(data["template"]),
             list(data.get("to") or ()),
@@ -214,8 +234,51 @@ class Mailer:
             cc=list(data.get("cc") or ()),
             bcc=list(data.get("bcc") or ()),
             reply_to=list(data.get("reply_to") or ()),
+            attachments=attachments,
             message_id=f"<{envelope.id}@{self.domain}>",
         )
+
+    async def document_attachments(self, document_ids: Sequence[str]) -> list[Attachment]:
+        """Stored documents as attachments. A document still being processed
+        raises ``DocumentNotAvailable`` (the request is retried later); a
+        missing, rejected or too large one refuses the request."""
+        from resource_engine.errors import (
+            DocumentNotAvailable,
+            DocumentTooLarge,
+            EntityNotFound,
+            MessageRejected,
+        )
+
+        if not document_ids:
+            return []
+        if self.documents is None:
+            raise ConfigurationError(
+                "An email asks for documents but the Mailer has no document manager",
+                hint="Mailer(..., documents=manager.documents).",
+                doc="docs/email.md#attachments",
+            )
+        attachments: list[Attachment] = []
+        left = self.max_attachment_bytes
+        for document_id in document_ids:
+            try:
+                document, content = await self.documents.read_trusted(
+                    str(document_id), max_bytes=left
+                )
+            except DocumentNotAvailable as exc:
+                status = (exc.details or {}).get("status")
+                if status in ("pending", "processing"):
+                    raise
+                raise MessageRejected(
+                    f"Document {document_id!r} can't be attached: it is {status}"
+                ) from exc
+            except (EntityNotFound, DocumentTooLarge) as exc:
+                raise MessageRejected(
+                    f"Document {document_id!r} can't be attached: {exc.message}",
+                    details={"max_attachment_bytes": self.max_attachment_bytes},
+                ) from exc
+            left -= len(content)
+            attachments.append(Attachment(document.filename, document.content_type, content))
+        return attachments
 
     def router(self, *, name: str = "emails") -> EventRouter:
         """An ``EventRouter`` that sends ``EmailRequested`` and ignores the rest.

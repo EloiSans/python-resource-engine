@@ -18,16 +18,21 @@ class PrintInvoice(Action):
   by ``GotenbergPdfConverter`` (``resource-engine-http``, headless Chromium).
 - **Attaching** stores the result in the record's slot inside the operation,
   like any upload: it is part of the change and undone if it rolls back.
+- **Printouts** render a record on request without storing anything:
+  ``Resource.printouts = {"invoice": Printout(formats=("pdf", "html"))}`` and
+  ``ResourceManager(generator=...)`` serve ``GET /invoices/7/printouts/invoice``.
+  The record is read as the caller (``get`` permission, row filter, tenant),
+  and fields they may not read are left out of the template's ``record``.
 """
 
 from __future__ import annotations
 
 import dataclasses
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any, Literal, Protocol
 
-from resource_engine.errors import ConfigurationError, TemplateNotFound
+from resource_engine.errors import ConfigurationError, OperationNotEnabled, TemplateNotFound
 
 type DocumentFormat = Literal["pdf", "html", "md", "txt"]
 
@@ -59,6 +64,44 @@ def record_context(entity: Any) -> dict[str, Any]:
     if hasattr(entity, "model_dump"):
         return entity.model_dump()
     return {k: v for k, v in vars(entity).items() if not k.startswith("_")}
+
+
+@dataclass(frozen=True)
+class Printout:
+    """A document rendered from one record on request (``Resource.printouts``).
+
+    Args:
+        template: Template name under ``documents/`` (default: the printout's name).
+        formats: Formats it can be asked for; the first is the default.
+        context: Extra template values from the record's readable fields (a
+            dict) and the caller: ``lambda record, actor: {"copy": True}``.
+        description: For the API documents.
+    """
+
+    template: str | None = None
+    formats: Sequence[DocumentFormat] = ("pdf",)
+    context: Callable[[Any, Any], Mapping[str, Any]] | None = None
+    description: str | None = None
+
+
+def check_printouts(registry: Any, generator: Any) -> None:
+    """Every printout needs a generator and known formats."""
+    for definition in registry:
+        printouts = definition.resource_cls.printouts
+        if printouts and generator is None:
+            raise ConfigurationError(
+                f"Resource {definition.name!r} declares printouts but no generator is set",
+                hint="Pass ResourceManager(generator=DocumentGenerator(templates, pdf=...)).",
+                doc="docs/documents.md#printouts",
+            )
+        for name, printout in printouts.items():
+            unknown = [f for f in printout.formats if f not in CONTENT_TYPES]
+            if unknown or not printout.formats:
+                raise ConfigurationError(
+                    f"Printout {definition.name}.{name} has unknown formats {unknown}",
+                    hint=f"Use some of {sorted(CONTENT_TYPES)}.",
+                    doc="docs/documents.md#printouts",
+                )
 
 
 class DocumentGenerator:
@@ -131,11 +174,58 @@ class DocumentGenerator:
             NewDocument(slot, document.content, name, document.content_type.split(";")[0])
         )
 
+    async def printout(
+        self,
+        manager: Any,
+        resource: str,
+        entity_id: Any,
+        name: str,
+        *,
+        format: DocumentFormat | None = None,
+        locale: str | None = None,
+        actor: Any = None,
+        tenant: str | None = None,
+    ) -> tuple[GeneratedDocument, str]:
+        """Render printout ``name`` of one record as ``actor``: ``(document,
+        file name)``. Nothing is stored."""
+        from pydantic import BaseModel
+
+        from resource_engine.authz.fields import hidden_fields
+
+        definition = manager.registry.get(resource)
+        printout = definition.resource_cls.printouts.get(name)
+        if printout is None:
+            raise OperationNotEnabled(
+                f"{resource} has no printout {name!r}",
+                details={"printouts": sorted(definition.resource_cls.printouts)},
+            )
+        chosen = format or printout.formats[0]
+        if chosen not in printout.formats:
+            raise OperationNotEnabled(
+                f"Printout {resource}.{name} is not available as {chosen}",
+                details={"formats": list(printout.formats)},
+            )
+        record = await manager.get(resource, entity_id, actor=actor, tenant=tenant)
+        values = (
+            record.model_dump(exclude=set(hidden_fields(record)))
+            if isinstance(record, BaseModel)
+            else record_context(record)
+        )
+        context = {"record": values, "resource": resource}
+        if printout.context is not None:
+            context.update(printout.context(values, actor))
+        document = await self.generate(
+            printout.template or name, context, format=chosen, locale=locale
+        )
+        return document, f"{name}-{entity_id}.{document.extension}"
+
 
 __all__ = [
     "CONTENT_TYPES",
     "DocumentGenerator",
     "GeneratedDocument",
     "PdfConverter",
+    "Printout",
+    "check_printouts",
     "record_context",
 ]

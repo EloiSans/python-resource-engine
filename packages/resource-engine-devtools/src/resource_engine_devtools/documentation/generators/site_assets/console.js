@@ -62,6 +62,67 @@
     });
   }
 
+  // A file answer (an export, a printout, a document): fetched with the token
+  // and offered as a link, never shown as text.
+  function fetchFile(method, path, headers) {
+    var init = { method: method, headers: Object.assign({}, headers || {}) };
+    var token = load("re-console-token");
+    if (token) init.headers["Authorization"] = "Bearer " + token;
+    if (lang) init.headers["Accept-Language"] = lang;
+    var started = performance.now();
+    return fetch(api + path, init).then(function (response) {
+      var ms = Math.round(performance.now() - started);
+      if (!response.ok) {
+        return response.text().then(function (text) {
+          var data = null;
+          try { data = JSON.parse(text); } catch (e) { /* not JSON */ }
+          return { status: response.status, statusText: response.statusText, ok: false,
+            headers: response.headers, text: text, data: data, ms: ms };
+        });
+      }
+      return response.blob().then(function (blob) {
+        var disposition = response.headers.get("content-disposition") || "";
+        var match = /filename\*=UTF-8''([^;]+)|filename="?([^";]+)"?/i.exec(disposition);
+        var name = match ? decodeURIComponent(match[1] || match[2]) : "download";
+        return { status: response.status, statusText: response.statusText, ok: true,
+          headers: response.headers, blob: blob, filename: name, ms: ms };
+      });
+    }, function (error) {
+      return { status: 0, statusText: L.unreachable + " (" + error.message + ")", ok: false,
+        headers: new Headers(), text: "", data: null, ms: 0 };
+    });
+  }
+
+  function showFile(target, result) {
+    if (!result.blob) { show(target, result); return; }
+    target.textContent = "";
+    target.appendChild(el("p", { className: "console-status ok",
+      text: result.status + " " + result.statusText + " · " + result.ms + " ms" }));
+    var link = el("a", { href: URL.createObjectURL(result.blob), download: result.filename,
+      className: "console-download", text: L.download + ": " + result.filename +
+        " (" + Math.max(1, Math.round(result.blob.size / 1024)) + " KB)" });
+    target.appendChild(el("p", {}, [link]));
+  }
+
+  // A background export: check it until it is done, then offer the file.
+  function followExport(target, location) {
+    var path = location.indexOf(api) === 0 ? location.slice(api.length) : location;
+    var button = el("button", { type: "button", text: L.export_check });
+    var box = el("div", { className: "console-output", "aria-live": "polite" });
+    button.addEventListener("click", function () {
+      box.textContent = L.sending;
+      call("GET", path).then(function (result) {
+        if (result.ok && result.data && result.data.status === "done") {
+          fetchFile("GET", path + "/content").then(function (file) { showFile(box, file); });
+        } else {
+          show(box, result);
+        }
+      });
+    });
+    target.appendChild(el("p", { className: "console-next" }, [button]));
+    target.appendChild(box);
+  }
+
   function show(target, result) {
     target.textContent = "";
     var line = result.status ? result.status + " " + result.statusText + " · " + result.ms + " ms"
@@ -105,14 +166,15 @@
         form.appendChild(el("label", { className: "wide" }, [el("span", { text: L.body }), bodyField]));
       }
       if (op.upload) form.appendChild(el("p", { className: "note", text: L.upload_note }));
-      var send = el("button", { type: "button", text: op.method === "GET" ? L.send : L.send_change });
+      var reads = op.method === "GET" || op.safe;
+      var send = el("button", { type: "button", text: reads ? L.send : L.send_change });
       send.addEventListener("click", function () { submit(op); });
       form.appendChild(send);
-      if (op.method !== "GET" && !allowed()) form.appendChild(el("p", { className: "note", text: L.changes_off }));
+      if (!reads && !allowed()) form.appendChild(el("p", { className: "note", text: L.changes_off }));
     }
 
     function submit(op) {
-      if (op.method !== "GET" && !allowed()) { output.textContent = L.changes_off; return; }
+      if (op.method !== "GET" && !op.safe && !allowed()) { output.textContent = L.changes_off; return; }
       var path = op.path, query = [], headers = {}, missing = [];
       Object.keys(inputs).forEach(function (name) {
         var item = inputs[name], value = item.input.value.trim();
@@ -133,7 +195,15 @@
       }
       output.textContent = L.sending;
       extra.textContent = "";
-      call(op.method, path + (query.length ? "?" + query.join("&") : ""), body, headers)
+      var target = path + (query.length ? "?" + query.join("&") : "");
+      if (op.download) {
+        fetchFile(op.method, target, headers).then(function (result) {
+          showFile(output, result);
+          if (result.status === 403 && op.action) explainButton(op, inputs);
+        });
+        return;
+      }
+      call(op.method, target, body, headers)
         .then(function (result) {
           show(output, result);
           // a record just created or read: its id fills the next forms
@@ -141,6 +211,9 @@
             save("re-console-id-" + resource, String(result.data.id));
           }
           if (result.status === 403 && op.action) explainButton(op, inputs);
+          if (result.status === 202 && result.headers.get("location")) {
+            followExport(extra, result.headers.get("location"));
+          }
           if (result.ok && op.method === "GET" && /\{[a-z_]*id\}$/.test(op.path)) nextSteps(path);
         });
     }

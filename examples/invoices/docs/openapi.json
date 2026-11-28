@@ -94,6 +94,90 @@
         }
       }
     },
+    "/exports/{export_id}": {
+      "get": {
+        "tags": [
+          "exports"
+        ],
+        "summary": "Status of a background export",
+        "operationId": "get_export",
+        "parameters": [
+          {
+            "name": "export_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Export Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExportJobOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/exports/{export_id}/content": {
+      "get": {
+        "tags": [
+          "exports"
+        ],
+        "summary": "Download a finished export",
+        "operationId": "download_export",
+        "parameters": [
+          {
+            "name": "export_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Export Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "text/csv": {},
+              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {}
+            }
+          },
+          "307": {
+            "description": "Redirect to a presigned URL"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/documents/{document_id}/content": {
       "get": {
         "tags": [
@@ -527,6 +611,140 @@
             "content": {
               "text/csv": {},
               "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {}
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/customers/exports": {
+      "post": {
+        "tags": [
+          "customers"
+        ],
+        "summary": "Export customers in the background",
+        "description": "Checks the permission and the filters, then writes the file in the background (up to 1000000 rows). Follow `Location` (`/exports/{id}`) until the status is `done`, then download `/exports/{id}/content`.",
+        "operationId": "start_export_customers_customers_exports_post",
+        "parameters": [
+          {
+            "name": "format",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "csv",
+                "xlsx"
+              ],
+              "type": "string",
+              "description": "csv or xlsx",
+              "default": "csv",
+              "title": "Format"
+            },
+            "description": "csv or xlsx"
+          },
+          {
+            "name": "order_by",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Comma-separated fields; prefix '-' for descending",
+              "title": "Order By"
+            },
+            "description": "Comma-separated fields; prefix '-' for descending"
+          },
+          {
+            "name": "country",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Country"
+            }
+          },
+          {
+            "name": "name",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Name"
+            }
+          },
+          {
+            "name": "tax_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Tax Id"
+            }
+          },
+          {
+            "name": "tenant",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Tenant to act on (cross-tenant callers)",
+              "title": "Tenant"
+            },
+            "description": "Tenant to act on (cross-tenant callers)"
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExportJobOut"
+                }
+              }
             }
           },
           "422": {
@@ -1555,6 +1773,210 @@
             "content": {
               "text/csv": {},
               "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {}
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/invoices/exports": {
+      "post": {
+        "tags": [
+          "invoices"
+        ],
+        "summary": "Export invoices in the background",
+        "description": "Checks the permission and the filters, then writes the file in the background (up to 1000000 rows). Follow `Location` (`/exports/{id}`) until the status is `done`, then download `/exports/{id}/content`.",
+        "operationId": "start_export_invoices_invoices_exports_post",
+        "parameters": [
+          {
+            "name": "format",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "csv",
+                "xlsx"
+              ],
+              "type": "string",
+              "description": "csv or xlsx",
+              "default": "csv",
+              "title": "Format"
+            },
+            "description": "csv or xlsx"
+          },
+          {
+            "name": "order_by",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Comma-separated fields; prefix '-' for descending",
+              "title": "Order By"
+            },
+            "description": "Comma-separated fields; prefix '-' for descending"
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          },
+          {
+            "name": "delivery_status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Delivery Status"
+            }
+          },
+          {
+            "name": "customer",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Customer"
+            }
+          },
+          {
+            "name": "customer_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Customer Id"
+            }
+          },
+          {
+            "name": "customer_record.country",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by the related customers record's country",
+              "title": "Customer Record.Country"
+            },
+            "description": "Filter by the related customers record's country"
+          },
+          {
+            "name": "customer_record.name",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by the related customers record's name",
+              "title": "Customer Record.Name"
+            },
+            "description": "Filter by the related customers record's name"
+          },
+          {
+            "name": "customer_record.tax_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by the related customers record's tax_id",
+              "title": "Customer Record.Tax Id"
+            },
+            "description": "Filter by the related customers record's tax_id"
+          },
+          {
+            "name": "tenant",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Tenant to act on (cross-tenant callers)",
+              "title": "Tenant"
+            },
+            "description": "Tenant to act on (cross-tenant callers)"
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExportJobOut"
+                }
+              }
             }
           },
           "422": {
@@ -3781,6 +4203,108 @@
         }
       }
     },
+    "/tags/exports": {
+      "post": {
+        "tags": [
+          "tags"
+        ],
+        "summary": "Export tags in the background",
+        "description": "Checks the permission and the filters, then writes the file in the background (up to 1000000 rows). Follow `Location` (`/exports/{id}`) until the status is `done`, then download `/exports/{id}/content`.",
+        "operationId": "start_export_tags_tags_exports_post",
+        "parameters": [
+          {
+            "name": "format",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "csv",
+                "xlsx"
+              ],
+              "type": "string",
+              "description": "csv or xlsx",
+              "default": "csv",
+              "title": "Format"
+            },
+            "description": "csv or xlsx"
+          },
+          {
+            "name": "order_by",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Comma-separated fields; prefix '-' for descending",
+              "title": "Order By"
+            },
+            "description": "Comma-separated fields; prefix '-' for descending"
+          },
+          {
+            "name": "name",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Name"
+            }
+          },
+          {
+            "name": "tenant",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Tenant to act on (cross-tenant callers)",
+              "title": "Tenant"
+            },
+            "description": "Tenant to act on (cross-tenant callers)"
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExportJobOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/tags/{entity_id}": {
       "get": {
         "tags": [
@@ -4715,6 +5239,214 @@
         }
       }
     },
+    "/invoice_tags/exports": {
+      "post": {
+        "tags": [
+          "invoice_tags"
+        ],
+        "summary": "Export invoice_tags in the background",
+        "description": "Checks the permission and the filters, then writes the file in the background (up to 1000000 rows). Follow `Location` (`/exports/{id}`) until the status is `done`, then download `/exports/{id}/content`.",
+        "operationId": "start_export_invoice_tags_invoice_tags_exports_post",
+        "parameters": [
+          {
+            "name": "format",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "csv",
+                "xlsx"
+              ],
+              "type": "string",
+              "description": "csv or xlsx",
+              "default": "csv",
+              "title": "Format"
+            },
+            "description": "csv or xlsx"
+          },
+          {
+            "name": "order_by",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Comma-separated fields; prefix '-' for descending",
+              "title": "Order By"
+            },
+            "description": "Comma-separated fields; prefix '-' for descending"
+          },
+          {
+            "name": "invoice_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Invoice Id"
+            }
+          },
+          {
+            "name": "tag_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Tag Id"
+            }
+          },
+          {
+            "name": "invoice.status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by the related invoices record's status",
+              "title": "Invoice.Status"
+            },
+            "description": "Filter by the related invoices record's status"
+          },
+          {
+            "name": "invoice.delivery_status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by the related invoices record's delivery_status",
+              "title": "Invoice.Delivery Status"
+            },
+            "description": "Filter by the related invoices record's delivery_status"
+          },
+          {
+            "name": "invoice.customer",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by the related invoices record's customer",
+              "title": "Invoice.Customer"
+            },
+            "description": "Filter by the related invoices record's customer"
+          },
+          {
+            "name": "invoice.customer_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by the related invoices record's customer_id",
+              "title": "Invoice.Customer Id"
+            },
+            "description": "Filter by the related invoices record's customer_id"
+          },
+          {
+            "name": "tag.name",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by the related tags record's name",
+              "title": "Tag.Name"
+            },
+            "description": "Filter by the related tags record's name"
+          },
+          {
+            "name": "tenant",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Tenant to act on (cross-tenant callers)",
+              "title": "Tenant"
+            },
+            "description": "Tenant to act on (cross-tenant callers)"
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExportJobOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/invoice_tags/{entity_id}": {
       "get": {
         "tags": [
@@ -5266,6 +5998,196 @@
         }
       }
     },
+    "/invoice_payments/exports": {
+      "post": {
+        "tags": [
+          "invoice_payments"
+        ],
+        "summary": "Export invoice_payments in the background",
+        "description": "Checks the permission and the filters, then writes the file in the background (up to 1000000 rows). Follow `Location` (`/exports/{id}`) until the status is `done`, then download `/exports/{id}/content`.",
+        "operationId": "start_export_invoice_payments_invoice_payments_exports_post",
+        "parameters": [
+          {
+            "name": "format",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "csv",
+                "xlsx"
+              ],
+              "type": "string",
+              "description": "csv or xlsx",
+              "default": "csv",
+              "title": "Format"
+            },
+            "description": "csv or xlsx"
+          },
+          {
+            "name": "order_by",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Comma-separated fields; prefix '-' for descending",
+              "title": "Order By"
+            },
+            "description": "Comma-separated fields; prefix '-' for descending"
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          },
+          {
+            "name": "invoice_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Invoice Id"
+            }
+          },
+          {
+            "name": "invoice.status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by the related invoices record's status",
+              "title": "Invoice.Status"
+            },
+            "description": "Filter by the related invoices record's status"
+          },
+          {
+            "name": "invoice.delivery_status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by the related invoices record's delivery_status",
+              "title": "Invoice.Delivery Status"
+            },
+            "description": "Filter by the related invoices record's delivery_status"
+          },
+          {
+            "name": "invoice.customer",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by the related invoices record's customer",
+              "title": "Invoice.Customer"
+            },
+            "description": "Filter by the related invoices record's customer"
+          },
+          {
+            "name": "invoice.customer_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by the related invoices record's customer_id",
+              "title": "Invoice.Customer Id"
+            },
+            "description": "Filter by the related invoices record's customer_id"
+          },
+          {
+            "name": "tenant",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Tenant to act on (cross-tenant callers)",
+              "title": "Tenant"
+            },
+            "description": "Tenant to act on (cross-tenant callers)"
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExportJobOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/invoice_payments/{entity_id}": {
       "get": {
         "tags": [
@@ -5679,6 +6601,162 @@
         }
       }
     },
+    "/customer_balances/exports": {
+      "post": {
+        "tags": [
+          "customer_balances"
+        ],
+        "summary": "Export customer_balances in the background",
+        "description": "Checks the permission and the filters, then writes the file in the background (up to 1000000 rows). Follow `Location` (`/exports/{id}`) until the status is `done`, then download `/exports/{id}/content`.",
+        "operationId": "start_export_customer_balances_customer_balances_exports_post",
+        "parameters": [
+          {
+            "name": "format",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "csv",
+                "xlsx"
+              ],
+              "type": "string",
+              "description": "csv or xlsx",
+              "default": "csv",
+              "title": "Format"
+            },
+            "description": "csv or xlsx"
+          },
+          {
+            "name": "order_by",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Comma-separated fields; prefix '-' for descending",
+              "title": "Order By"
+            },
+            "description": "Comma-separated fields; prefix '-' for descending"
+          },
+          {
+            "name": "customer_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Customer Id"
+            }
+          },
+          {
+            "name": "customer.country",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by the related customers record's country",
+              "title": "Customer.Country"
+            },
+            "description": "Filter by the related customers record's country"
+          },
+          {
+            "name": "customer.name",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by the related customers record's name",
+              "title": "Customer.Name"
+            },
+            "description": "Filter by the related customers record's name"
+          },
+          {
+            "name": "customer.tax_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by the related customers record's tax_id",
+              "title": "Customer.Tax Id"
+            },
+            "description": "Filter by the related customers record's tax_id"
+          },
+          {
+            "name": "tenant",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Tenant to act on (cross-tenant callers)",
+              "title": "Tenant"
+            },
+            "description": "Tenant to act on (cross-tenant callers)"
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExportJobOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/customer_balances/{entity_id}": {
       "get": {
         "tags": [
@@ -6026,6 +7104,138 @@
         }
       }
     },
+    "/documents/exports": {
+      "post": {
+        "tags": [
+          "documents"
+        ],
+        "summary": "Export documents in the background",
+        "description": "Checks the permission and the filters, then writes the file in the background (up to 1000000 rows). Follow `Location` (`/exports/{id}`) until the status is `done`, then download `/exports/{id}/content`.",
+        "operationId": "start_export_documents_documents_exports_post",
+        "parameters": [
+          {
+            "name": "format",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "csv",
+                "xlsx"
+              ],
+              "type": "string",
+              "description": "csv or xlsx",
+              "default": "csv",
+              "title": "Format"
+            },
+            "description": "csv or xlsx"
+          },
+          {
+            "name": "order_by",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Comma-separated fields; prefix '-' for descending",
+              "title": "Order By"
+            },
+            "description": "Comma-separated fields; prefix '-' for descending"
+          },
+          {
+            "name": "owner_resource",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Owner Resource"
+            }
+          },
+          {
+            "name": "owner_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Owner Id"
+            }
+          },
+          {
+            "name": "slot",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Slot"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExportJobOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/documents/{entity_id}": {
       "get": {
         "tags": [
@@ -6350,6 +7560,122 @@
             "content": {
               "text/csv": {},
               "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {}
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/authz_policies/exports": {
+      "post": {
+        "tags": [
+          "authz_policies"
+        ],
+        "summary": "Export authz_policies in the background",
+        "description": "Checks the permission and the filters, then writes the file in the background (up to 1000000 rows). Follow `Location` (`/exports/{id}`) until the status is `done`, then download `/exports/{id}/content`.",
+        "operationId": "start_export_authz_policies_authz_policies_exports_post",
+        "parameters": [
+          {
+            "name": "format",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "csv",
+                "xlsx"
+              ],
+              "type": "string",
+              "description": "csv or xlsx",
+              "default": "csv",
+              "title": "Format"
+            },
+            "description": "csv or xlsx"
+          },
+          {
+            "name": "order_by",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Comma-separated fields; prefix '-' for descending",
+              "title": "Order By"
+            },
+            "description": "Comma-separated fields; prefix '-' for descending"
+          },
+          {
+            "name": "effect",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Effect"
+            }
+          },
+          {
+            "name": "enabled",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Enabled"
+            }
+          },
+          {
+            "name": "name",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Name"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExportJobOut"
+                }
+              }
             }
           },
           "422": {
@@ -6714,6 +8040,74 @@
             "content": {
               "text/csv": {},
               "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {}
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/authz_roles/exports": {
+      "post": {
+        "tags": [
+          "authz_roles"
+        ],
+        "summary": "Export authz_roles in the background",
+        "description": "Checks the permission and the filters, then writes the file in the background (up to 1000000 rows). Follow `Location` (`/exports/{id}`) until the status is `done`, then download `/exports/{id}/content`.",
+        "operationId": "start_export_authz_roles_authz_roles_exports_post",
+        "parameters": [
+          {
+            "name": "format",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "csv",
+                "xlsx"
+              ],
+              "type": "string",
+              "description": "csv or xlsx",
+              "default": "csv",
+              "title": "Format"
+            },
+            "description": "csv or xlsx"
+          },
+          {
+            "name": "order_by",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Comma-separated fields; prefix '-' for descending",
+              "title": "Order By"
+            },
+            "description": "Comma-separated fields; prefix '-' for descending"
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExportJobOut"
+                }
+              }
             }
           },
           "422": {
@@ -7189,6 +8583,122 @@
         }
       }
     },
+    "/authz_role_assignments/exports": {
+      "post": {
+        "tags": [
+          "authz_role_assignments"
+        ],
+        "summary": "Export authz_role_assignments in the background",
+        "description": "Checks the permission and the filters, then writes the file in the background (up to 1000000 rows). Follow `Location` (`/exports/{id}`) until the status is `done`, then download `/exports/{id}/content`.",
+        "operationId": "start_export_authz_role_assignments_authz_role_assignments_exports_post",
+        "parameters": [
+          {
+            "name": "format",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "csv",
+                "xlsx"
+              ],
+              "type": "string",
+              "description": "csv or xlsx",
+              "default": "csv",
+              "title": "Format"
+            },
+            "description": "csv or xlsx"
+          },
+          {
+            "name": "order_by",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Comma-separated fields; prefix '-' for descending",
+              "title": "Order By"
+            },
+            "description": "Comma-separated fields; prefix '-' for descending"
+          },
+          {
+            "name": "role",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Role"
+            }
+          },
+          {
+            "name": "principal",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Principal"
+            }
+          },
+          {
+            "name": "group",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Group"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExportJobOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/authz_role_assignments/{entity_id}": {
       "get": {
         "tags": [
@@ -7565,6 +9075,122 @@
             "content": {
               "text/csv": {},
               "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {}
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/authz_api_keys/exports": {
+      "post": {
+        "tags": [
+          "authz_api_keys"
+        ],
+        "summary": "Export authz_api_keys in the background",
+        "description": "Checks the permission and the filters, then writes the file in the background (up to 1000000 rows). Follow `Location` (`/exports/{id}`) until the status is `done`, then download `/exports/{id}/content`.",
+        "operationId": "start_export_authz_api_keys_authz_api_keys_exports_post",
+        "parameters": [
+          {
+            "name": "format",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "csv",
+                "xlsx"
+              ],
+              "type": "string",
+              "description": "csv or xlsx",
+              "default": "csv",
+              "title": "Format"
+            },
+            "description": "csv or xlsx"
+          },
+          {
+            "name": "order_by",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Comma-separated fields; prefix '-' for descending",
+              "title": "Order By"
+            },
+            "description": "Comma-separated fields; prefix '-' for descending"
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          },
+          {
+            "name": "tenant",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Tenant"
+            }
+          },
+          {
+            "name": "created_by",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Created By"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExportJobOut"
+                }
+              }
             }
           },
           "422": {
@@ -8227,6 +9853,202 @@
             "content": {
               "text/csv": {},
               "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {}
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/audit_log/exports": {
+      "post": {
+        "tags": [
+          "audit_log"
+        ],
+        "summary": "Export audit_log in the background",
+        "description": "Checks the permission and the filters, then writes the file in the background (up to 1000000 rows). Follow `Location` (`/exports/{id}`) until the status is `done`, then download `/exports/{id}/content`.",
+        "operationId": "start_export_audit_log_audit_log_exports_post",
+        "parameters": [
+          {
+            "name": "format",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "csv",
+                "xlsx"
+              ],
+              "type": "string",
+              "description": "csv or xlsx",
+              "default": "csv",
+              "title": "Format"
+            },
+            "description": "csv or xlsx"
+          },
+          {
+            "name": "order_by",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Comma-separated fields; prefix '-' for descending",
+              "title": "Order By"
+            },
+            "description": "Comma-separated fields; prefix '-' for descending"
+          },
+          {
+            "name": "resource",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Resource"
+            }
+          },
+          {
+            "name": "entity_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Entity Id"
+            }
+          },
+          {
+            "name": "tenant",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Tenant"
+            }
+          },
+          {
+            "name": "actor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Actor"
+            }
+          },
+          {
+            "name": "outcome",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Outcome"
+            }
+          },
+          {
+            "name": "operation",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Operation"
+            }
+          },
+          {
+            "name": "correlation_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Correlation Id"
+            }
+          },
+          {
+            "name": "seal",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Seal"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExportJobOut"
+                }
+              }
             }
           },
           "422": {
@@ -9327,6 +11149,149 @@
           "action"
         ],
         "title": "ExplainRequest"
+      },
+      "ExportError": {
+        "properties": {
+          "code": {
+            "type": "string",
+            "title": "Code"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          }
+        },
+        "type": "object",
+        "required": [
+          "code",
+          "message"
+        ],
+        "title": "ExportError"
+      },
+      "ExportJobOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id",
+            "description": "Export id"
+          },
+          "resource": {
+            "type": "string",
+            "title": "Resource"
+          },
+          "format": {
+            "type": "string",
+            "enum": [
+              "csv",
+              "xlsx"
+            ],
+            "title": "Format"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "running",
+              "done",
+              "failed"
+            ],
+            "title": "Status",
+            "description": "pending, running, done (download it) or failed (see error)"
+          },
+          "rows": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rows",
+            "description": "Rows that matched when requested"
+          },
+          "filename": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Filename"
+          },
+          "size": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Size",
+            "description": "Size of the file in bytes"
+          },
+          "created_at": {
+            "type": "string",
+            "title": "Created At"
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started At"
+          },
+          "finished_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finished At"
+          },
+          "expires_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expires At",
+            "description": "When the file is deleted"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ExportError"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "resource",
+          "format",
+          "status",
+          "created_at"
+        ],
+        "title": "ExportJobOut",
+        "description": "A background export."
       },
       "HTTPValidationError": {
         "properties": {

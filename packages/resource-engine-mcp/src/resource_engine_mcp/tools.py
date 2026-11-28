@@ -21,7 +21,9 @@ from resource_engine.errors import ConfigurationError
 #: MCP tool names: letters, digits, ``_``, ``-`` and ``.``, at most 128 characters.
 TOOL_NAME = re.compile(r"^[A-Za-z0-9_.-]{1,128}$")
 
-READ_OPERATIONS = frozenset({"list", "get", "allowed_transitions", "history", "related"})
+READ_OPERATIONS = frozenset(
+    {"list", "get", "allowed_transitions", "history", "related", "export", "export_status"}
+)
 
 
 @dataclass(frozen=True)
@@ -340,6 +342,7 @@ class _Builder:
                 )
             self._expand(schema)
             self._tail(schema, write=False)
+            list_schema = schema
             tools.append(
                 self.tool(
                     "list",
@@ -352,6 +355,7 @@ class _Builder:
                     instance=False,
                 )
             )
+            tools.extend(self._export_tools(list_schema))
 
         if d.exposed("get"):
             schema = _Schema()
@@ -459,6 +463,60 @@ class _Builder:
                     output_schema=output,
                     instance=action.instance,
                     wraps_result=wrapped,
+                )
+            )
+        return tools
+
+    def _export_tools(self, list_schema: _Schema) -> list[ResourceTool]:
+        d = self.d
+        schema = _Schema()
+        schema.defs.update(list_schema.defs)
+        schema.add(
+            "format",
+            {"type": "string", "enum": ["csv", "xlsx"], "default": "csv"},
+        )
+        for name in ("order_by", "filters", "tenant"):
+            if name in list_schema.properties:
+                schema.add(name, list_schema.properties[name])
+        background = self.manager.exports is not None
+        description = (
+            f"Export {d.name} as CSV or XLSX with the list's filters, sorting and permissions. "
+            + (
+                f"It runs in the background: follow it with {d.name}_export_status, then "
+                "download the file from its content_path over HTTP."
+                if background
+                else "The file comes back in the answer (CSV as text, XLSX in base64), "
+                "up to 10 000 rows."
+            )
+        )
+        tools = [
+            self.tool(
+                "export",
+                operation="export",
+                permission="list",
+                title=f"Export {d.name}",
+                description=description,
+                input_schema=schema.build(),
+                instance=False,
+            )
+        ]
+        if background:
+            status = _Schema()
+            status.add(
+                "export_id",
+                {"type": "string", "description": f"The id {d.name}_export returned"},
+                required=True,
+            )
+            tools.append(
+                self.tool(
+                    "export_status",
+                    operation="export_status",
+                    permission="list",
+                    title=f"Status of a {d.name} export",
+                    description="pending, running, done (download content_path) or failed "
+                    "(see error).",
+                    input_schema=status.build(),
+                    instance=False,
                 )
             )
         return tools

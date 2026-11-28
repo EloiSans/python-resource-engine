@@ -14,6 +14,7 @@ trail apply exactly as over HTTP. See docs/mcp.md.
 
 from __future__ import annotations
 
+import base64
 import inspect
 import json
 import logging
@@ -308,6 +309,36 @@ class ResourceMcpServer:
                 "offset": page.offset,
                 "limit": page.limit,
             }
+        if op == "export":
+            query = ListQuery(
+                order_by=list(args.pop("order_by", None) or ()),
+                filters=_filters(definition, args.pop("filters", None) or {}, self.registry),
+            )
+            fmt = args.pop("format", "csv")
+            _no_extra(tool, args)
+            if m.exports is not None:
+                job = await m.exports.request(tool.resource, query, format=fmt, **kw)
+                return _export_job(m.exports, job)
+            from resource_engine.exports import export_table
+
+            content, media_type, filename = await export_table(
+                m, tool.resource, query, format=fmt, **kw
+            )
+            if fmt == "csv":
+                text = content.decode("utf-8-sig")
+                return {"filename": filename, "media_type": media_type, "content": text}
+            encoded = base64.b64encode(content).decode("ascii")
+            return {"filename": filename, "media_type": media_type, "content_base64": encoded}
+        if op == "export_status":
+            export_id = str(args.pop("export_id"))
+            _no_extra(tool, args)
+            assert m.exports is not None
+            job = await m.exports.get(export_id, actor=actor)
+            if job.resource != tool.resource:
+                from resource_engine.errors import EntityNotFound
+
+                raise EntityNotFound(f"Export {export_id!r} does not exist")
+            return _export_job(m.exports, job)
         if op == "history":
             machine = args.pop("machine", None)
             _no_extra(tool, args)
@@ -435,6 +466,12 @@ async def _report(exc: BaseException, tool: ResourceTool, actor: Any) -> None:
 
 
 # ---------------------------------------------------------------- arguments
+
+
+def _export_job(exports: Any, job: Any) -> dict[str, Any]:
+    data = job.to_dict()
+    data["content_path"] = f"/{exports.path}/{job.id}/content"
+    return data
 
 
 def _id(id_type: Any, value: Any) -> Any:

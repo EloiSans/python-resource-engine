@@ -174,7 +174,7 @@ uv run uvicorn invoices.app:app --app-dir examples --reload   # then open /docs 
 - [SAP](docs/sap.md) — S/4HANA OData APIs as resources, with BTP destinations for the URL and credentials.
 - [NoSQL stores](docs/nosql.md) — DynamoDB, Firestore and Cosmos DB repositories, with capability flags for what each store can query.
 - [Composite stores](docs/composite.md) — SQL, remote and data-lake resources in one operation, with compensations for remote writes.
-- [Table export](docs/exports.md) — any list as CSV or XLSX, with the caller's filters and permissions.
+- [Table export](docs/exports.md) — any list as CSV or XLSX, with the caller's filters and permissions; large ones in the background.
 - [Email and templates](docs/email.md) — emails requested in the transaction and sent after the commit, Jinja templates per locale, SMTP and SES.
 - [Scaffolding](docs/scaffold.md) — generate a module or any part of one.
 - [AI assistance](docs/ai.md) — the skill for coding agents, `ai install`, `ai sync`; [evaluation](evals/README.md).

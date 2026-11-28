@@ -551,6 +551,28 @@ class DocumentManager:
         doc = await self._available(document_id, actor)
         return DocumentRead.model_validate(doc), self.store.open(doc.storage_key)
 
+    async def read_trusted(
+        self, document_id: str, *, max_bytes: int | None = None
+    ) -> tuple[DocumentRead, bytes]:
+        """An available document and its content, with **no permission check**:
+        for engine code acting on a decision already made (an email attaching
+        documents its operation named). ``DocumentNotAvailable`` while it is
+        still being processed."""
+        doc = await self._get_document(document_id)
+        if doc.status != "available":
+            raise DocumentNotAvailable(
+                f"Document {document_id!r} is {doc.status}",
+                hint="Only available documents can be read.",
+                details={"status": doc.status},
+            )
+        if max_bytes is not None and (doc.size or 0) > max_bytes:
+            raise DocumentTooLarge(
+                f"Document {document_id!r} has {doc.size} bytes, more than {max_bytes}",
+                details={"size": doc.size, "max_bytes": max_bytes},
+            )
+        data = b"".join([chunk async for chunk in self.store.open(doc.storage_key)])
+        return DocumentRead.model_validate(doc), data
+
     async def download_url(
         self, document_id: str, *, expires: timedelta | None = None, actor: Any = None
     ) -> PresignedRequest:

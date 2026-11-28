@@ -331,6 +331,15 @@
   executables refused), `TextExtraction` with `BuiltinTextExtractor` (text,
   CSV, JSON, XML, `.docx`) and `TikaTextExtractor` (`resource-engine-http`);
   ClamAV and Tika in compose.
+- Background exports and printouts (`docs/exports.md#background-exports`,
+  `docs/documents.md#printouts`): `ExportJobs` (`manager.exports`) checks the
+  request, writes CSV or XLSX from a worker job as the requester and keeps
+  job and file in the blob store; `POST /<resource>/exports`, `GET
+  /exports/{id}` and `/content`; `exportInvoices` and `export(id)` in
+  GraphQL, `<resource>_export` and `_export_status` in MCP; download links in
+  the explorer's console; `Resource.printouts` rendered on request at `GET
+  /<resource>/{id}/printouts/<name>`; `EmailRequested(documents=[...])`
+  attaching stored documents.
 
 ## Next
 

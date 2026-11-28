@@ -749,3 +749,9 @@ msgstr "Tus roles"
 msgid "not granted"
 msgstr "no concedido"
 
+
+msgid "Download"
+msgstr "Descargar"
+
+msgid "Check the export"
+msgstr "Comprobar la exportación"

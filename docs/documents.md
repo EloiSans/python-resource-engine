@@ -258,4 +258,43 @@ class PrintInvoice(Action):
 - **Failures:** a missing template is RE-E010, and PDF without a converter
   is RE-E001. An unreachable Gotenberg is RE-E501, and the operation fails
   without attaching anything.
+- **By email:** attach it, then name it in `EmailRequested(documents=[...])`
+  ([email](email.md#attachments)).
+
+## Printouts
+
+A printout is a document rendered from a record when someone asks for it,
+and downloaded without being stored:
+
+```python
+from resource_engine.generation import Printout
+
+
+class InvoiceResource(Resource):
+    printouts = {
+        "invoice": Printout(formats=("pdf", "html")),
+        "delivery_note": Printout(template="delivery", formats=("pdf",)),
+    }
+
+
+manager = ResourceManager(registry, uow, generator=generator)
+```
+
+```http
+GET /invoices/7/printouts/invoice?format=pdf&locale=ca
+```
+
+- **Permissions:** the record is read as the caller, with the `get`
+  permission, the row filter and the tenant. The template's `record` holds
+  only the fields the caller may read.
+- **Template:** `documents/<template>.<format>` (the printout's name by
+  default), with `record` and `resource`. `context=lambda record, actor:
+  {...}` adds values; `record` is then the dict of readable fields.
+- **Formats:** the first one listed is the default. Another format is
+  refused with RE-E003.
+- **Setup:** resources with printouts need `ResourceManager(generator=...)`,
+  or the manager refuses to start (RE-E001).
+- **When to attach instead:** use `generator.attach` in an action when the
+  document must be kept as it was at that moment, such as an issued invoice.
+  A printout always shows the record as it is now.
 

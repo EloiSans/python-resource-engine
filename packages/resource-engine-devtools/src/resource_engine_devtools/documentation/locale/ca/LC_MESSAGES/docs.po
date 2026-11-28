@@ -749,3 +749,9 @@ msgstr "Els teus rols"
 msgid "not granted"
 msgstr "no concedit"
 
+
+msgid "Download"
+msgstr "Baixa"
+
+msgid "Check the export"
+msgstr "Comprova l'exportació"

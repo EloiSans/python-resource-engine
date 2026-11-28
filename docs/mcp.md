@@ -19,6 +19,8 @@ Every registered resource gets one tool per enabled operation:
 | Tool | Manager call | Arguments | Annotations |
 |---|---|---|---|
 | `<resource>_list` | `list` | `offset`, `limit`, `order_by`, `filters` | read-only |
+| `<resource>_export` | [export](exports.md#graphql-and-mcp) | `format`, `order_by`, `filters` | read-only |
+| `<resource>_export_status` | `exports.get` (with a blob store) | `export_id` | read-only |
 | `<resource>_get` | `get` | `id` | read-only |
 | `<resource>_create` | `create` | `data` | |
 | `<resource>_update` | `update` | `id`, `data`, `expected_version` | |

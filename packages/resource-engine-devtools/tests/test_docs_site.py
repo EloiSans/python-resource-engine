@@ -260,6 +260,12 @@ def test_console_data_and_pages():
         catalogue_action("invoices", "POST", "/invoices/actions/export") == "invoices:action:export"
     )
     assert catalogue_action("invoices", "GET", "/invoices/{entity_id}/history") is None
+    assert catalogue_action("invoices", "GET", "/invoices/export") == "invoices:list"
+    assert catalogue_action("invoices", "POST", "/invoices/exports") == "invoices:list"
+    assert (
+        catalogue_action("invoices", "GET", "/invoices/{entity_id}/printouts/invoice")
+        == "invoices:get"
+    )
     schemas = {"Thing": {"properties": {"a": {"type": "string"}, "b": {"type": "integer"}},
                          "required": ["b"]}}  # fmt: skip
     assert example({"$ref": "#/components/schemas/Thing"}, schemas) == {"b": 0}
@@ -273,6 +279,8 @@ def test_console_data_and_pages():
     reject = ops[("POST", "/invoices/{entity_id}/transitions/reject")]
     assert reject["body"] == {"reason": ""}
     assert {p["name"] for p in reject["params"]} >= {"entity_id", "If-Match", "Idempotency-Key"}
+    assert ops[("GET", "/invoices/export")]["download"] is True  # a file: a download link
+    assert create["download"] is False and create["safe"] is False
 
     files = _site(openapi=openapi, console=True, api_url="https://api.example.com")
     script = files["assets/console.js"]

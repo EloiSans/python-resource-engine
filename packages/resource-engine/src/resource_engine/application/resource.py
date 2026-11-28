@@ -189,6 +189,10 @@ class Resource:
     api_versions: ClassVar[Mapping[str, Any]] = {}
     #: The whole resource is on its way out (``resource_engine.versions.Deprecation``).
     deprecation: ClassVar[Any] = None
+    #: Documents rendered from a record on request and downloaded without
+    #: being stored, by name (``resource_engine.generation.Printout``):
+    #: ``GET /invoices/7/printouts/invoice?format=pdf``.
+    printouts: ClassVar[Mapping[str, Any]] = {}
 
     # --- Mapping between schemas and entities. Override when needed. ---
 

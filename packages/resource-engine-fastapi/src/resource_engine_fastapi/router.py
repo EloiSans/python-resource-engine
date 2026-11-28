@@ -11,7 +11,18 @@ import inspect
 from collections.abc import Callable, Mapping, Sequence
 from typing import Any, Literal, Union
 
-from fastapi import APIRouter, Body, Depends, FastAPI, Header, Path, Query, Response, status
+from fastapi import (
+    APIRouter,
+    Body,
+    Depends,
+    FastAPI,
+    Header,
+    Path,
+    Query,
+    Request,
+    Response,
+    status,
+)
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, create_model
 from resource_engine import ListQuery, ResourceDefinition, ResourceManager, ResourceRegistry
@@ -25,6 +36,7 @@ from resource_engine_fastapi.documents import (
     build_document_content_router,
 )
 from resource_engine_fastapi.errors import install_exception_handlers
+from resource_engine_fastapi.exports import ExportJobOut, build_export_router, printout_routes
 
 type ActorDependency = Callable[..., Any]
 
@@ -345,9 +357,7 @@ def build_resource_router(
             description=docs.get("list"),
         )
 
-        async def export_endpoint(**kw: Any) -> Any:
-            from resource_engine.exports import export_table
-
+        def export_query(kw: Mapping[str, Any]) -> ListQuery:
             filters = {
                 k.removeprefix("filter__"): v
                 for k, v in kw.items()
@@ -357,18 +367,31 @@ def build_resource_router(
                 if k.startswith("related__") and v is not None:
                     relation, _, fld = k.removeprefix("related__").partition("__")
                     filters[f"{relation}.{fld}"] = v
-            query = ListQuery(
+            return ListQuery(
                 order_by=[o for o in (kw.get("order_by") or "").split(",") if o],
                 filters=filters,
             )
-            content, media_type, filename = await export_table(
-                manager,
-                name,
-                query,
-                format=kw["format"],
-                actor=kw.get("actor"),
-                tenant=kw.get("tenant"),
-            )
+
+        async def export_endpoint(**kw: Any) -> Any:
+            from resource_engine.exports import export_table
+
+            try:
+                content, media_type, filename = await export_table(
+                    manager,
+                    name,
+                    export_query(kw),
+                    format=kw["format"],
+                    actor=kw.get("actor"),
+                    tenant=kw.get("tenant"),
+                )
+            except InvalidQuery as exc:
+                if (
+                    manager.exports is not None
+                    and isinstance(exc.details, dict)
+                    and ("max_rows" in exc.details)
+                ):
+                    exc.hint = f"Export it in the background: POST /{name}/exports."
+                raise
             return Response(
                 content,
                 media_type=media_type,
@@ -414,6 +437,59 @@ def build_resource_router(
             "(at most 10 000 rows).",
         )
 
+        if manager.exports is not None:
+            exports = manager.exports
+
+            async def export_job_endpoint(**kw: Any) -> Any:
+                job = await exports.request(
+                    name,
+                    export_query(kw),
+                    format=kw["format"],
+                    actor=kw.get("actor"),
+                    tenant=kw.get("tenant"),
+                )
+                base = kw["request"].url.path.removesuffix(f"/{name}/exports")
+                return JSONResponse(
+                    job.to_dict(),
+                    status_code=status.HTTP_202_ACCEPTED,
+                    headers={"Location": f"{base}/{exports.path}/{job.id}"},
+                )
+
+            router.add_api_route(
+                "/exports",
+                _endpoint(
+                    export_job_endpoint,
+                    [
+                        _param(
+                            "format",
+                            Literal["csv", "xlsx"],
+                            Query("csv", description="csv or xlsx"),
+                        ),
+                        _param(
+                            "order_by",
+                            str | None,
+                            Query(
+                                None,
+                                description="Comma-separated fields; prefix '-' for descending",
+                            ),
+                        ),
+                        *filter_params,
+                        *tenant_params,
+                        actor_param,
+                        _param("request", Request, inspect.Parameter.empty),
+                    ],
+                    f"start_export_{name}",
+                ),
+                methods=["POST"],
+                status_code=status.HTTP_202_ACCEPTED,
+                response_model=ExportJobOut,
+                summary=f"Export {name} in the background",
+                description="Checks the permission and the filters, then writes the file in "
+                f"the background (up to {exports.max_rows} rows). Follow `Location` "
+                f"(`/{exports.path}/{{id}}`) until the status is `done`, then download "
+                f"`/{exports.path}/{{id}}/content`.",
+            )
+
     if definition.exposed("get"):
 
         async def get_endpoint(**kw: Any) -> Any:
@@ -439,6 +515,7 @@ def build_resource_router(
             summary=_summary(docs.get("get")) or f"Get one of {name}",
             description=docs.get("get"),
         )
+        printout_routes(router, definition, manager, id_param, tenant_params, actor_param)
 
     if definition.exposed("create"):
 
@@ -807,6 +884,12 @@ def build_router(
         from resource_engine_fastapi.authz import build_authz_router
 
         router.include_router(build_authz_router(manager, actor_dependency=actor_dependency))
+    if manager.exports is not None and current:
+        router.include_router(
+            build_export_router(
+                manager, actor_dependency=actor_dependency, redirect_downloads=redirect_downloads
+            )
+        )
     if manager.documents is not None:
         router.include_router(
             build_document_content_router(

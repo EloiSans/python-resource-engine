@@ -71,6 +71,8 @@ def test_tools_from_the_registry(manager):
     tools = build_tools(registry, manager, resources=["invoices"])
     assert set(tools) == {
         "invoices_list",
+        "invoices_export",
+        "invoices_export_status",
         "invoices_get",
         "invoices_create",
         "invoices_update",
@@ -435,3 +437,57 @@ async def test_many_to_many_tool(manager):
         assert not nested.is_error, nested.content
         inner = nested.structured_content["tags"]["items"][0]["invoices"]
         assert inner["total"] == 1
+
+
+# ---------------------------------------------------------------- exports
+
+
+async def test_exports_run_in_the_background_with_a_blob_store(manager):
+    server = ResourceMcpServer(registry, manager)
+    data = {"data": {"customer": "ACME", "amount": "5"}}
+    await server.call(server.tools["invoices_create"], data)
+    started = await server.call(server.tools["invoices_export"], {"format": "csv"})
+    job = started.structured_content
+    assert not started.is_error and job["status"] == "pending" and job["rows"] == 1
+    assert server.tools["invoices_export"].read_only
+    await manager.exports.run_once()
+    status = await server.call(server.tools["invoices_export_status"], {"export_id": job["id"]})
+    assert status.structured_content["status"] == "done"
+    assert status.structured_content["content_path"] == f"/exports/{job['id']}/content"
+    missing = await server.call(server.tools["invoices_export_status"], {"export_id": "0" * 32})
+    assert missing.is_error and missing.structured_content["error"]["code"] == "RE-E102"
+
+
+async def test_without_a_blob_store_the_file_comes_back_in_the_answer():
+    from dataclasses import dataclass
+
+    from pydantic import BaseModel, ConfigDict
+    from resource_engine import Resource, ResourceRegistry
+
+    @dataclass
+    class Note:
+        text: str
+        id: int | None = None
+
+    class NoteIn(BaseModel):
+        text: str
+
+    class NoteOut(NoteIn):
+        model_config = ConfigDict(from_attributes=True)
+        id: int
+
+    class NoteResource(Resource):
+        model = Note
+        schemas = {"create": NoteIn, "read": NoteOut}
+        operations = ["list", "create"]
+
+    notes = ResourceRegistry()
+    notes.register(NoteResource)
+    plain = ResourceManager(notes, InMemoryStore.from_registry(notes).unit_of_work)
+    await plain.create("notes", {"text": "hola"})
+    server = ResourceMcpServer(notes, plain)
+    assert "notes_export_status" not in server.tools
+    csv = (await server.call(server.tools["notes_export"], {})).structured_content
+    assert csv["content"].splitlines() == ["text,id", "hola,1"]
+    xlsx = (await server.call(server.tools["notes_export"], {"format": "xlsx"})).structured_content
+    assert xlsx["content_base64"].startswith("UEsD")  # a ZIP file

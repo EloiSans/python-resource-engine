@@ -128,8 +128,14 @@ class ResourceManager:
         observers: Sequence[OperationObserver] = (),
         rate_limiter: Any = None,
         cache: Any = None,
+        generator: Any = None,
     ) -> None:
         self.registry = registry
+        from resource_engine.generation import check_printouts
+
+        check_printouts(registry, generator)
+        #: The ``DocumentGenerator`` behind ``Resource.printouts`` (docs/documents.md).
+        self.generator = generator
         from resource_engine.cache import RecordCache
 
         #: Records read by id, for resources with ``cache_ttl`` (docs/caching.md).
@@ -188,6 +194,12 @@ class ResourceManager:
                     "registry.register_documents().",
                     doc="docs/documents.md#setup",
                 )
+        from resource_engine.exports import ExportJobs
+
+        #: Background exports (docs/exports.md), when a blob store can hold the files.
+        self.exports: ExportJobs | None = (
+            ExportJobs(self, blob_store) if blob_store is not None else None
+        )
 
     # ------------------------------------------------------------------ helpers
 

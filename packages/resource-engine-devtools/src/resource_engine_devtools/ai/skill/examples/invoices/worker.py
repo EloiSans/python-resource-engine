@@ -5,6 +5,8 @@ worker``).
   process) and to the mailer (requested emails), exactly once through the inbox.
 - ``timers``: due timed transitions (pending invoices after 30 days, overdue
   payments after 15).
+- ``exports``: background exports (``POST /invoices/exports``), written to the
+  documents' blob store.
 
 Run it next to the app, on the same database (``DATABASE_URL``).
 """
@@ -39,4 +41,6 @@ def build(database_url: str | None = None) -> JobRunner:
     runner = JobRunner(locks=SqlAlchemyLocks(sessions, engine_tables.locks))
     runner.add("processes", ProcessFeed(manager.uow_factory, processor), every=1, single=True)
     runner.add("timers", TimerJob(manager), every=timedelta(minutes=1), single=True)
+    if manager.exports is not None:
+        runner.add("exports", manager.exports, every=5, single=True)
     return runner
