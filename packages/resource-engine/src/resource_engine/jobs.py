@@ -12,7 +12,11 @@ A job is anything with ``run_once()`` or an async callable. ``single=True``
 jobs take a lease from the ``LockProvider`` before each run, so they run on one
 worker at a time however many workers are started. Services are objects with
 ``run_forever(stop=...)`` (``MessageConsumer``) and run until the runner stops.
-See docs/jobs.md.
+
+With ``activity=`` an ``ActivityLog`` the runner reports to the explorer
+(docs/explorer.md#jobs): it registers its jobs and their schedules, records
+every run, and runs the jobs someone asked to "run now", through
+``run_job`` so leases hold. See docs/jobs.md.
 """
 
 from __future__ import annotations
@@ -91,6 +95,11 @@ class JobRunner:
             default).
         observers: ``JobObserver`` callbacks, for metrics. Failures are logged
             and ignored.
+        activity: An ``ActivityLog``: the jobs, their runs and "run now"
+            requests, shared with the explorer.
+        requests_every: Seconds between checks for "run now" requests.
+        heartbeat: Seconds between re-registrations of the jobs (the
+            explorer lists the workers seen recently).
     """
 
     def __init__(
@@ -99,10 +108,18 @@ class JobRunner:
         locks: LockProvider | None = None,
         owner: str | None = None,
         observers: Sequence[JobObserver] = (),
+        activity: Any = None,
+        requests_every: float = 2.0,
+        heartbeat: float = 60.0,
     ) -> None:
         self.locks = locks
         self.owner = owner or default_owner()
         self.observers = list(observers)
+        self.activity = activity
+        self.requests_every = requests_every
+        self.heartbeat = heartbeat
+        if activity is not None:
+            self.observers.append(ActivityJobObserver(activity, self.owner))
         self.jobs: dict[str, Job] = {}
         self.services: dict[str, Service] = {}
 
@@ -198,6 +215,47 @@ class JobRunner:
         await self._observe(run)
         return run
 
+    def describe(self) -> list[Any]:
+        """The jobs and their schedules (``JobInfo``), for the explorer."""
+        from resource_engine.ports.activity import JobInfo
+
+        return [
+            JobInfo(job.name, job.every, job.single, job.ttl.total_seconds(), job.run_at_start)
+            for job in self.jobs.values()
+        ]
+
+    async def register(self) -> None:
+        """Tell the activity log which jobs this worker runs."""
+        if self.activity is not None:
+            await self.activity.register_jobs(self.owner, self.describe())
+
+    async def serve_requests(self) -> int:
+        """Run the pending "run now" requests for this worker's jobs; returns
+        how many. Each goes through ``run_job``, so a ``single`` job whose lease
+        another worker holds is ``skipped``."""
+        if self.activity is None or not self.jobs:
+            return 0
+        requests = await self.activity.claim_requests(self.owner, list(self.jobs))
+        for request in requests:
+            with bind_log_context(job=request.job):
+                logger.info("Job %s: run now, asked by %s", request.job, request.requested_by)
+            run = await self.run_job(request.job)
+            await self.activity.finish_request(request.id, run.outcome, _error_text(run.error))
+        return len(requests)
+
+    async def _serve_activity(self, stop: asyncio.Event) -> None:
+        last_beat = 0.0
+        while not stop.is_set():
+            try:
+                if time.monotonic() - last_beat >= self.heartbeat:
+                    await self.register()
+                    last_beat = time.monotonic()
+                await self.serve_requests()
+            except Exception:
+                logger.exception("Worker %s: the activity log failed", self.owner)
+            if await _wait(stop, self.requests_every):
+                return
+
     async def run_once(self) -> list[JobRun]:
         """Run every job once, in the order they were added (for cron and tests)."""
         return [await self.run_job(name) for name in self.jobs]
@@ -215,6 +273,8 @@ class JobRunner:
             asyncio.create_task(self._serve(service, stop), name=service.name)
             for service in self.services.values()
         ]
+        if self.activity is not None:
+            tasks.append(asyncio.create_task(self._serve_activity(stop), name="activity"))
         logger.info(
             "Worker %s: %d jobs, %d services", self.owner, len(self.jobs), len(self.services)
         )
@@ -254,6 +314,32 @@ class JobRunner:
                 logger.exception("Job observer failed")
 
 
+def _error_text(error: BaseException | None) -> str | None:
+    if error is None:
+        return None
+    code = getattr(error, "code", None)
+    message = getattr(error, "message", None) or str(error)
+    return f"{code or type(error).__name__}: {message}"[:1000]
+
+
+class ActivityJobObserver:
+    """``JobObserver`` recording every run in an ``ActivityLog`` (added by
+    ``JobRunner(activity=...)``)."""
+
+    def __init__(self, log: Any, owner: str) -> None:
+        self.log = log
+        self.owner = owner
+
+    async def __call__(
+        self, job: str, outcome: Outcome, seconds: float, error: BaseException | None
+    ) -> None:
+        from resource_engine.ports.activity import JobRunRecord
+
+        await self.log.record_job_run(
+            JobRunRecord(job, outcome, seconds, self.owner, _error_text(error))
+        )
+
+
 async def _wait(stop: asyncio.Event, seconds: float) -> bool:
     """Sleep ``seconds`` or until ``stop``; True when stopped."""
     with contextlib.suppress(TimeoutError):
@@ -261,4 +347,12 @@ async def _wait(stop: asyncio.Event, seconds: float) -> bool:
     return stop.is_set()
 
 
-__all__ = ["Job", "JobObserver", "JobRun", "JobRunner", "Service", "default_owner"]
+__all__ = [
+    "ActivityJobObserver",
+    "Job",
+    "JobObserver",
+    "JobRun",
+    "JobRunner",
+    "Service",
+    "default_owner",
+]

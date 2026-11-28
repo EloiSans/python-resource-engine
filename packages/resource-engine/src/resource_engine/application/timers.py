@@ -262,4 +262,81 @@ class TimerJob:
         return await self.run_once()
 
 
-__all__ = ["Timer", "TimerDefinition", "TimerJob", "TimerRun", "normalize_timers"]
+@dataclass(frozen=True)
+class PendingTimer:
+    """A timed transition waiting on one record.
+
+    Attributes:
+        due_at: When the worker runs it (``None``: the record has no ``since``
+            date yet, or the caller may not read it).
+        overdue: Due already; the next ``TimerJob`` run fires it.
+    """
+
+    event: str
+    due_at: datetime | None
+    since: str
+    after: timedelta
+    states: tuple[Any, ...]
+    description: str | None
+    overdue: bool
+
+
+def _plain(value: Any) -> Any:
+    return getattr(value, "value", value)
+
+
+async def pending_timers(
+    manager: ResourceManager,
+    resource: str,
+    entity_id: Any,
+    *,
+    actor: Any = None,
+    tenant: str | None = None,
+    now: datetime | None = None,
+) -> list[PendingTimer]:
+    """The timers waiting on one record now: those whose states include its
+    current state. The record is read as ``actor`` (permission, row filter,
+    tenant); a ``since`` field hidden from them gives no ``due_at``."""
+    from pydantic import BaseModel
+
+    from resource_engine.authz.fields import hidden_fields
+
+    definition = manager.registry.get(resource)
+    if not definition.timers:
+        return []
+    record = await manager.get(resource, entity_id, actor=actor, tenant=tenant)
+    hidden = hidden_fields(record) if isinstance(record, BaseModel) else frozenset()
+    now = now or datetime.now(UTC)
+    out = []
+    for timer in definition.timers:
+        state = _plain(getattr(record, timer.field, None))
+        if state not in {_plain(s) for s in timer.states}:
+            continue
+        since = None if timer.since in hidden else getattr(record, timer.since, None)
+        if isinstance(since, datetime) and since.tzinfo is None:
+            since = since.replace(tzinfo=UTC)
+        due = since + timer.after if isinstance(since, datetime) else None
+        out.append(
+            PendingTimer(
+                event=timer.event,
+                due_at=due,
+                since=timer.since,
+                after=timer.after,
+                states=timer.states,
+                description=timer.description,
+                overdue=due is not None and due <= now,
+            )
+        )
+    out.sort(key=lambda p: (p.due_at is None, p.due_at or now))
+    return out
+
+
+__all__ = [
+    "PendingTimer",
+    "Timer",
+    "TimerDefinition",
+    "TimerJob",
+    "TimerRun",
+    "normalize_timers",
+    "pending_timers",
+]

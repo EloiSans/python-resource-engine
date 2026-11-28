@@ -114,6 +114,21 @@ Log lines written during a run carry `job` in the log context, and
 `resource-engine worker --log-format json` writes them as JSON
 ([logs](observability.md#logs)).
 
+## In the explorer
+
+`JobRunner(activity=activity_log)` reports to an `ActivityLog`:
+
+- **Its jobs and their schedules:** registered at start and every
+  `heartbeat`.
+- **Every run:** recorded with its outcome.
+- **"Run now":** it serves the requests the [explorer](explorer.md#jobs)
+  records, through `run_job`, so `single` jobs keep their lease. A worker
+  holding no lease runs nothing: the request ends `skipped`.
+
+`runner.describe()` lists the jobs, `runner.register()` reports them, and
+`runner.serve_requests()` runs the pending requests once (for tests and
+external schedulers).
+
 ## Other schedulers
 
 Every job has `run_once()`, so any scheduler can drive it instead of

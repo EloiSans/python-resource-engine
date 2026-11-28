@@ -18,12 +18,12 @@ from datetime import timedelta
 
 from resource_engine import TimerJob
 from resource_engine.jobs import JobRunner
-from resource_engine.messaging import MessageProcessor
+from resource_engine.messaging import ActivityMessageObserver, MessageProcessor
 from resource_engine.processes import ProcessFeed, ProcessRunner
 from resource_engine_sqlalchemy import SqlAlchemyLocks
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
-from invoices.app import _blob_store, build_manager
+from invoices.app import _blob_store, activity_log, build_manager
 from invoices.infrastructure.persistence import engine as engine_tables
 from invoices.infrastructure.persistence import map_entities
 from invoices.notifications import build_mailer
@@ -37,8 +37,14 @@ def build(database_url: str | None = None) -> JobRunner:
     sessions = async_sessionmaker(engine, expire_on_commit=False)
     manager = build_manager(sessions, blob_store=_blob_store()[0])
     router = ProcessRunner(manager).router().include(build_mailer().router())
-    processor = MessageProcessor(router, name="invoice-processes", manager=manager)
-    runner = JobRunner(locks=SqlAlchemyLocks(sessions, engine_tables.locks))
+    activity = activity_log(sessions)  # shown by the explorer: runs, run now, deliveries
+    processor = MessageProcessor(
+        router,
+        name="invoice-processes",
+        manager=manager,
+        observers=[ActivityMessageObserver(activity)],
+    )
+    runner = JobRunner(locks=SqlAlchemyLocks(sessions, engine_tables.locks), activity=activity)
     runner.add("processes", ProcessFeed(manager.uow_factory, processor), every=1, single=True)
     runner.add("timers", TimerJob(manager), every=timedelta(minutes=1), single=True)
     if manager.exports is not None:

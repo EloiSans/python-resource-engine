@@ -356,6 +356,14 @@
   console (`--console`, `--api-url`), are gone in favour of the explorer;
   `mount_docs` serves at `/documentation/`, and the explorer's endpoints stay
   out of the app's OpenAPI document.
+- Explorer, part 2 (`docs/explorer.md#jobs`): a Jobs tab with the jobs the
+  workers registered (`JobRunner(activity=...)`, `describe`, a heartbeat),
+  their runs (`ActivityJobObserver`), "run now" requests the worker claims
+  once and runs through `run_job` so leases hold (`serve_requests`), and the
+  timed transitions waiting on a record (`pending_timers`); the activity log
+  gains job runs, requests and workers (in memory and SQL); the example's
+  worker reports there and the app mounts the explorer with `EXPLORER=1`.
+
 ## Next
 
 Ordered by priority. The MVP of the
@@ -364,8 +372,6 @@ what follows builds on it.
 
 ### Soon
 
-- Explorer, part 2: a Jobs tab with the worker's jobs, their runs and "run
-  now" through the worker, and a record's pending timed transitions.
 - Explorer, part 3: a dry run of publishing an event, validated against its
   schema and the app's consumers.
 - Explorer, part 4: publishing an event by hand through the outbox, tagged

@@ -84,3 +84,9 @@ Els rols de sistema es defineixen al codi i no es poden modificar des del front-
 | `authz_api_keys:transition:revoke` | ✓ |  |
 | `audit_log:list` | ✓ |  |
 | `audit_log:get` | ✓ |  |
+| `events:read` | ✓ |  |
+| `jobs:read` | ✓ |  |
+| `jobs:run` | ✓ |  |
+| `events:publish:InvoiceTotalsRecalculated` |  |  |
+| `events:publish:PaymentOverdue` |  |  |
+| `events:publish:PolicyChanged` |  |  |

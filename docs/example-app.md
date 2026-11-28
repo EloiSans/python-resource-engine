@@ -41,6 +41,12 @@ The realm follows OAuth 2.1, and has two clients:
 - **Database:** `DATABASE_URL` chooses it (SQLite `invoices.db` by default).
   The app creates the tables at start-up; production uses the migrations
   instead (see [migrations](migrations.md)).
+- **Explorer:** `EXPLORER=1` mounts the [explorer](explorer.md) at
+  `/explorer/`, with the Jobs tab. Run the worker (`uv run resource-engine
+  worker`) on the same database to see its jobs and use "Run now"; the
+  `admin` role holds `jobs:read` and `jobs:run`.
+- **Documentation site:** `DOCS_SITE=site` serves a site built with
+  `resource-engine docs site --out site` at `/documentation/`.
 
 ## The realm
 

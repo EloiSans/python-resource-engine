@@ -9,6 +9,8 @@ application, not only its HTTP routes:
   allowed transitions; a refusal explains itself (`/authz/explain`); files
   (exports, printouts, documents) come as download links.
 - **Events:** committed events, live, and which consumers handled each one.
+- **Jobs:** what the workers run, their recent runs, "run now", and the timed
+  transitions waiting on a record.
 
 The [documentation site](docs-site.md) is separate: it explains the
 application for people who don't read code, and links the API's
@@ -32,7 +34,9 @@ register_explorer(registry)  # its permissions, before the manager
 manager = ResourceManager(registry, ..., event_publisher=TransportEventPublisher(hub))
 mount_resources(app, registry, manager, actor_dependency=actor)
 if settings.explorer:  # off in production unless you decide
-    mount_explorer(app, manager, actor_dependency=actor, events=hub, activity=activity_log)
+    mount_explorer(
+        app, manager, actor_dependency=actor, events=hub, activity=activity_log, jobs=True
+    )
 ```
 
 `http://localhost:8000/explorer/` serves one page with a tab for each part
@@ -52,7 +56,8 @@ Arguments of `mount_explorer`:
 |---|---|
 | `actor_dependency` | The same dependency as `mount_resources`: who is calling |
 | `events` | An `EventHub` fed with committed events: the Events tab |
-| `activity` | An `ActivityLog`: which consumers handled each event |
+| `activity` | An `ActivityLog`: which consumers handled each event, and the workers' jobs |
+| `jobs` | The Jobs tab: needs `activity`, the same log the workers write to |
 | `path`, `api_prefix` | Where the page (`/explorer`) and its endpoints (`/_explorer`) are served |
 | `open` | Allow the endpoints without an authorizer. **Local development only**: anyone could watch every event |
 | `title`, `csp` | The page's title, and its Content-Security-Policy (the same default as `mount_docs`) |
@@ -66,7 +71,7 @@ see them like any other action ([permissions](permissions.md#actions)):
 | Action | Allows |
 |---|---|
 | `events:read` | Every committed event with its payload, including events about no record |
-| `jobs:read`, `jobs:run` | The worker's jobs (later parts of the explorer) |
+| `jobs:read`, `jobs:run` | The workers' jobs and their runs; asking for a run now |
 | `events:publish:<Event>` | Publishing that event by hand (later parts). **Exact:** no wildcard grants it, not even `*` |
 
 Without `events:read`, a caller still sees the events about records they can
@@ -147,6 +152,48 @@ How the log is kept:
   memory.
 - **Retention:** `MessagingJanitor(activity=activity_log,
   activity_retention=timedelta(days=7))` deletes old records.
+
+## Jobs
+
+The Jobs tab shows what the running workers do, and lets administrators run
+a job now.
+
+The worker and the API are separate processes, so they meet in the
+`ActivityLog`. A runner built with it reports there:
+
+```python
+activity_log = SqlAlchemyActivityLog(sessions, tables.activity)
+runner = JobRunner(locks=SqlAlchemyLocks(...), activity=activity_log)  # in the worker
+mount_explorer(app, manager, ..., activity=activity_log, jobs=True)  # in the API
+```
+
+What the runner reports:
+
+- **Its jobs:** it registers its jobs and their schedules when it starts,
+  and again every `heartbeat` (60 s), so the explorer lists the workers
+  seen recently. It needs no code from the worker.
+- **Every run:** it records each run with its outcome, duration and error.
+  `skipped` means another worker held the lease of a `single` job.
+- **Run now:** the API records a request. The worker claims it within
+  `requests_every` (2 s) and runs the job through `run_job`. Only one
+  worker claims each request, and a `single` job still takes its lease: if
+  another worker holds it, the request ends `skipped` instead of running
+  twice.
+
+The endpoints:
+
+| Endpoint | Permission | What it does |
+|---|---|---|
+| `GET /_explorer/jobs` | `jobs:read` | Every registered job: schedule, `single` and lease, workers, last run |
+| `GET /_explorer/jobs/{name}/runs` | `jobs:read` | Its recent runs |
+| `POST /_explorer/jobs/{name}/run` | `jobs:run` (audited) | 202 with a request; 404 for a job no worker runs |
+| `GET /_explorer/jobs/requests/{id}` | `jobs:read` | `pending`, `running`, `ok`, `failed` or `skipped` |
+| `GET /_explorer/timers/{resource}/{id}` | `get` on the record | The [timed transitions](timers.md) waiting on it and when they are due |
+
+In the page, "Run now" needs "Allow changes", like any write. The page then
+follows the request until a worker finishes it. The timers form shows each
+transition waiting on a record, with its due time; overdue ones run on the
+next `TimerJob` run.
 
 ## In production
 

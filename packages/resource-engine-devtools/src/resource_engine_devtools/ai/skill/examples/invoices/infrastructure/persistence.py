@@ -98,6 +98,7 @@ engine = engine_tables(
     outbox=True,  # events stored with each change, then fed to processes and brokers
     inbox=True,  # messages already handled (exactly-once processes)
     locks=True,  # one worker at a time for single jobs
+    activity=True,  # what the worker did, for the explorer (jobs, runs, deliveries)
 )
 
 _mapped = False

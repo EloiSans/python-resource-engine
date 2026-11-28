@@ -59,6 +59,7 @@ PEOPLE = {
     "reader": Principal(subject="r", issuer="i", roles=frozenset({"readers"})),
     "watcher": Principal(subject="w", issuer="i", roles=frozenset({"watchers"})),
     "nobody": Principal(subject="n", issuer="i"),
+    "operator": Principal(subject="o", issuer="i", roles=frozenset({"operators"})),
 }
 
 
@@ -75,10 +76,13 @@ def build():  # noqa: ANN201
     store = InMemoryStore.from_registry(registry)
     hub = EventHub()
     config = AuthzConfig(
-        role_source=IdpRoleSource({"readers": "reader", "watchers": "watcher"}),
+        role_source=IdpRoleSource(
+            {"readers": "reader", "watchers": "watcher", "operators": "operator"}
+        ),
         system_roles=[
             SystemRole("reader", grants=["notes:get", "notes:list", "notes:create"]),
             SystemRole("watcher", grants=["notes:get", "events:read"]),
+            SystemRole("operator", grants=["notes:get", "jobs:read", "jobs:run"]),
         ],
     )
     manager = ResourceManager(
@@ -91,7 +95,7 @@ def build():  # noqa: ANN201
     activity = InMemoryActivityLog()
     app = FastAPI(title="Notes")
     mount_resources(app, registry, manager, actor_dependency=actor)
-    mount_explorer(app, manager, actor_dependency=actor, events=hub, activity=activity)
+    mount_explorer(app, manager, actor_dependency=actor, events=hub, activity=activity, jobs=True)
     return app, manager, hub, activity
 
 
@@ -108,6 +112,8 @@ async def test_the_page_config_and_assets_need_no_build_step():
         page = await api.get("/explorer/", headers={"Accept-Language": "ca-ES,en;q=0.5"})
         assert page.status_code == 200 and '<html lang="ca">' in page.text
         assert "Explorador" in page.text and "content-security-policy" in page.headers
+        assert 'src="/explorer/config.js?lang=ca"' in page.text  # the texts follow the page
+        assert page.headers["cache-control"] == "no-store"
         assert (await api.get("/explorer")).status_code == 307
         config = await api.get("/explorer/config.js", params={"lang": "es"})
         data = json.loads(config.text.removeprefix("window.CONSOLE = ").rstrip(";\n"))
@@ -230,8 +236,76 @@ async def test_callers_who_can_read_nothing_are_refused(who):
 
 @pytest.mark.parametrize("locale", ["ca", "es"])
 def test_every_text_is_translated(locale):
-    from resource_engine_fastapi.explorer.labels import LABELS, labels
+    from importlib.resources import files
 
-    translated = labels(locale)
-    missing = [key for key, text in LABELS.items() if translated[key] == text and key != "header"]
-    assert missing == []
+    from babel.messages.pofile import read_po
+    from resource_engine_fastapi.explorer.labels import LABELS
+
+    po = (
+        files("resource_engine_fastapi.explorer")
+        / "locale"
+        / locale
+        / "LC_MESSAGES"
+        / "explorer.po"
+    )
+    with po.open("rb") as handle:
+        catalog = {m.id: m.string for m in read_po(handle) if m.id}
+    assert [text for text in LABELS.values() if not catalog.get(text)] == []
+
+
+# ---------------------------------------------------------------- jobs
+
+
+async def test_jobs_run_now_through_the_worker():
+    from resource_engine.jobs import JobRunner
+    from resource_engine.testing import InMemoryLocks
+
+    app, manager, _, activity = build()
+    runs = []
+
+    async def report() -> None:
+        runs.append(1)
+
+    runner = JobRunner(locks=InMemoryLocks(), owner="worker-1", activity=activity)
+    runner.add("report", report, every=3600, single=True)
+    await runner.register()
+    operator = {"Authorization": "Bearer operator"}
+    async with client(app) as api:
+        listed = (await api.get("/_explorer/jobs", headers=operator)).json()
+        [job] = listed["jobs"]
+        assert job["name"] == "report" and job["single"] and job["workers"] == ["worker-1"]
+        assert job["last_run"] is None and listed["workers"][0]["jobs"] == ["report"]
+
+        started = await api.post("/_explorer/jobs/report/run", headers=operator)
+        assert started.status_code == 202 and started.json()["status"] == "pending"
+        request_id = started.json()["id"]
+        assert (await runner.serve_requests()) == 1 and runs == [1]
+        status = await api.get(f"/_explorer/jobs/requests/{request_id}", headers=operator)
+        assert status.json()["status"] == "ok" and status.json()["claimed_by"] == "worker-1"
+        history = await api.get("/_explorer/jobs/report/runs", headers=operator)
+        assert [r["outcome"] for r in history.json()] == ["ok"]
+        assert (await api.get("/_explorer/jobs", headers=operator)).json()["jobs"][0]["last_run"][
+            "outcome"
+        ] == "ok"
+
+        unknown = await api.post("/_explorer/jobs/nope/run", headers=operator)
+        assert unknown.status_code == 404
+        watcher = {"Authorization": "Bearer watcher"}
+        assert (await api.get("/_explorer/jobs", headers=watcher)).status_code == 403
+        assert (await api.post("/_explorer/jobs/report/run", headers=watcher)).status_code == 403
+        note = await manager.create("notes", {"text": "x"}, actor=PEOPLE["reader"])
+        timers = await api.get(f"/_explorer/timers/notes/{note.id}", headers=operator)
+        assert timers.status_code == 200 and timers.json() == []  # notes have no timers
+        config = await api.get("/explorer/config.js")
+        assert '"jobs": {"list": "/_explorer/jobs"' in config.text
+    audit = await manager.list("audit_log", actor=system_principal("tests"))
+    actions = {(e.action, e.outcome) for e in audit.items}
+    assert ("jobs:run", "ok") in actions and ("jobs:run", "denied") in actions
+
+
+def test_jobs_need_the_activity_log():
+    from resource_engine.errors import ConfigurationError
+
+    app, manager, hub, _ = build()
+    with pytest.raises(ConfigurationError):
+        mount_explorer(FastAPI(), manager, jobs=True)

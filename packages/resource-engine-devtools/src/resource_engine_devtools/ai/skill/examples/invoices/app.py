@@ -38,9 +38,10 @@ from resource_engine_fastapi import (
     install_locale,
     mount_asyncapi,
     mount_docs,
+    mount_explorer,
     mount_resources,
 )
-from resource_engine_sqlalchemy import unit_of_work_factory
+from resource_engine_sqlalchemy import SqlAlchemyActivityLog, unit_of_work_factory
 from sqlalchemy.ext.asyncio import AsyncEngine, async_sessionmaker, create_async_engine
 
 from invoices.authz import seed
@@ -121,6 +122,12 @@ def build_manager(
     )
 
 
+def activity_log(session_factory: async_sessionmaker) -> SqlAlchemyActivityLog:
+    """What the worker did (jobs, runs, consumers' deliveries), shared with the
+    explorer."""
+    return SqlAlchemyActivityLog(session_factory, engine_tables.activity)
+
+
 def create_app(
     engine: AsyncEngine | None = None, *, authenticator: Authenticator | None = None
 ) -> FastAPI:
@@ -162,6 +169,14 @@ def create_app(
     site = os.getenv("DOCS_SITE")  # resource-engine docs site --out site
     if site:
         mount_docs(app, site)  # the functional documentation at /documentation/
+    if os.getenv("EXPLORER"):  # off unless asked: /explorer/, the jobs of the worker
+        mount_explorer(
+            app,
+            manager,
+            actor_dependency=actor,
+            activity=activity_log(session_factory),
+            jobs=True,
+        )
     mount_asyncapi(app, registry)  # GET /asyncapi.json: the events it publishes
     return app
 

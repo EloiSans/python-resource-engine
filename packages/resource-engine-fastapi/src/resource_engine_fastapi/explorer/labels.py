@@ -74,6 +74,41 @@ LABELS: dict[str, str] = {
     "deliveries": "Handled by",
     "no_deliveries": "No consumer has reported handling it yet.",
     "deliveries_off": "Consumer results are not recorded (no activity log).",
+    # jobs
+    "tab_jobs": "Jobs",
+    "jobs_intro": (
+        "The jobs the running workers registered. Run now asks a worker to run one at once: "
+        "single jobs still wait for their lease, so they run on one worker at a time."
+    ),
+    "refresh": "Refresh",
+    "job": "Job",
+    "schedule": "Schedule",
+    "workers": "Workers",
+    "worker": "Worker",
+    "last_run": "Last run",
+    "every": "every {every}",
+    "single": "one worker at a time (lease {ttl})",
+    "never": "not run yet",
+    "runs": "Runs",
+    "run_now": "Run now",
+    "seen": "seen {when}",
+    "no_jobs": "No worker has registered jobs yet.",
+    "when": "When",
+    "outcome": "Outcome",
+    "duration": "Duration",
+    "error": "Error",
+    "request_pending": "Waiting for a worker…",
+    "request_done": "Finished: {status}",
+    "timers": "Timed transitions of a record",
+    "timers_intro": (
+        "The transitions the worker will run on a record once it has waited long enough."
+    ),
+    "show": "Show",
+    "transition": "Transition",
+    "due": "Due",
+    "overdue": "overdue",
+    "description": "Description",
+    "no_timers": "No timed transition is waiting on this record.",
 }
 
 

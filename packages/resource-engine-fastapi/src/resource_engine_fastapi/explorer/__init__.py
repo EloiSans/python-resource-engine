@@ -12,6 +12,8 @@ if settings.explorer:                                   # off unless you turn it
 - **Operations:** every resource's HTTP operations, with a form per operation.
 - **Events:** committed events, live (``events=`` an ``EventHub``), and which
   consumers handled each one (``activity=`` an ``ActivityLog``).
+- **Jobs** (``jobs=True``, with ``activity``): what the workers run, their
+  runs, "run now", and the timed transitions waiting on a record.
 
 Everything calls the running API with the visitor's own token: they see and
 do exactly what they may. Reads only, until they tick "Allow changes". The
@@ -41,7 +43,7 @@ from resource_engine_fastapi.explorer import data, labels
 from resource_engine_fastapi.explorer.data import console_data
 from resource_engine_fastapi.explorer.labels import locales
 
-ASSETS = ("console.js", "events.js", "explorer.js", "explorer.css")
+ASSETS = ("console.js", "events.js", "jobs.js", "explorer.js", "explorer.css")
 
 
 def asset(name: str) -> str:
@@ -89,6 +91,7 @@ def explorer_config(
     events: bool,
     deliveries: bool,
     locale: str | None,
+    jobs: bool = False,
 ) -> dict[str, Any]:
     """What the explorer's scripts read as ``window.CONSOLE``."""
     openapi = app.openapi()
@@ -105,6 +108,15 @@ def explorer_config(
             "deliveries": f"{api_prefix}/events/{{message_id}}/deliveries" if deliveries else None,
             "resources": [d.name for d in manager.registry if d.exposed("get")],
             "types": event_types(manager.registry),
+        }
+    if jobs:
+        config["jobs"] = {
+            "list": f"{api_prefix}/jobs",
+            "runs": f"{api_prefix}/jobs/{{name}}/runs",
+            "run": f"{api_prefix}/jobs/{{name}}/run",
+            "request": f"{api_prefix}/jobs/requests/{{id}}",
+            "timers": f"{api_prefix}/timers/{{resource}}/{{id}}",
+            "timer_resources": [d.name for d in manager.registry if d.timers],
         }
     return config
 
@@ -127,9 +139,16 @@ def _locale(request: Request) -> str | None:
 
 def _page(title: str, locale: str | None, root: str) -> str:
     label = labels.labels(locale)
+    config = f"config.js?lang={html.escape(locale)}" if locale else "config.js"
     scripts = "\n".join(
         f'<script src="{root}/{name}"></script>'
-        for name in ("config.js", "assets/console.js", "assets/events.js", "assets/explorer.js")
+        for name in (
+            config,
+            "assets/console.js",
+            "assets/events.js",
+            "assets/jobs.js",
+            "assets/explorer.js",
+        )
     )
     return f"""<!doctype html>
 <html lang="{html.escape(locale or "en")}">
@@ -158,6 +177,7 @@ def mount_explorer(
     actor_dependency: Any = _no_actor,
     events: Any = None,
     activity: Any = None,
+    jobs: bool = False,
     open: bool = False,
     title: str | None = None,
     csp: str | None = CSP,
@@ -167,7 +187,10 @@ def mount_explorer(
     Args:
         actor_dependency: The same dependency as ``mount_resources``'s.
         events: An ``EventHub`` fed with committed events: the Events tab.
-        activity: An ``ActivityLog``: which consumers handled each event.
+        activity: An ``ActivityLog``: which consumers handled each event, and
+            (with ``jobs``) the workers' jobs and runs.
+        jobs: The Jobs tab: needs ``activity``, and workers built with
+            ``JobRunner(activity=...)`` on the same log.
         open: Allow the explorer's endpoints without an authorizer (local
             development only: anyone could see every event).
         csp: Content-Security-Policy of the page.
@@ -181,6 +204,21 @@ def mount_explorer(
                 manager, events, actor_dependency=actor_dependency, activity=activity, open=open
             )
         )
+    if jobs:
+        if activity is None:
+            from resource_engine.errors import ConfigurationError
+
+            raise ConfigurationError(
+                "The explorer's jobs need the activity log the workers write to",
+                hint="mount_explorer(..., jobs=True, activity=SqlAlchemyActivityLog(...)) and "
+                "JobRunner(activity=<the same log>).",
+                doc="docs/explorer.md#jobs",
+            )
+        from resource_engine_fastapi.explorer.jobs import build_jobs_router
+
+        api.include_router(
+            build_jobs_router(manager, activity, actor_dependency=actor_dependency, open=open)
+        )
     app.include_router(api)
     root = path.rstrip("/")
     page_title = title or getattr(app, "title", None) or "API"
@@ -191,7 +229,10 @@ def mount_explorer(
 
     @ui_router.get("/", response_class=HTMLResponse)
     async def page(request: Request) -> HTMLResponse:
-        return HTMLResponse(_page(page_title, _locale(request), root), headers=headers)
+        return HTMLResponse(
+            _page(page_title, _locale(request), root),
+            headers={**headers, "Cache-Control": "no-store"},
+        )
 
     @ui_router.get("/config.js")
     async def config(request: Request) -> Response:
@@ -202,6 +243,7 @@ def mount_explorer(
             events=events is not None,
             deliveries=activity is not None,
             locale=_locale(request),
+            jobs=jobs,
         )
         body = json.dumps(payload, ensure_ascii=False).replace("</", "<\\/")
         return Response(

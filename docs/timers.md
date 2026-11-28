@@ -91,6 +91,19 @@ Timers aren't exact: a record is handled on the first run after its deadline.
 With `every=timedelta(minutes=1)` that is within a minute, and a backlog
 drains `batch` records per timer per run.
 
+## For one record
+
+`pending_timers(manager, "invoices", 7, actor=user)` lists the timers waiting
+on a record now: those whose states include its current state. Each comes
+with its due time (`since` + `after`) and whether it is overdue.
+
+- **Read as the caller:** the record is read with the caller's permission,
+  row filter and tenant.
+- **Hidden fields:** a `since` field the caller may not read gives no due
+  time.
+- **In the browser:** the [explorer's](explorer.md#jobs) Jobs tab shows the
+  same list.
+
 ## In the docs and tools
 
 - The generated functional docs list each resource's automatic transitions

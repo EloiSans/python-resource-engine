@@ -173,6 +173,10 @@ def cedar_schema(
 
     actions: dict[str, Any] = {}
     for name, info in Catalog.from_registry(registry).actions.items():
+        if info.resource not in registry:  # an engine action (the explorer's jobs:run)
+            types_.setdefault(
+                entity(info.resource), {"shape": {"type": "Record", "attributes": {}}}
+            )
         context: dict[str, Any] = {
             "action": STRING,
             "now": DATETIME,

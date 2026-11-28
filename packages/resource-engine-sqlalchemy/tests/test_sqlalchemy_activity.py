@@ -24,4 +24,9 @@ class TestSqlAlchemyActivityLog(ActivityLogContract):
 
 def test_engine_tables_declare_the_activity_log():
     declared = engine_tables(MetaData(), activity=True, names={"activity": "ops"})
-    assert [t.name for t in declared.all()] == ["ops_deliveries"]
+    assert [t.name for t in declared.all()] == [
+        "ops_deliveries",
+        "ops_job_runs",
+        "ops_job_requests",
+        "ops_workers",
+    ]

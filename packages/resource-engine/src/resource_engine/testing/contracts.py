@@ -859,3 +859,60 @@ class ActivityLogContract:
         assert await activity_log.purge(before, 2) == 2
         assert await activity_log.purge(before, 10) == 1
         assert len(await activity_log.deliveries("new")) == 1
+
+    async def test_workers_register_their_jobs(self, activity_log):
+        from resource_engine.ports.activity import JobInfo
+
+        await activity_log.register_jobs("w1", [JobInfo("outbox", 1.0), JobInfo("timers", 60.0)])
+        await activity_log.register_jobs("w2", [JobInfo("timers", 60.0, single=True, ttl=120.0)])
+        await activity_log.register_jobs("w1", [JobInfo("outbox", 2.0)])  # replaces w1's
+        workers = {w.owner: w for w in await activity_log.workers()}
+        assert set(workers) == {"w1", "w2"}
+        assert workers["w1"].jobs == (JobInfo("outbox", 2.0),)
+        assert workers["w2"].jobs[0].single and workers["w2"].jobs[0].ttl == 120.0
+
+    async def test_job_runs_newest_first(self, activity_log):
+        from resource_engine.ports.activity import JobRunRecord
+
+        now = datetime.now(UTC)
+        await activity_log.record_job_run(
+            JobRunRecord("outbox", "ok", 0.1, "w1", at=now - timedelta(minutes=2))
+        )
+        await activity_log.record_job_run(
+            JobRunRecord("outbox", "failed", 0.2, "w1", error="RE-E501: down", at=now)
+        )
+        await activity_log.record_job_run(JobRunRecord("timers", "skipped", 0.0, "w2", at=now))
+        runs = await activity_log.job_runs("outbox")
+        assert [(r.outcome, r.error) for r in runs] == [("failed", "RE-E501: down"), ("ok", None)]
+        assert len(await activity_log.job_runs()) == 3
+        assert len(await activity_log.job_runs(limit=1)) == 1
+
+    async def test_run_requests_are_claimed_once(self, activity_log):
+        request = await activity_log.request_run("timers", "oidc:ana")
+        other = await activity_log.request_run("reports", "oidc:ana")
+        assert (await activity_log.run_request(request.id)).status == "pending"
+        assert await activity_log.claim_requests("w1", ["outbox"]) == []  # not its job
+        [claimed] = await activity_log.claim_requests("w1", ["timers"])
+        assert claimed.id == request.id and claimed.status == "running"
+        assert claimed.claimed_by == "w1" and claimed.requested_by == "oidc:ana"
+        assert await activity_log.claim_requests("w2", ["timers"]) == []  # already claimed
+        await activity_log.finish_request(request.id, "failed", "RuntimeError: boom")
+        done = await activity_log.run_request(request.id)
+        assert done.status == "failed" and done.error == "RuntimeError: boom" and done.finished_at
+        assert (await activity_log.run_request(other.id)).status == "pending"
+        assert await activity_log.run_request("missing") is None
+
+    async def test_purge_covers_runs_requests_and_workers(self, activity_log):
+        from resource_engine.ports.activity import JobInfo, JobRunRecord
+
+        old = datetime.now(UTC) - timedelta(days=10)
+        await activity_log.record_job_run(JobRunRecord("outbox", "ok", 0.1, "w1", at=old))
+        await activity_log.register_jobs("w1", [JobInfo("outbox", 1.0)])
+        request = await activity_log.request_run("outbox", None)
+        await activity_log.finish_request(request.id, "ok")
+        pending = await activity_log.request_run("outbox", None)
+        assert await activity_log.purge(datetime.now(UTC) + timedelta(seconds=1), 100) >= 3
+        assert await activity_log.job_runs() == []
+        assert await activity_log.run_request(request.id) is None
+        assert await activity_log.run_request(pending.id) is not None  # never purged unfinished
+        assert await activity_log.workers() == []

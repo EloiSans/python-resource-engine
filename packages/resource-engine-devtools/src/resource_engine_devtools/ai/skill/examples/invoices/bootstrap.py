@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from resource_engine import ResourceRegistry
 from resource_engine.authz import AuthzConfig, IdpRoleSource, SystemRole
+from resource_engine.explorer import register_explorer
 
 from invoices.application.balances import CustomerBalanceResource
 from invoices.application.customers import CustomerResource
@@ -38,6 +39,9 @@ def build_registry(*, tenant_scoped: bool = False) -> ResourceRegistry:
     registry.register_authz()
     registry.register_api_keys()  # keys for machine clients (Bearer rek_...)
     registry.register_audit()
+    # the explorer's permissions (events:read, jobs:read, jobs:run...): the admin
+    # role holds them; publishing events by hand is granted to no one
+    register_explorer(registry)
     return registry
 
 
