@@ -1,16 +1,32 @@
 # Explorer
 
 The explorer lets developers and operators try the running application from
-the browser. It works like FastAPI's `/docs`, but covers the whole
-application, not only its HTTP routes:
+the browser. It looks like Swagger UI, FastAPI's `/docs`: a section per
+resource and a row per operation, each opening into its "Try it" form. Next
+to the HTTP verbs it lists what else the application does:
 
-- **Operations:** each resource's HTTP operations, one form per operation,
-  with the parameters and a JSON body to start from. A record read lists its
-  allowed transitions; a refusal explains itself (`/authz/explain`); files
-  (exports, printouts, documents) come as download links.
-- **Events:** committed events, live, and which consumers handled each one.
-- **Jobs:** what the workers run, their recent runs, "run now", and the timed
-  transitions waiting on a record.
+| Verb | Row | Try it |
+|---|---|---|
+| `GET` `POST` `PUT` `PATCH` `DELETE` | An HTTP operation (`/invoices/{entity_id}`) | Its parameters and a JSON body to start from. A record read lists its allowed transitions; a refusal explains itself (`/authz/explain`); files (exports, printouts, documents) come as download links |
+| `SUB` | An event type a resource publishes (`invoices/ResourceCreated`, with its schema version) | Its committed events, live, filtered by record id; each with its envelope, payload, record and which consumers handled it |
+| `CRON` | A timed transition (`invoices/reject`), or a worker job in the `worker` section | When it fires and when it is due for one record; a job's schedule, runs and "run now" |
+| `PUB` | An event the application lets you publish by hand (coming next) | — |
+
+Inside each resource the rows are grouped in collapsible blocks by what they
+do. Only CRUD is open at first, and each header shows how many rows it holds
+and which verbs:
+
+- **CRUD:** list, read, create, update, delete.
+- **Transitions and actions:** the state machine's transitions, the
+  resource's actions, and its history.
+- **Relations:** related records (`/customers/{id}/invoices`).
+- **Documents:** attaching, uploading and removing documents.
+- **Export and print:** the exports and printouts.
+- **Events (pub/sub):** the `SUB` (and `PUB`) rows.
+- **Schedule (cron):** the timed transitions.
+
+A box at the top filters the rows by verb, path or description. While it
+filters, the blocks with a match open and the others are hidden.
 
 The [documentation site](docs-site.md) is separate: it explains the
 application for people who don't read code, and links the API's
@@ -39,8 +55,8 @@ if settings.explorer:  # off in production unless you decide
     )
 ```
 
-`http://localhost:8000/explorer/` serves one page with a tab for each part
-the application enabled.
+`http://localhost:8000/explorer/` serves the page. `SUB` rows need `events`,
+and `CRON` rows need `jobs`.
 
 - **No build step and no devtools:** the page and its scripts ship with
   `resource-engine-fastapi` and are built from the running app's OpenAPI
@@ -55,9 +71,9 @@ Arguments of `mount_explorer`:
 | Argument | What it does |
 |---|---|
 | `actor_dependency` | The same dependency as `mount_resources`: who is calling |
-| `events` | An `EventHub` fed with committed events: the Events tab |
+| `events` | An `EventHub` fed with committed events: the `SUB` rows |
 | `activity` | An `ActivityLog`: which consumers handled each event, and the workers' jobs |
-| `jobs` | The Jobs tab: needs `activity`, the same log the workers write to |
+| `jobs` | The `CRON` rows: needs `activity`, the same log the workers write to |
 | `path`, `api_prefix` | Where the page (`/explorer`) and its endpoints (`/_explorer`) are served |
 | `open` | Allow the endpoints without an authorizer. **Local development only**: anyone could watch every event |
 | `title`, `csp` | The page's title, and its Content-Security-Policy (the same default as `mount_docs`) |
@@ -86,7 +102,7 @@ Each endpoint is audited:
 
 ## Events
 
-The Events tab connects to `GET /_explorer/events/stream`, a stream of
+Each `SUB` row connects to `GET /_explorer/events/stream`, a stream of
 server-sent events.
 
 - **Filters:** resource (the AsyncAPI channel), event type, schema version
@@ -123,7 +139,9 @@ How the stream behaves:
 The hub receives committed events the same way as for
 [GraphQL subscriptions](graphql.md#subscriptions):
 
-- **One process:** `TransportEventPublisher(hub)` right after commit.
+- **One process:** `TransportEventPublisher(hub)` right after commit, or
+  with an outbox `OutboxDelivery(live=hub)`: the same envelopes, so the
+  consumers' deliveries match the events shown.
 - **From the outbox:** `FanoutPublisher(broker, hub)`.
 - **Several instances:** each consumes a broadcast topic into
   `hub.router()`.
@@ -155,7 +173,7 @@ How the log is kept:
 
 ## Jobs
 
-The Jobs tab shows what the running workers do, and lets administrators run
+The `CRON` rows show what the running workers do, and lets administrators run
 a job now.
 
 The worker and the API are separate processes, so they meet in the

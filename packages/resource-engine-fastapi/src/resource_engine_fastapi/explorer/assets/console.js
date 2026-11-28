@@ -137,45 +137,38 @@
     if (body) target.appendChild(el("pre", { text: body.slice(0, 200000) }));
   }
 
-  // ------------------------------------------------------------ a resource page
-  // embedded: inside the explorer page, which shows the token and the switch once
-  function resourceConsole(resource, ops, embedded) {
-    var select = el("select", { "aria-label": L.operation });
-    ops.forEach(function (op, i) {
-      select.appendChild(el("option", { value: String(i), text: op.method + " " + op.path +
-        (op.summary ? " — " + op.summary : "") }));
-    });
+  // ------------------------------------------------------------ one operation
+  // The form of one HTTP operation: parameters, body, Execute, the answer.
+  // jump(op): open another operation's row (the allowed transitions).
+  function operationForm(resource, op, ops, jump) {
     var form = el("div", { className: "console-form" });
     var output = el("div", { className: "console-output", "aria-live": "polite" });
     var extra = el("div", { className: "console-extra" });
     var inputs = {};
     var bodyField = null;
 
-    function render() {
-      var op = ops[Number(select.value)];
-      form.textContent = ""; inputs = {}; bodyField = null;
-      op.params.forEach(function (p) {
-        var input = el("input", { type: "text", "aria-label": p.name, placeholder: p.description || "" });
-        if (p.in === "path" && /id$/.test(p.name)) input.value = load("re-console-id-" + resource);
-        inputs[p.name] = { param: p, input: input };
-        var label = el("label", { className: p.in === "path" ? "required" : "" }, [
-          el("span", { text: p.name + (p.in === "header" ? " (" + L.header + ")" : "") }), input]);
-        form.appendChild(label);
-      });
-      if (op.body !== null && op.body !== undefined) {
-        bodyField = el("textarea", { rows: "8", spellcheck: "false", "aria-label": L.body });
-        bodyField.value = JSON.stringify(op.body, null, 2);
-        form.appendChild(el("label", { className: "wide" }, [el("span", { text: L.body }), bodyField]));
-      }
-      if (op.upload) form.appendChild(el("p", { className: "note", text: L.upload_note }));
-      var reads = op.method === "GET" || op.safe;
-      var send = el("button", { type: "button", text: reads ? L.send : L.send_change });
-      send.addEventListener("click", function () { submit(op); });
-      form.appendChild(send);
-      if (!reads && !allowed()) form.appendChild(el("p", { className: "note", text: L.changes_off }));
+    op.params.forEach(function (p) {
+      var input = el("input", { type: "text", "aria-label": p.name, placeholder: p.description || "" });
+      if (p.in === "path" && /id$/.test(p.name)) input.value = load("re-console-id-" + resource);
+      inputs[p.name] = { param: p, input: input };
+      var label = el("label", { className: p.in === "path" ? "required" : "" }, [
+        el("span", { text: p.name + " (" + (p.in === "header" ? L.header : p.in) + ")" }), input]);
+      form.appendChild(label);
+    });
+    if (op.body !== null && op.body !== undefined) {
+      bodyField = el("textarea", { rows: "8", spellcheck: "false", "aria-label": L.body });
+      bodyField.value = JSON.stringify(op.body, null, 2);
+      form.appendChild(el("label", { className: "wide" }, [el("span", { text: L.body }), bodyField]));
     }
+    if (op.upload) form.appendChild(el("p", { className: "note wide", text: L.upload_note }));
+    var reads = op.method === "GET" || op.safe;
+    var send = el("button", { type: "button", className: "execute", text: reads ? L.send : L.send_change });
+    send.addEventListener("click", function () { submit(); });
+    var actions = el("div", { className: "wide" }, [send]);
+    if (!reads && !allowed()) actions.appendChild(el("span", { className: "note", text: " " + L.changes_off }));
+    form.appendChild(actions);
 
-    function submit(op) {
+    function submit() {
       if (op.method !== "GET" && !op.safe && !allowed()) { output.textContent = L.changes_off; return; }
       var path = op.path, query = [], headers = {}, missing = [];
       Object.keys(inputs).forEach(function (name) {
@@ -201,31 +194,30 @@
       if (op.download) {
         fetchFile(op.method, target, headers).then(function (result) {
           showFile(output, result);
-          if (result.status === 403 && op.action) explainButton(op, inputs);
+          if (result.status === 403 && op.action) explainButton();
         });
         return;
       }
-      call(op.method, target, body, headers)
-        .then(function (result) {
-          show(output, result);
-          // a record just created or read: its id fills the next forms
-          if (result.ok && result.data && result.data.id !== undefined && result.data.id !== null) {
-            save("re-console-id-" + resource, String(result.data.id));
-          }
-          if (result.status === 403 && op.action) explainButton(op, inputs);
-          if (result.status === 202 && result.headers.get("location")) {
-            followExport(extra, result.headers.get("location"));
-          }
-          if (result.ok && op.method === "GET" && /\{[a-z_]*id\}$/.test(op.path)) nextSteps(path);
-        });
+      call(op.method, target, body, headers).then(function (result) {
+        show(output, result);
+        // a record just created or read: its id fills the next forms
+        if (result.ok && result.data && result.data.id !== undefined && result.data.id !== null) {
+          save("re-console-id-" + resource, String(result.data.id));
+        }
+        if (result.status === 403 && op.action) explainButton();
+        if (result.status === 202 && result.headers.get("location")) {
+          followExport(extra, result.headers.get("location"));
+        }
+        if (result.ok && op.method === "GET" && /\{[a-z_]*id\}$/.test(op.path)) nextSteps(path);
+      });
     }
 
-    function explainButton(op, current) {
-      var button = el("button", { type: "button", text: L.why });
+    function explainButton() {
+      var button = el("button", { type: "button", className: "secondary", text: L.why });
       button.addEventListener("click", function () {
         var id = null;
-        Object.keys(current).forEach(function (n) {
-          if (current[n].param.in === "path" && current[n].input.value) id = current[n].input.value;
+        Object.keys(inputs).forEach(function (n) {
+          if (inputs[n].param.in === "path" && inputs[n].input.value) id = inputs[n].input.value;
         });
         var request = { action: op.action };
         if (id !== null) request.entity_id = /^\d+$/.test(id) ? Number(id) : id;
@@ -248,32 +240,25 @@
     }
 
     function nextSteps(recordPath) {
-      var transitions = ops.filter(function (op) { return /\/transitions\/[^/]+$/.test(op.path); });
+      var transitions = ops.filter(function (o) { return /\/transitions\/[^/]+$/.test(o.path); });
       if (!transitions.length) return;
       call("GET", recordPath + "/transitions").then(function (result) {
         if (!result.ok || !Array.isArray(result.data)) return;
         var row = el("p", { className: "console-next" }, [el("span", { text: L.next + ": " })]);
         if (!result.data.length) row.appendChild(el("span", { text: L.none }));
         result.data.forEach(function (event) {
-          var index = ops.findIndex(function (op) { return /\/transitions\/[^/]+$/.test(op.path) &&
-            op.path.slice(op.path.lastIndexOf("/") + 1) === event; });
-          var button = el("button", { type: "button", text: event });
-          button.addEventListener("click", function () {
-            if (index >= 0) { select.value = String(index); render(); select.focus(); }
-          });
+          var target = transitions.filter(function (o) {
+            return o.path.slice(o.path.lastIndexOf("/") + 1) === event;
+          })[0];
+          var button = el("button", { type: "button", className: "secondary", text: event });
+          button.addEventListener("click", function () { if (target && jump) jump(target); });
           row.appendChild(button);
         });
         extra.appendChild(row);
       });
     }
 
-    select.addEventListener("change", render);
-    render();
-    return el("details", { className: "console", id: "try-it" }, [
-      el("summary", { text: L.try_it }),
-      embedded ? null : el("p", { className: "note", text: L.intro + (api ? " " + api : "") }),
-      embedded ? null : settings(), select, form, output, extra,
-    ]);
+    return el("div", { className: "try-it" }, [form, output, extra]);
   }
 
   // ---------------------------------------------------------------- the home page
@@ -294,6 +279,6 @@
   window.ResourceExplorer = {
     config: C, labels: L, api: api, el: el, load: load, save: save, allowed: allowed,
     settings: settings, call: call, show: show, fetchFile: fetchFile, showFile: showFile,
-    resourceConsole: resourceConsole, whoAmI: whoAmI, panels: {},
+    operationForm: operationForm, whoAmI: whoAmI, panels: {},
   };
 })();

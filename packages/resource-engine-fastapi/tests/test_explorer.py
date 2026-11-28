@@ -122,6 +122,11 @@ async def test_the_page_config_and_assets_need_no_build_step():
         assert data["events"]["stream"] == "/_explorer/events/stream"
         assert data["events"]["deliveries"] == "/_explorer/events/{message_id}/deliveries"
         assert {"type": "ResourceCreated", "versions": ["1"]} in data["events"]["types"]
+        # the Swagger-like list: a section per resource, SUB rows per event type
+        assert any(g["name"] == "notes" for g in data["groups"])
+        subs = data["events"]["channels"]["notes"]
+        assert {"type": "ResourceCreated", "version": "1"}.items() <= subs[0].items()
+        assert subs[0]["summary"]
         for name in ("console.js", "events.js", "explorer.js", "explorer.css"):
             assert (await api.get(f"/explorer/assets/{name}")).status_code == 200
         assert (await api.get("/explorer/assets/../../etc")).status_code == 404
@@ -309,3 +314,17 @@ def test_jobs_need_the_activity_log():
     app, manager, hub, _ = build()
     with pytest.raises(ConfigurationError):
         mount_explorer(FastAPI(), manager, jobs=True)
+
+
+def test_timers_become_cron_rows():
+    import sys
+
+    sys.path.insert(0, "examples")
+    from invoices.bootstrap import tenant_registry
+    from resource_engine_fastapi.explorer import timer_rows
+
+    rows = timer_rows(tenant_registry)
+    [reject] = rows["invoices"]
+    assert reject["event"] == "reject" and reject["after_seconds"] == 30 * 86400
+    assert reject["states"] == ["pending"] and reject["since"] == "status_changed_at"
+    assert "customers" not in rows  # no timers declared

@@ -363,6 +363,11 @@
   timed transitions waiting on a record (`pending_timers`); the activity log
   gains job runs, requests and workers (in memory and SQL); the example's
   worker reports there and the app mounts the explorer with `EXPLORER=1`.
+- The explorer as a Swagger-like list: a section per resource, a row per
+  verb (`GET`, `POST`, `PUT`, `PATCH`, `DELETE`, `SUB` for each published event
+  type, `CRON` for timed transitions and worker jobs), each opening into its
+  form, with a filter; `OutboxDelivery(live=hub)` hands committed envelopes to
+  live subscribers too; holders of `events:read` see every committed event.
 
 ## Next
 

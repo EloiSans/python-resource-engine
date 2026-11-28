@@ -11,8 +11,9 @@ stream share. It reads an ``EventHub`` and applies the visibility rules:
 - **Deletions** reach only subscribers who already got that record in this
   stream: a stream never reveals ids it didn't show.
 - **The payload** goes only to subscribers holding ``events:read``, since it
-  may carry fields hidden from others. They also see events about no record
-  (processes, engine events); everyone else sees the record instead.
+  may carry fields hidden from others. They see every committed event: those
+  about no record (processes, engine events), and those about records they
+  can't read now (without the record). Everyone else sees the record instead.
 
 ```python
 live = LiveEvents(manager, hub)
@@ -165,7 +166,10 @@ class LiveEvents:
         try:
             record = await self.manager.get(resource, entity_id, actor=actor, tenant=tenant)
         except HIDDEN:
-            return None
+            if not everything:
+                return None
+            # events:read sees every committed event; the record only if readable
+            return LiveEvent(envelope, resource, entity_id, None, True)
         shown.add((resource, entity_id))
         return LiveEvent(envelope, resource, entity_id, record, everything)
 

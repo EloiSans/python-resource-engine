@@ -259,3 +259,32 @@ class TestInMemoryActivityLog(ActivityLogContract):
     @pytest.fixture
     def activity_log(self):
         return InMemoryActivityLog()
+
+
+async def test_events_read_sees_events_about_records_it_cannot_read():
+    hub = EventHub()
+    manager, _ = build(hub)
+    live = LiveEvents(manager, hub)
+    task = asyncio.create_task(take(live.stream(WATCHER, everything=True), 1))
+    await started(hub, 0)
+    other = await manager.create("bills", {"customer": "G", "amount": "1"}, actor=SYSTEM,
+                                 tenant="globex")  # fmt: skip
+    [event] = await task
+    assert event.entity_id == other.id and event.record is None and event.payload_visible
+
+
+async def test_the_outbox_also_feeds_live_subscribers():
+    from resource_engine.messaging import OutboxDelivery
+
+    hub = EventHub()
+    registry = ResourceRegistry()
+    registry.register(BillResource)
+    store = InMemoryStore.from_registry(registry)
+    manager = ResourceManager(registry, store.unit_of_work, event_delivery=OutboxDelivery(live=hub))
+    subscription = hub.subscribe()
+    bill = await manager.create("bills", {"customer": "A", "amount": "1"}, actor=READER)
+    live = await asyncio.wait_for(subscription.queue.get(), 1)
+    async with store.unit_of_work() as uow:
+        [stored] = await uow.outbox().pending(10)
+    assert live.id == stored.envelope.id  # the same envelope: deliveries line up
+    assert live.payload["entity_id"] == bill.id

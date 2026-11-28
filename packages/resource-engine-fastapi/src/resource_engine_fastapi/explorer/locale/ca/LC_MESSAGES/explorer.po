@@ -19,9 +19,6 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Generated-By: Babel 2.19.0\n"
 
-msgid "Try it"
-msgstr "Prova-ho"
-
 msgid "Calls the running API with your token. Reads only, unless you allow changes."
 msgstr "Crida l'API en funcionament amb el teu testimoni. Només llegeix, tret que permetis canvis."
 
@@ -36,9 +33,6 @@ msgstr "Permet canvis (crear, modificar, eliminar, transicions, accions)"
 
 msgid "This operation changes data: tick “Allow changes” first."
 msgstr "Aquesta operació modifica dades: marca primer «Permet canvis»."
-
-msgid "Operation"
-msgstr "Operació"
 
 msgid "header"
 msgstr "capçalera"
@@ -100,15 +94,6 @@ msgstr "Comprova l'exportació"
 msgid "Explorer"
 msgstr "Explorador"
 
-msgid "Operations"
-msgstr "Operacions"
-
-msgid "Events"
-msgstr "Esdeveniments"
-
-msgid "Resource"
-msgstr "Recurs"
-
 msgid ""
 "Events committed from now on that you may see: those about records you can read. Payloads and "
 "events about no record need the events:read permission."
@@ -152,9 +137,6 @@ msgstr "Connectat: esperant esdeveniments…"
 msgid "Disconnected"
 msgstr "Desconnectat"
 
-msgid "No events yet."
-msgstr "Encara no hi ha esdeveniments."
-
 msgid "Envelope"
 msgstr "Sobre"
 
@@ -176,9 +158,6 @@ msgstr "Cap consumidor no ha informat encara que l'hagi tractat."
 msgid "Consumer results are not recorded (no activity log)."
 msgstr "Els resultats dels consumidors no es registren (no hi ha registre d'activitat)."
 
-msgid "Jobs"
-msgstr "Tasques"
-
 msgid ""
 "The jobs the running workers registered. Run now asks a worker to run one at once: single jobs "
 "still wait for their lease, so they run on one worker at a time."
@@ -186,12 +165,6 @@ msgstr ""
 "Les tasques que han registrat els treballadors en marxa. Executa ara demana a un treballador que "
 "n'executi una de seguida: les tasques úniques encara esperen el seu bloqueig, de manera que "
 "s'executen en un sol treballador alhora."
-
-msgid "Refresh"
-msgstr "Actualitza"
-
-msgid "Job"
-msgstr "Tasca"
 
 msgid "Schedule"
 msgstr "Planificació"
@@ -222,10 +195,6 @@ msgstr "Execucions"
 msgid "Run now"
 msgstr "Executa ara"
 
-#, python-brace-format
-msgid "seen {when}"
-msgstr "vist {when}"
-
 msgid "No worker has registered jobs yet."
 msgstr "Encara cap treballador no ha registrat tasques."
 
@@ -248,17 +217,8 @@ msgstr "Esperant un treballador…"
 msgid "Finished: {status}"
 msgstr "Acabada: {status}"
 
-msgid "Timed transitions of a record"
-msgstr "Transicions programades d'un registre"
-
-msgid "The transitions the worker will run on a record once it has waited long enough."
-msgstr "Les transicions que el treballador executarà en un registre quan hagi esperat prou."
-
 msgid "Show"
 msgstr "Mostra"
-
-msgid "Transition"
-msgstr "Transició"
 
 msgid "Due"
 msgstr "Venciment"
@@ -266,9 +226,67 @@ msgstr "Venciment"
 msgid "overdue"
 msgstr "vençuda"
 
-msgid "Description"
-msgstr "Descripció"
-
 msgid "No timed transition is waiting on this record."
 msgstr "Cap transició programada no espera aquest registre."
+
+msgid "worker"
+msgstr "treballador"
+
+msgid "Filter by verb, path or description"
+msgstr "Filtra per verb, camí o descripció"
+
+msgid "Fires"
+msgstr "S'executa"
+
+#, python-brace-format
+msgid "after {after} in {states} (counted from {since})"
+msgstr "després de {after} en {states} (comptat des de {since})"
+
+msgid "read"
+msgstr "llegir"
+
+msgid "create or run"
+msgstr "crear o executar"
+
+msgid "replace"
+msgstr "substituir"
+
+msgid "change"
+msgstr "modificar"
+
+msgid "delete"
+msgstr "eliminar"
+
+msgid "publish an event"
+msgstr "publicar un esdeveniment"
+
+msgid "watch events live"
+msgstr "veure esdeveniments en directe"
+
+msgid "runs on a schedule"
+msgstr "s'executa periòdicament"
+
+msgid "CRUD"
+msgstr "CRUD"
+
+msgid "Transitions and actions"
+msgstr "Transicions i accions"
+
+msgid "Relations"
+msgstr "Relacions"
+
+msgid "Documents"
+msgstr "Documents"
+
+msgid "Export and print"
+msgstr "Exportar i imprimir"
+
+msgid "Events (pub/sub)"
+msgstr "Esdeveniments (pub/sub)"
+
+msgid "Schedule (cron)"
+msgstr "Programació (cron)"
+
+msgid "Other"
+msgstr "Altres"
 

@@ -48,6 +48,10 @@ class InvoiceResource(Resource):
 The outbox needs a unit of work with `outbox()` (`SupportsOutbox`):
 `InMemoryUnitOfWork`, or `SqlAlchemyUnitOfWork(..., outbox_table=outbox_table(metadata))`.
 Using `OutboxDelivery` with another unit of work fails with RE-E403.
+`OutboxDelivery(live=hub)` also hands the same envelopes to an `EventHub` in
+this process right after the commit, for [live subscribers](#live-subscribers)
+such as the explorer. It is best effort, and the outbox stays the source of
+delivery.
 
 `OutboxRelay.run_once()` reads pending records (locked with `SKIP LOCKED` on SQL
 databases that support it), publishes them, marks delivered ones as published and

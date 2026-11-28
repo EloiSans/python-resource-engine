@@ -42,7 +42,8 @@ The realm follows OAuth 2.1, and has two clients:
   The app creates the tables at start-up; production uses the migrations
   instead (see [migrations](migrations.md)).
 - **Explorer:** `EXPLORER=1` mounts the [explorer](explorer.md) at
-  `/explorer/`, with the Jobs tab. Run the worker (`uv run resource-engine
+  `/explorer/`, with `SUB` rows (its outbox also feeds a live hub) and
+  `CRON` rows. Run the worker (`uv run resource-engine
   worker`) on the same database to see its jobs and use "Run now"; the
   `admin` role holds `jobs:read` and `jobs:run`.
 - **Documentation site:** `DOCS_SITE=site` serves a site built with

@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+import logging
 from collections.abc import Sequence
-from typing import TYPE_CHECKING, Protocol
+from typing import TYPE_CHECKING, Any, Protocol
 
 from resource_engine.domain.events import DomainEvent
 from resource_engine.errors import OutboxNotSupported
@@ -14,6 +15,8 @@ from resource_engine.ports.messaging import MessagePublisher, SupportsOutbox
 if TYPE_CHECKING:
     from resource_engine.application.context import OperationContext
     from resource_engine.ports.unit_of_work import UnitOfWork
+
+logger = logging.getLogger("resource_engine.messaging")
 
 
 class EventDelivery(Protocol):
@@ -58,10 +61,16 @@ class OutboxDelivery:
 
     Envelopes are written through ``uow.outbox()`` before commit, so they exist if
     and only if the operation committed. An ``OutboxRelay`` sends them later.
+
+    ``live``: a ``MessagePublisher`` in this process (an ``EventHub``) that also
+    gets the same envelopes right after the commit, for live subscribers (the
+    explorer, GraphQL subscriptions). Best effort: a failure there is logged
+    and changes nothing; the outbox stays the source of delivery.
     """
 
-    def __init__(self, serializer: EventSerializer | None = None) -> None:
+    def __init__(self, serializer: EventSerializer | None = None, *, live: Any = None) -> None:
         self.serializer = serializer or EventSerializer()
+        self.live = live
 
     def envelopes(self, ctx: OperationContext) -> list[EventEnvelope]:
         return [
@@ -82,7 +91,15 @@ class OutboxDelivery:
                 "outbox_table, InMemoryUnitOfWork) or AfterCommitDelivery.",
                 doc="docs/messaging.md#outbox",
             )
-        await uow.outbox().add(self.envelopes(ctx))
+        envelopes = self.envelopes(ctx)
+        ctx.extras["outbox_envelopes"] = envelopes
+        await uow.outbox().add(envelopes)
 
     async def after_commit(self, ctx: OperationContext) -> None:
-        return None
+        envelopes = ctx.extras.get("outbox_envelopes")
+        if self.live is None or not envelopes:
+            return
+        try:
+            await self.live.publish(envelopes)
+        except Exception:
+            logger.exception("Live subscribers did not get the committed events")

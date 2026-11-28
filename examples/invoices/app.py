@@ -25,7 +25,7 @@ from resource_engine import ResourceManager
 from resource_engine.authz import ApiKeyAuthenticator, PolicyAuthorizer, system_principal
 from resource_engine.cache import InMemoryCache
 from resource_engine.i18n import set_translations
-from resource_engine.messaging import OutboxDelivery
+from resource_engine.messaging import EventHub, OutboxDelivery
 from resource_engine.ports.identity import Authenticator
 from resource_engine.ratelimit import (
     InMemoryRateLimitStore,
@@ -98,7 +98,11 @@ def record_cache() -> Any:
 
 
 def build_manager(
-    session_factory: async_sessionmaker, *, blob_store: Any, limiter: RateLimiter | None = None
+    session_factory: async_sessionmaker,
+    *,
+    blob_store: Any,
+    limiter: RateLimiter | None = None,
+    live: Any = None,
 ) -> ResourceManager:
     """The manager the app and the worker share: SQL, permissions, audit, and
     events through the outbox (the worker feeds them to the processes)."""
@@ -115,7 +119,9 @@ def build_manager(
         uow,
         blob_store=blob_store,
         authorizer=PolicyAuthorizer(authz, uow),  # system roles + policies as data
-        event_delivery=OutboxDelivery(),  # events stored in the change's transaction
+        # events stored in the change's transaction; with `live` (an EventHub) also
+        # shown at once to this process's live subscribers (the explorer's SUB)
+        event_delivery=OutboxDelivery(live=live),
         audit=True,  # audit_log table, same transaction as each change
         rate_limiter=limiter,  # its per-action limits, whatever the adapter
         cache=record_cache(),  # records of resources with cache_ttl (customers)
@@ -155,7 +161,8 @@ def create_app(
 
     app = FastAPI(title="Invoices (Resource Engine example)", lifespan=lifespan_with_store)
     limiter = rate_limiter()
-    manager = build_manager(session_factory, blob_store=blob_store, limiter=limiter)
+    hub = EventHub() if os.getenv("EXPLORER") else None
+    manager = build_manager(session_factory, blob_store=blob_store, limiter=limiter, live=hub)
     app.state.manager = manager
     # API keys (rek_...) for machine clients; every other token goes to Keycloak
     keys = ApiKeyAuthenticator(
@@ -174,6 +181,7 @@ def create_app(
             app,
             manager,
             actor_dependency=actor,
+            events=hub,  # SUB: committed events, live
             activity=activity_log(session_factory),
             jobs=True,
         )

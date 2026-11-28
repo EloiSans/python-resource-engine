@@ -101,7 +101,7 @@ with its due time (`since` + `after`) and whether it is overdue.
   row filter and tenant.
 - **Hidden fields:** a `since` field the caller may not read gives no due
   time.
-- **In the browser:** the [explorer's](explorer.md#jobs) Jobs tab shows the
+- **In the browser:** the [explorer's](explorer.md#jobs) `CRON` rows show the
   same list.
 
 ## In the docs and tools

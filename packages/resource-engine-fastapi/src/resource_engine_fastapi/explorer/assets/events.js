@@ -1,6 +1,7 @@
-/* Live events panel: committed events over server-sent events, read with
-   fetch so the visitor's token goes in the Authorization header (EventSource
-   cannot send it). Registers window.ResourceExplorer.panels.events. */
+/* SUB: committed events over server-sent events, read with fetch so the
+   visitor's token goes in the Authorization header (EventSource cannot send
+   it). R.subscribe({resource, type}) is the body of a SUB row: the stream of
+   that event type of that resource; without a preset, every event. */
 (function () {
   var R = window.ResourceExplorer;
   if (!R || !R.config.events) return;
@@ -43,12 +44,15 @@
     return rest;
   }
 
-  function panel() {
+  function panel(preset) {
+    preset = preset || {};
     var resource = select(L.filter_resource, E.resources || [], "resource");
     var type = select(L.filter_type, (E.types || []).map(function (t) { return t.type; }), "type");
+    if (preset.resource) resource.input.value = preset.resource;
+    if (preset.type) type.input.value = preset.type;
     var version = text(L.filter_version, "version");
     var id = text(L.filter_id, "id");
-    var connect = el("button", { type: "button", text: L.connect });
+    var connect = el("button", { type: "button", className: "execute", text: L.connect });
     var pause = el("button", { type: "button", text: L.pause, disabled: "disabled" });
     var clear = el("button", { type: "button", text: L.clear });
     var status = el("div", { className: "note", "aria-live": "polite", text: L.disconnected });
@@ -171,13 +175,15 @@
     clear.addEventListener("click", function () { list.textContent = ""; detail.textContent = ""; });
 
     return el("div", { className: "events-panel" }, [
-      el("p", { className: "note", text: L.events_intro }),
+      preset.resource ? null : el("p", { className: "note", text: L.events_intro }),
       el("div", { className: "console-form" }, [
-        resource.label, type.label, version.label, id.label, connect, pause, clear]),
+        preset.resource ? null : resource.label, preset.type ? null : type.label,
+        version.label, id.label,
+        el("div", { className: "wide" }, [connect, pause, clear])]),
       status,
       el("div", { className: "events-columns" }, [list, detail]),
     ]);
   }
 
-  R.panels.events = panel;
+  R.subscribe = panel;
 })();

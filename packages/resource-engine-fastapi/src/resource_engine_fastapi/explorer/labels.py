@@ -16,13 +16,11 @@ DOMAIN = "explorer"
 #: Every text, by key: the English message is the catalogue's id.
 LABELS: dict[str, str] = {
     # operations (the try-it console)
-    "try_it": "Try it",
     "intro": "Calls the running API with your token. Reads only, unless you allow changes.",
     "token": "Access token or API key",
     "token_hint": "Kept in this browser tab only",
     "allow_changes": "Allow changes (create, update, delete, transitions, actions)",
     "changes_off": "This operation changes data: tick “Allow changes” first.",
-    "operation": "Operation",
     "header": "header",
     "body": "Body (JSON)",
     "send": "Send",
@@ -46,9 +44,6 @@ LABELS: dict[str, str] = {
     "export_check": "Check the export",
     # the standalone page
     "explorer": "Explorer",
-    "tab_operations": "Operations",
-    "tab_events": "Events",
-    "resource": "Resource",
     # events
     "events_intro": (
         "Events committed from now on that you may see: those about records you can read. "
@@ -66,7 +61,6 @@ LABELS: dict[str, str] = {
     "any": "any",
     "connected": "Connected: waiting for events…",
     "disconnected": "Disconnected",
-    "no_events": "No events yet.",
     "envelope": "Envelope",
     "record": "Record as you can read it",
     "payload": "Payload",
@@ -75,13 +69,10 @@ LABELS: dict[str, str] = {
     "no_deliveries": "No consumer has reported handling it yet.",
     "deliveries_off": "Consumer results are not recorded (no activity log).",
     # jobs
-    "tab_jobs": "Jobs",
     "jobs_intro": (
         "The jobs the running workers registered. Run now asks a worker to run one at once: "
         "single jobs still wait for their lease, so they run on one worker at a time."
     ),
-    "refresh": "Refresh",
-    "job": "Job",
     "schedule": "Schedule",
     "workers": "Workers",
     "worker": "Worker",
@@ -91,7 +82,6 @@ LABELS: dict[str, str] = {
     "never": "not run yet",
     "runs": "Runs",
     "run_now": "Run now",
-    "seen": "seen {when}",
     "no_jobs": "No worker has registered jobs yet.",
     "when": "When",
     "outcome": "Outcome",
@@ -99,16 +89,32 @@ LABELS: dict[str, str] = {
     "error": "Error",
     "request_pending": "Waiting for a worker…",
     "request_done": "Finished: {status}",
-    "timers": "Timed transitions of a record",
-    "timers_intro": (
-        "The transitions the worker will run on a record once it has waited long enough."
-    ),
     "show": "Show",
-    "transition": "Transition",
     "due": "Due",
     "overdue": "overdue",
-    "description": "Description",
     "no_timers": "No timed transition is waiting on this record.",
+    # the list
+    "worker_jobs": "worker",
+    "filter": "Filter by verb, path or description",
+    "fires": "Fires",
+    "after_in": "after {after} in {states} (counted from {since})",
+    "verb_get": "read",
+    "verb_post": "create or run",
+    "verb_put": "replace",
+    "verb_patch": "change",
+    "verb_delete": "delete",
+    "verb_pub": "publish an event",
+    "verb_sub": "watch events live",
+    "verb_cron": "runs on a schedule",
+    # the accordions of a resource
+    "group_crud": "CRUD",
+    "group_lifecycle": "Transitions and actions",
+    "group_relations": "Relations",
+    "group_documents": "Documents",
+    "group_export": "Export and print",
+    "group_events": "Events (pub/sub)",
+    "group_schedule": "Schedule (cron)",
+    "group_other": "Other",
 }
 
 

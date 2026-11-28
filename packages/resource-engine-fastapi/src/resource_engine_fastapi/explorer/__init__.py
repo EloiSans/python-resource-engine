@@ -9,11 +9,14 @@ if settings.explorer:                                   # off unless you turn it
 # http://localhost:8000/explorer/
 ```
 
-- **Operations:** every resource's HTTP operations, with a form per operation.
-- **Events:** committed events, live (``events=`` an ``EventHub``), and which
-  consumers handled each one (``activity=`` an ``ActivityLog``).
-- **Jobs** (``jobs=True``, with ``activity``): what the workers run, their
-  runs, "run now", and the timed transitions waiting on a record.
+Laid out like Swagger UI: a section per resource, a row per verb.
+
+- ``GET`` ``POST`` ``PUT`` ``PATCH`` ``DELETE``: every HTTP operation, with its form.
+- ``SUB``: each event type a resource publishes, live (``events=`` an
+  ``EventHub``), and which consumers handled each one (``activity=`` an
+  ``ActivityLog``).
+- ``CRON`` (``jobs=True``, with ``activity``): each timed transition, and each
+  worker job with its runs and "run now".
 
 Everything calls the running API with the visitor's own token: they see and
 do exactly what they may. Reads only, until they tick "Allow changes". The
@@ -83,6 +86,55 @@ def event_types(registry: Any) -> list[dict[str, Any]]:
     return out
 
 
+def _first_line(text: str | None) -> str:
+    return (text or "").strip().split("\n\n")[0].replace("\n", " ").strip()
+
+
+def event_channels(registry: Any) -> dict[str, list[dict[str, Any]]]:
+    """The event types each resource publishes (its AsyncAPI channel): the
+    explorer's SUB rows. Only resources whose records can be read."""
+    from resource_engine.messaging.asyncapi import asyncapi_document
+
+    document = asyncapi_document(registry)
+    messages = document.get("components", {}).get("messages", {})
+    out: dict[str, list[dict[str, Any]]] = {}
+    for name, channel in document.get("channels", {}).items():
+        if name not in registry or not registry.get(name).exposed("get"):
+            continue
+        rows = []
+        for ref in channel.get("messages", {}).values():
+            message = messages.get(str(ref.get("$ref", "")).rsplit("/", 1)[-1], {})
+            headers = message.get("headers", {}).get("properties", {})
+            rows.append(
+                {
+                    "type": message.get("name"),
+                    "version": str(headers.get("schema_version", {}).get("const", "1")),
+                    "summary": message.get("summary") or "",
+                    "deprecated": "x-deprecation" in message,
+                }
+            )
+        out[name] = rows
+    return out
+
+
+def timer_rows(registry: Any) -> dict[str, list[dict[str, Any]]]:
+    """Each resource's timed transitions: the explorer's CRON rows."""
+    return {
+        d.name: [
+            {
+                "event": t.event,
+                "after_seconds": t.after.total_seconds(),
+                "since": t.since,
+                "states": [str(getattr(s, "value", s)) for s in t.states],
+                "description": t.description,
+            }
+            for t in d.timers
+        ]
+        for d in registry
+        if d.timers
+    }
+
+
 def explorer_config(
     app: Any,
     manager: Any,
@@ -101,6 +153,7 @@ def explorer_config(
         api="",
         me="/authz/me" in openapi.get("paths", {}),
         labels=labels.labels(locale),
+        groups=[{"name": d.name, "summary": _first_line(d.description)} for d in manager.registry],
     )
     if events:
         config["events"] = {
@@ -108,6 +161,7 @@ def explorer_config(
             "deliveries": f"{api_prefix}/events/{{message_id}}/deliveries" if deliveries else None,
             "resources": [d.name for d in manager.registry if d.exposed("get")],
             "types": event_types(manager.registry),
+            "channels": event_channels(manager.registry),
         }
     if jobs:
         config["jobs"] = {
@@ -117,6 +171,7 @@ def explorer_config(
             "request": f"{api_prefix}/jobs/requests/{{id}}",
             "timers": f"{api_prefix}/timers/{{resource}}/{{id}}",
             "timer_resources": [d.name for d in manager.registry if d.timers],
+            "timers_by_resource": timer_rows(manager.registry),
         }
     return config
 
@@ -186,10 +241,10 @@ def mount_explorer(
 
     Args:
         actor_dependency: The same dependency as ``mount_resources``'s.
-        events: An ``EventHub`` fed with committed events: the Events tab.
+        events: An ``EventHub`` fed with committed events: the ``SUB`` rows.
         activity: An ``ActivityLog``: which consumers handled each event, and
             (with ``jobs``) the workers' jobs and runs.
-        jobs: The Jobs tab: needs ``activity``, and workers built with
+        jobs: The ``CRON`` rows: needs ``activity``, and workers built with
             ``JobRunner(activity=...)`` on the same log.
         open: Allow the explorer's endpoints without an authorizer (local
             development only: anyone could see every event).
