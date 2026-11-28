@@ -5,6 +5,7 @@
   import from ``resource_engine_http.soap``).
 - ``WebhookMessagePublisher``: events POSTed to an HTTP endpoint.
 - ``OAuth2ClientCredentials``: outbound OAuth 2.0 for any of the above.
+- ``TikaTextExtractor``: document text through an Apache Tika server.
 """
 
 from resource_engine_http.audit import HttpAuditExporter
@@ -26,6 +27,7 @@ from resource_engine_http.rest import (
     default_parse_page,
     rest_unit_of_work_factory,
 )
+from resource_engine_http.tika import TikaTextExtractor
 from resource_engine_http.webhook import WebhookMessagePublisher
 
 __all__ = [
@@ -42,6 +44,7 @@ __all__ = [
     "RemoteUnitOfWork",
     "RestEndpoint",
     "RestRepository",
+    "TikaTextExtractor",
     "WebhookMessagePublisher",
     "default_list_params",
     "default_parse_page",

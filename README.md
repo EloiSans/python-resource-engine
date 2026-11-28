@@ -36,6 +36,7 @@ moved to its own repository without code changes.
 | `resource-engine-opentelemetry` | `resource_engine_opentelemetry` | core, opentelemetry-api | Tracing (`OtelTracer`), operation, consumer and job metrics |
 | `resource-engine-jinja` | `resource_engine_jinja` | core, Jinja2 | Templates for emails and documents (`JinjaTemplates`): locales, sandbox, autoescaping |
 | `resource-engine-smtp` | `resource_engine_smtp` | core, aiosmtplib | Email over SMTP (`SmtpEmailSender`) |
+| `resource-engine-clamav` | `resource_engine_clamav` | core | Antivirus scanning of documents with ClamAV (`ClamAvScanner`) |
 | `resource-engine-sentry` | `resource_engine_sentry` | core, sentry-sdk | Error reporting to Sentry, GlitchTip, Bugsink (`SentryReporter`) |
 | `resource-engine-sap` | `resource_engine_sap` | core, resource-engine-http | SAP Event Mesh (publisher, queue consumer), advanced event mesh publisher, OData v2/v4 repositories, BTP destinations |
 

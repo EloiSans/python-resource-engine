@@ -27,6 +27,7 @@ resource-engine-rabbitmq = { workspace = true }
 resource-engine-redis = { workspace = true }
 resource-engine-jinja = { workspace = true }
 resource-engine-smtp = { workspace = true }
+resource-engine-clamav = { workspace = true }
 resource-engine-oidc = { workspace = true }
 resource-engine-cedar = { workspace = true }
 resource-engine-opa = { workspace = true }
@@ -52,6 +53,7 @@ dev = [
     "resource-engine-redis",
     "resource-engine-jinja",
     "resource-engine-smtp",
+    "resource-engine-clamav",
     "resource-engine-oidc",
     "resource-engine-cedar",
     "resource-engine-opa",

@@ -12,6 +12,7 @@ members = [
     "resource-engine-aws",
     "resource-engine-azure",
     "resource-engine-cedar",
+    "resource-engine-clamav",
     "resource-engine-devtools",
     "resource-engine-fastapi",
     "resource-engine-gcp",
@@ -2439,6 +2440,17 @@ requires-dist = [
 ]
 
 [[package]]
+name = "resource-engine-clamav"
+version = "0.1.0.dev0"
+source = { editable = "adapters/resource-engine-clamav" }
+dependencies = [
+    { name = "resource-engine" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "resource-engine", editable = "packages/resource-engine" }]
+
+[[package]]
 name = "resource-engine-devtools"
 version = "0.1.0.dev0"
 source = { editable = "packages/resource-engine-devtools" }
@@ -2784,6 +2796,7 @@ dev = [
     { name = "resource-engine-aws", extra = ["all"] },
     { name = "resource-engine-azure", extra = ["all"] },
     { name = "resource-engine-cedar" },
+    { name = "resource-engine-clamav" },
     { name = "resource-engine-devtools" },
     { name = "resource-engine-fastapi" },
     { name = "resource-engine-gcp", extra = ["all"] },
@@ -2820,6 +2833,7 @@ dev = [
     { name = "resource-engine-aws", extras = ["all"], editable = "adapters/resource-engine-aws" },
     { name = "resource-engine-azure", extras = ["all"], editable = "adapters/resource-engine-azure" },
     { name = "resource-engine-cedar", editable = "adapters/resource-engine-cedar" },
+    { name = "resource-engine-clamav", editable = "adapters/resource-engine-clamav" },
     { name = "resource-engine-devtools", editable = "packages/resource-engine-devtools" },
     { name = "resource-engine-fastapi", editable = "packages/resource-engine-fastapi" },
     { name = "resource-engine-gcp", extras = ["all"], editable = "adapters/resource-engine-gcp" },

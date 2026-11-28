@@ -171,6 +171,38 @@ documents (thumbnails, extracted text) or reject the document. Raising an
 exception means "try again later": the messaging layer retries and dead-letters.
 Redeliveries are harmless: documents no longer `processing` are skipped.
 
+## Reference processors
+
+Ready-made processors for untrusted uploads:
+
+```python
+from resource_engine.documents.processors import ContentTypeCheck, TextExtraction
+from resource_engine_clamav import ClamAvScanner
+from resource_engine_http import TikaTextExtractor
+
+DocumentPipeline(
+    manager.documents,
+    [
+        ClamAvScanner("clamav", 3310),
+        ContentTypeCheck(),
+        TextExtraction(TikaTextExtractor(http, "http://tika:9998"), slot="texts"),
+    ],
+).register(router)
+```
+
+| Processor | Package | What it does |
+|---|---|---|
+| `ClamAvScanner` | `resource-engine-clamav` | Streams the content to `clamd` (`INSTREAM`, TCP or a Unix socket). Infected files are rejected with the signature (`virus found: ...`). If clamd is down, the scan is retried and the document stays `processing`, never available unscanned. |
+| `ContentTypeCheck` | `resource-engine` | Compares the first bytes with the declared type: a "PNG" that is a PDF, or anything that is a Windows or Linux executable, is rejected. Content with no signature (text, CSV, JSON) passes. |
+| `TextExtraction` | `resource-engine` | Stores the text as a derived `text/plain` document in `slot`, and `characters`, `pages` and `language` as metadata (`preview=` keeps the first characters too). |
+| `BuiltinTextExtractor` | `resource-engine` | Text, CSV, JSON, XML and Word (`.docx`), no dependencies (the default extractor). |
+| `TikaTextExtractor` | `resource-engine-http` | An Apache Tika server: PDF, Office, OpenDocument, e-mail, HTML, and images with `ocr=True`. |
+
+Put the scanner first, so no other processor reads malware. Derived text
+documents are not extracted again. Keep clamd's `StreamMaxLength` above the
+slots' `max_bytes`. Compose runs ClamAV (`:3310`, a few minutes to download
+signatures on the first start) and Tika (`:9998`) for the tests.
+
 ## Clean-up
 
 Compensations and purges are best effort. `DocumentJanitor(manager.documents).run_once()`

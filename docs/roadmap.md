@@ -325,6 +325,12 @@
   (RFC 9745, 8594), in OpenAPI, AsyncAPI and GraphQL; contract checks per
   event version and for OpenAPI (`docs openapi --check`), letting a version go
   after its sunset.
+- Reference document processors (`docs/documents.md#reference-processors`):
+  `ClamAvScanner` (`resource-engine-clamav`, clamd `INSTREAM`, retried while
+  clamd is down), `ContentTypeCheck` (magic bytes against the declared type,
+  executables refused), `TextExtraction` with `BuiltinTextExtractor` (text,
+  CSV, JSON, XML, `.docx`) and `TikaTextExtractor` (`resource-engine-http`);
+  ClamAV and Tika in compose.
 
 ## Next
 
@@ -338,4 +344,3 @@ Nothing scheduled: the next items come from Later.
 
 ### Later
 
-- Reference document processors (ClamAV scan, text extraction).

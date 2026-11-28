@@ -214,6 +214,16 @@ See [rate limits](rate-limits.md).
 
 See [caching](caching.md).
 
+## Document processors — `DocumentProcessor`, `TextExtractor`
+
+| Processor | Package | Class | Tested against | Status |
+|---|---|---|---|---|
+| ClamAV | `resource-engine-clamav` | `ClamAvScanner` | ClamAV 1.4 (compose), fake clamd | experimental |
+| Apache Tika | `resource-engine-http` | `TikaTextExtractor` | Tika 3.2 (compose) | experimental |
+| Content type, built-in text | `resource-engine` (`resource_engine.documents.processors`) | `ContentTypeCheck`, `TextExtraction`, `BuiltinTextExtractor` | unit tests | experimental |
+
+See [documents](documents.md#reference-processors).
+
 ## Email — `EmailSender`, `TemplateRenderer`
 
 | Backend | Package | Class | Tested against | Status |
