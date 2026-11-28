@@ -12,6 +12,7 @@ from resource_engine_fastapi.docs import mount_docs
 from resource_engine_fastapi.email_events import mount_email_events
 from resource_engine_fastapi.errors import install_exception_handlers, status_for
 from resource_engine_fastapi.events import build_event_receiver, default_decoder
+from resource_engine_fastapi.explorer import mount_explorer
 from resource_engine_fastapi.i18n import LocaleMiddleware, install_locale
 from resource_engine_fastapi.router import build_resource_router, build_router, mount_resources
 
@@ -30,6 +31,7 @@ __all__ = [
     "install_locale",
     "mount_asyncapi",
     "mount_docs",
+    "mount_explorer",
     "mount_email_events",
     "mount_resources",
     "request_credentials",

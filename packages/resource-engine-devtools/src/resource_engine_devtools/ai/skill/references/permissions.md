@@ -28,6 +28,11 @@ is allowed. Engine jobs act as `system_principal("job-name")`, always allowed.
 `resource-engine inspect --json` lists them. Patterns: `*` matches one segment,
 a trailing `*` the rest (`invoices:*`, `*:list`).
 
+The explorer's actions belong to no resource (`register_explorer(registry)`,
+before the manager): `events:read`, `jobs:read`, `jobs:run` and
+`events:publish:<Event>`. The last is *exact*: never grant it through a
+wildcard, name it (see docs/explorer.md).
+
 ## Policies (data)
 
 ```json

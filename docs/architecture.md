@@ -33,7 +33,8 @@ so the same class is used by the domain, the in-memory adapter and SQLAlchemy.
 - `Cache`: values with a TTL, for the manager's record cache (`InMemoryCache`, `RedisCache`; [caching](caching.md)).
 - `OperationObserver`: metrics hook called after every manager operation (`OperationMetrics` in `resource-engine-opentelemetry`; [observability](observability.md#metrics)).
 - `JobObserver`: called after every `JobRunner` run (`JobMetrics` in `resource-engine-opentelemetry`).
-- `MessageObserver`: metrics hook called after every processed message (`LoggingObserver` in the core, `ConsumerMetrics` in `resource-engine-opentelemetry`).
+- `MessageObserver`: metrics hook called after every processed message (`LoggingObserver` and `ActivityMessageObserver` in the core, `ConsumerMetrics` in `resource-engine-opentelemetry`).
+- `ActivityLog`: what the worker did, shared with the API for the [explorer](explorer.md): which consumers handled each message (`InMemoryActivityLog`, `SqlAlchemyActivityLog`); purged by `MessagingJanitor`.
 - `BlobStore` (+ `SupportsPresignedUrls`): document contents (`put`, `open`, `head`, `delete`, `list`).
 - `Authenticator` → `Principal`: who is calling (identity providers implement it).
 - `Authorizer`: may the principal perform an action (on a record); `scope` gives the row filter. `PolicyAuthorizer` is the built-in one.

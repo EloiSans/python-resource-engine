@@ -603,6 +603,48 @@ class ResourceManager:
                 ctx.correlation_id,
             )
 
+    async def audit_event(
+        self,
+        actor: Any,
+        action: str,
+        outcome: str = "ok",
+        *,
+        resource: str = "explorer",
+        entity_id: Any = None,
+        tenant: str | None = None,
+        details: Mapping[str, Any] | None = None,
+        uow: Any = None,
+    ) -> None:
+        """An audit entry for something that is not a resource operation (the
+        explorer's streams, job runs, events published by hand). With ``uow``
+        it is written in that transaction; otherwise on its own, best effort."""
+        if self.audit is None:
+            return
+        from resource_engine.audit.model import AuditEntry
+        from resource_engine.audit.recorder import actor_id, jsonable
+        from resource_engine.logs import log_context
+
+        context = log_context()
+        entry = AuditEntry(
+            resource=resource,
+            operation=action.split(":", 1)[0],
+            action=action,
+            outcome=outcome,
+            actor=actor_id(actor) if not isinstance(actor, str) else actor,
+            actor_roles=await self._actor_roles(actor),
+            entity_id=None if entity_id is None else str(entity_id),
+            tenant=tenant if tenant is not None else getattr(actor, "tenant", None),
+            details={k: jsonable(v) for k, v in (details or {}).items()},
+            correlation_id=context.get("correlation_id") or context.get("request_id"),
+        )
+        if uow is not None:
+            await self.audit.record([entry], uow=uow)
+            return
+        try:
+            await self.audit.record([entry])
+        except Exception:
+            logger.exception("Writing the audit entry for %s failed", action)
+
     async def _audit_failed(self, ctx: OperationContext, error: BaseException) -> None:
         """An operation failed after it started writing (``audit_failures``)."""
         if not self.audit_failures or ctx.extras.get("audited_denial"):

@@ -296,6 +296,34 @@ class MessageProcessor:
         return ProcessResult(Outcome.ACK)
 
 
+class ActivityMessageObserver:
+    """``MessageObserver`` recording each consumer's handling of each message
+    in an ``ActivityLog``, for the explorer's "who handled this event"
+    (docs/explorer.md). Undecodable messages have no event and aren't recorded."""
+
+    def __init__(self, log: Any) -> None:
+        self.log = log
+
+    async def __call__(
+        self, consumer: str, message: ReceivedMessage, result: ProcessResult, seconds: float
+    ) -> None:
+        from resource_engine.ports.activity import DeliveryRecord
+
+        envelope = message.envelope
+        if envelope is None:
+            return
+        await self.log.record_delivery(
+            DeliveryRecord(
+                consumer=consumer,
+                message_id=envelope.id,
+                event_type=envelope.type,
+                outcome=result.outcome.value,
+                seconds=seconds,
+                error=result.error,
+            )
+        )
+
+
 class LoggingObserver:
     """``MessageObserver`` writing one log line per message (logger
     ``resource_engine.messaging.metrics``): outcome, type, key, delivery count

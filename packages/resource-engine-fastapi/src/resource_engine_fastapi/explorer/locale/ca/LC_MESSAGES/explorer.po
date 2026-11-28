@@ -1,0 +1,178 @@
+# Catalan translations for resource-engine-fastapi.
+# Copyright (C) 2026 ORGANIZATION
+# This file is distributed under the same license as the resource-engine-fastapi project.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2026.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: resource-engine-fastapi VERSION\n"
+"Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
+"POT-Creation-Date: 2026-11-28 10:28+0100\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language: ca\n"
+"Language-Team: ca <LL@li.org>\n"
+"Plural-Forms: nplurals=3; plural=(n == 1 ? 0 : n != 0 && n % 1000000 == 0 ? 1 : 2);\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.19.0\n"
+
+msgid "Try it"
+msgstr "Prova-ho"
+
+msgid "Calls the running API with your token. Reads only, unless you allow changes."
+msgstr "Crida l'API en funcionament amb el teu testimoni. Només llegeix, tret que permetis canvis."
+
+msgid "Access token or API key"
+msgstr "Testimoni d'accés o clau d'API"
+
+msgid "Kept in this browser tab only"
+msgstr "Només es guarda en aquesta pestanya"
+
+msgid "Allow changes (create, update, delete, transitions, actions)"
+msgstr "Permet canvis (crear, modificar, eliminar, transicions, accions)"
+
+msgid "This operation changes data: tick “Allow changes” first."
+msgstr "Aquesta operació modifica dades: marca primer «Permet canvis»."
+
+msgid "Operation"
+msgstr "Operació"
+
+msgid "header"
+msgstr "capçalera"
+
+msgid "Body (JSON)"
+msgstr "Cos (JSON)"
+
+msgid "Send"
+msgstr "Envia"
+
+msgid "Send the change"
+msgstr "Envia el canvi"
+
+msgid "Sending…"
+msgstr "Enviant…"
+
+msgid "Fill in"
+msgstr "Omple"
+
+msgid "The body is not valid JSON"
+msgstr "El cos no és JSON vàlid"
+
+msgid "The API could not be reached"
+msgstr "No s'ha pogut contactar amb l'API"
+
+msgid "Why was it refused?"
+msgstr "Per què s'ha denegat?"
+
+msgid "Allowed transitions now"
+msgstr "Transicions permeses ara"
+
+msgid "none"
+msgstr "cap"
+
+msgid "Files are uploaded with the multipart form; use another client."
+msgstr "Els fitxers es pugen amb un formulari multipart; fes servir un altre client."
+
+msgid "What can I do?"
+msgstr "Què puc fer?"
+
+msgid "Your roles and the actions you may perform, from the running API."
+msgstr "Els teus rols i les accions que pots fer, segons l'API en funcionament."
+
+msgid "Only policy editors can see the full explanation. What the API says about you:"
+msgstr "Només qui edita polítiques pot veure l'explicació completa. El que diu l'API de tu:"
+
+msgid "Your roles"
+msgstr "Els teus rols"
+
+msgid "not granted"
+msgstr "no concedit"
+
+msgid "Download"
+msgstr "Baixa"
+
+msgid "Check the export"
+msgstr "Comprova l'exportació"
+
+msgid "Explorer"
+msgstr "Explorador"
+
+msgid "Operations"
+msgstr "Operacions"
+
+msgid "Events"
+msgstr "Esdeveniments"
+
+msgid "Resource"
+msgstr "Recurs"
+
+msgid ""
+"Events committed from now on that you may see: those about records you can read. Payloads and "
+"events about no record need the events:read permission."
+msgstr ""
+"Els esdeveniments confirmats a partir d'ara que pots veure: els dels registres que pots llegir. "
+"Les dades i els esdeveniments sense registre necessiten el permís events:read."
+
+msgid "Connect"
+msgstr "Connecta"
+
+msgid "Disconnect"
+msgstr "Desconnecta"
+
+msgid "Pause"
+msgstr "Pausa"
+
+msgid "Resume"
+msgstr "Continua"
+
+msgid "Clear"
+msgstr "Buida"
+
+msgid "Resource (channel)"
+msgstr "Recurs (canal)"
+
+msgid "Event type"
+msgstr "Tipus d'esdeveniment"
+
+msgid "Schema version"
+msgstr "Versió de l'esquema"
+
+msgid "Record id"
+msgstr "Id del registre"
+
+msgid "any"
+msgstr "qualsevol"
+
+msgid "Connected: waiting for events…"
+msgstr "Connectat: esperant esdeveniments…"
+
+msgid "Disconnected"
+msgstr "Desconnectat"
+
+msgid "No events yet."
+msgstr "Encara no hi ha esdeveniments."
+
+msgid "Envelope"
+msgstr "Sobre"
+
+msgid "Record as you can read it"
+msgstr "El registre tal com el pots llegir"
+
+msgid "Payload"
+msgstr "Dades"
+
+msgid "The payload needs the events:read permission."
+msgstr "Les dades necessiten el permís events:read."
+
+msgid "Handled by"
+msgstr "Tractat per"
+
+msgid "No consumer has reported handling it yet."
+msgstr "Cap consumidor no ha informat encara que l'hagi tractat."
+
+msgid "Consumer results are not recorded (no activity log)."
+msgstr "Els resultats dels consumidors no es registren (no hi ha registre d'activitat)."
+

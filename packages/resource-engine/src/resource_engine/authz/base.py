@@ -70,12 +70,16 @@ class RoleBasedAuthorizer:
         info = self.catalog.actions.get(action) if self.catalog else None
         return info.wildcards if info else True
 
+    def _exact(self, action: str) -> bool:
+        info = self.catalog.actions.get(action) if self.catalog else None
+        return info.exact if info else False
+
     def _system_grant(self, roles: Iterable[str], action: str) -> str | None:
-        wild = self._wildcards(action)
+        wild, exact = self._wildcards(action), self._exact(action)
         for name in sorted(roles):
             role = self.config.system_role(name)
             if role and any(
-                action_matches(g, action, wildcards=wild or role.include_sensitive)
+                action_matches(g, action, wildcards=wild or role.include_sensitive, exact=exact)
                 for g in role.grants
             ):
                 return role.name

@@ -14,6 +14,7 @@ from resource_engine.messaging.hub import EventHub, FanoutPublisher, Subscriptio
 from resource_engine.messaging.inbound import decode_body, decode_http, try_decode
 from resource_engine.messaging.janitor import MessagingJanitor, MessagingJanitorStats
 from resource_engine.messaging.processing import (
+    ActivityMessageObserver,
     LoggingObserver,
     MessageProcessor,
     Outcome,
@@ -25,6 +26,7 @@ from resource_engine.messaging.worker import ConsumerStats, MessageConsumer
 
 __all__ = [
     "ConsumerStats",
+    "ActivityMessageObserver",
     "LoggingObserver",
     "MessageConsumer",
     "MessageProcessor",

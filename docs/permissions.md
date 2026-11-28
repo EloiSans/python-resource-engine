@@ -55,6 +55,13 @@ Patterns: `*` matches one segment and a trailing `*` the rest (`invoices:*`,
 resources, raw `documents`, anything you mark as sensitive) are only matched by
 explicit names, or by system roles with `include_sensitive` (`admin`).
 
+Some actions belong to no resource. `registry.register_actions(ActionInfo(...))`
+adds them to the catalogue; the [explorer](explorer.md#permissions-and-audit)
+adds `events:read`, `jobs:read`, `jobs:run` and `events:publish:<Event>` this
+way. An action marked `exact` (publishing events by hand) is granted only by a
+grant or policy naming it: no wildcard matches it, not even for `include_sensitive`
+roles.
+
 ## Checking the gates
 
 Policies are data, so `resource-engine check` can't see the ones in your

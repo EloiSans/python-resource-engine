@@ -1,6 +1,8 @@
-/* Try-it console of the documentation site (resource-engine docs site --console).
+/* Try-it console: the documentation site's panels (resource-engine docs site
+   --console) and the standalone explorer's Operations tab (mount_explorer).
    Calls the running API with the visitor's own token; reads by default, changes
-   only after "Allow changes". Everything from the API is shown as text. */
+   only after "Allow changes". Everything from the API is shown as text.
+   Other panels (events.js, explorer.js) use window.ResourceExplorer. */
 (function () {
   var C = window.CONSOLE;
   if (!C) return;
@@ -137,7 +139,8 @@
   }
 
   // ------------------------------------------------------------ a resource page
-  function resourceConsole(resource, ops) {
+  // embedded: inside the explorer page, which shows the token and the switch once
+  function resourceConsole(resource, ops, embedded) {
     var select = el("select", { "aria-label": L.operation });
     ops.forEach(function (op, i) {
       select.appendChild(el("option", { value: String(i), text: op.method + " " + op.path +
@@ -269,13 +272,13 @@
     render();
     return el("details", { className: "console", id: "try-it" }, [
       el("summary", { text: L.try_it }),
-      el("p", { className: "note", text: L.intro + (api ? " " + api : "") }),
-      settings(), select, form, output, extra,
+      embedded ? null : el("p", { className: "note", text: L.intro + (api ? " " + api : "") }),
+      embedded ? null : settings(), select, form, output, extra,
     ]);
   }
 
   // ---------------------------------------------------------------- the home page
-  function whoAmI() {
+  function whoAmI(embedded) {
     var output = el("div", { className: "console-output", "aria-live": "polite" });
     var button = el("button", { type: "button", text: L.who_am_i });
     button.addEventListener("click", function () {
@@ -285,19 +288,37 @@
     return el("details", { className: "console", id: "try-it" }, [
       el("summary", { text: L.who_am_i }),
       el("p", { className: "note", text: L.who_intro }),
-      settings(), button, output,
+      embedded ? null : settings(), button, output,
     ]);
   }
 
-  var main = document.querySelector("main");
-  var heading = main && main.querySelector("h1");
-  if (!heading) return;
-  var resource = document.body.dataset.resource;
-  var panel = null;
-  if (resource && C.resources[resource] && C.resources[resource].length) {
-    panel = resourceConsole(resource, C.resources[resource]);
-  } else if (document.body.dataset.page === "index" && C.me) {
-    panel = whoAmI();
+  window.ResourceExplorer = {
+    config: C, labels: L, api: api, el: el, load: load, save: save, allowed: allowed,
+    settings: settings, call: call, show: show, fetchFile: fetchFile, showFile: showFile,
+    resourceConsole: resourceConsole, whoAmI: whoAmI, panels: {},
+  };
+  if (C.standalone) return;  // explorer.js lays out the page
+
+  // ------------------------------------------- a page of the documentation site
+  function start() {
+    var main = document.querySelector("main");
+    var heading = main && main.querySelector("h1");
+    if (!heading) return;
+    var resource = document.body.dataset.resource;
+    var page = document.body.dataset.page;
+    var panel = null;
+    if (resource && C.resources[resource] && C.resources[resource].length) {
+      panel = resourceConsole(resource, C.resources[resource]);
+    } else if (page === "index" && C.me) {
+      panel = whoAmI();
+    } else if (page && window.ResourceExplorer.panels[page]) {
+      panel = el("details", { className: "console", id: "try-it" }, [
+        el("summary", { text: L.try_it }), settings(), window.ResourceExplorer.panels[page](),
+      ]);
+    }
+    if (panel) heading.insertAdjacentElement("afterend", panel);
   }
-  if (panel) heading.insertAdjacentElement("afterend", panel);
+  // after the other scripts (events.js...) have registered their panels
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", start);
+  else setTimeout(start, 0);
 })();

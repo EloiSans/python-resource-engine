@@ -1,5 +1,6 @@
 """In-memory adapters for tests and prototypes."""
 
+from resource_engine.testing.activity import InMemoryActivityLog
 from resource_engine.testing.email import RecordingEmailSender
 from resource_engine.testing.engine import ConditionEngine
 from resource_engine.testing.memory import (
@@ -16,6 +17,7 @@ from resource_engine.testing.storage import InMemoryBlobStore
 from resource_engine.testing.tracing import RecordedSpan, RecordingTracer
 
 __all__ = [
+    "InMemoryActivityLog",
     "ConditionEngine",
     "InMemoryBlobStore",
     "InMemoryInbox",

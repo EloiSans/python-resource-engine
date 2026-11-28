@@ -16,6 +16,25 @@ class ResourceRegistry:
 
     def __init__(self) -> None:
         self._definitions: dict[str, ResourceDefinition] = {}
+        self._engine_actions: dict[str, Any] = {}
+
+    def register_actions(self, *actions: Any) -> None:
+        """Permission actions not tied to a resource (``ActionInfo``), such as
+        the explorer's ``jobs:run``: they appear in the authorization catalogue
+        and the policy editor like resource actions."""
+        for action in actions:
+            self._engine_actions[action.name] = action
+
+    def engine_actions(self) -> list[Any]:
+        return list(self._engine_actions.values())
+
+    def event_types(self) -> list[type[Any]]:
+        """The domain events the registered resources declare (``Resource.events``)."""
+        seen: dict[str, type[Any]] = {}
+        for definition in self._definitions.values():
+            for event in definition.resource_cls.events:
+                seen.setdefault(event.__name__, event)
+        return list(seen.values())
 
     def register[R: type[Resource]](self, resource_cls: R) -> R:
         definition = resource_cls.definition()

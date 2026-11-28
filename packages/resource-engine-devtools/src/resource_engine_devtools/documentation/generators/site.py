@@ -110,7 +110,7 @@ def render_site(
 def _render_site(
     model: DocumentationModel, options: SiteOptions, *, locale: str | None, others: Sequence[str]
 ) -> dict[str, str]:
-    from resource_engine_devtools.documentation.generators.api import api_pages, console_data
+    from resource_engine_devtools.documentation.generators.api import api_pages
 
     LABELS = labels()
     asyncapi = options.asyncapi
@@ -150,14 +150,45 @@ def _render_site(
     script = _asset("site.js").replace("__NO_RESULTS__", json.dumps(LABELS["no_results"]))
     files["assets/site.js"] = f"window.SITE_SEARCH = {index};\n{script}"
     if console:
-        data = console_data(options.openapi, [r.name for r in model.resources])  # type: ignore[arg-type]
+        explorer = _explorer()
+        data = explorer.data.console_data(options.openapi, [r.name for r in model.resources])  # type: ignore[arg-type]
         _localised_summaries(data, model)
         data["api"] = options.api_url
         data["me"] = "/authz/me" in options.openapi.get("paths", {})  # type: ignore[union-attr]
         data["labels"] = console_labels()
+        events = _operation_path(options.openapi, "explorer_event_stream")  # type: ignore[arg-type]
+        if events:
+            deliveries = _operation_path(options.openapi, "explorer_event_deliveries")  # type: ignore[arg-type]
+            data["events"] = {
+                "stream": events,
+                "deliveries": deliveries,
+                "resources": [r.name for r in model.resources],
+                "types": _event_types(asyncapi),
+            }
         payload = json.dumps(data, ensure_ascii=False).replace("</", "<\\/")
-        files["assets/console.js"] = f"window.CONSOLE = {payload};\n{_asset('console.js')}"
+        scripts = explorer.asset("console.js") + "\n" + explorer.asset("events.js")
+        files["assets/console.js"] = f"window.CONSOLE = {payload};\n{scripts}"
     return files
+
+
+def _operation_path(openapi: Mapping[str, Any], operation_id: str) -> str | None:
+    """The path of the operation ``operation_id`` (the explorer's endpoints,
+    wherever the app mounted them)."""
+    for path, item in openapi.get("paths", {}).items():
+        if any(isinstance(op, dict) and op.get("operationId") == operation_id
+               for op in item.values()):  # fmt: skip
+            return str(path)
+    return None
+
+
+def _event_types(asyncapi: Mapping[str, Any] | None) -> list[dict[str, Any]]:
+    """Published event types, for the live events' filter."""
+    names = {
+        str(message.get("name"))
+        for message in (asyncapi or {}).get("components", {}).get("messages", {}).values()
+        if message.get("name")
+    }
+    return [{"type": name, "versions": []} for name in sorted(names)]
 
 
 def _localised_summaries(data: dict[str, Any], model: DocumentationModel) -> None:
@@ -176,36 +207,23 @@ def _localised_summaries(data: dict[str, Any], model: DocumentationModel) -> Non
 
 
 def console_labels() -> dict[str, str]:
-    return {
-        "try_it": t("Try it"),
-        "intro": t("Calls the running API with your token. Reads only, unless you allow changes."),
-        "token": t("Access token or API key"),
-        "token_hint": t("Kept in this browser tab only"),
-        "allow_changes": t("Allow changes (create, update, delete, transitions, actions)"),
-        "changes_off": t("This operation changes data: tick “Allow changes” first."),
-        "operation": t("Operation"),
-        "header": t("header"),
-        "body": t("Body (JSON)"),
-        "send": t("Send"),
-        "send_change": t("Send the change"),
-        "sending": t("Sending…"),
-        "missing": t("Fill in"),
-        "bad_json": t("The body is not valid JSON"),
-        "unreachable": t("The API could not be reached"),
-        "why": t("Why was it refused?"),
-        "next": t("Allowed transitions now"),
-        "none": t("none"),
-        "upload_note": t("Files are uploaded with the multipart form; use another client."),
-        "who_am_i": t("What can I do?"),
-        "who_intro": t("Your roles and the actions you may perform, from the running API."),
-        "explain_editors": t(
-            "Only policy editors can see the full explanation. What the API says about you:"
-        ),
-        "your_roles": t("Your roles"),
-        "not_granted": t("not granted"),
-        "download": t("Download"),
-        "export_check": t("Check the export"),
-    }
+    """The console's texts in the docs locale (they live with the explorer,
+    in ``resource-engine-fastapi``)."""
+    from resource_engine_devtools.documentation.i18n import current
+
+    return _explorer().labels.labels(current())
+
+
+def _explorer() -> Any:
+    """``resource_engine_fastapi.explorer``: the console's code and texts."""
+    try:
+        import resource_engine_fastapi.explorer as explorer
+    except ImportError as exc:  # pragma: no cover - depends on the install
+        raise ValueError(
+            "The console comes from resource-engine-fastapi: install "
+            "resource-engine-devtools[explorer]"
+        ) from exc
+    return explorer
 
 
 def render_events(asyncapi: Mapping[str, Any]) -> str:
@@ -392,6 +410,8 @@ def _page_data(current: str) -> str:
     if current.startswith("resources/"):
         name = current.removeprefix("resources/").removesuffix(".html")
         return f' data-resource="{html.escape(name)}"'
+    if current == "events.html":
+        return ' data-page="events"'
     return ' data-page="index"' if current == "index.html" else ""
 
 

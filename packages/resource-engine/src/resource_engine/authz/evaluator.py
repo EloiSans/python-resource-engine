@@ -116,12 +116,12 @@ class PolicyAuthorizer(RoleBasedAuthorizer):
     async def _applicable(
         self, principal: Principal, roles: frozenset[str], action: str
     ) -> list[Policy]:
-        wild = self._wildcards(action)
+        wild, exact = self._wildcards(action), self._exact(action)
         return [
             p
             for p in await self.store.policies()
             if self._applies(p, principal, roles)
-            and any(action_matches(a, action, wildcards=wild) for a in p.actions)
+            and any(action_matches(a, action, wildcards=wild, exact=exact) for a in p.actions)
         ]
 
     # ----------------------------------------------------------------- checks
@@ -261,7 +261,12 @@ class PolicyAuthorizer(RoleBasedAuthorizer):
             for role_name in sorted(roles):
                 role = self.config.system_role(role_name)
                 if role and any(
-                    action_matches(g, info.name, wildcards=info.wildcards or role.include_sensitive)
+                    action_matches(
+                        g,
+                        info.name,
+                        wildcards=info.wildcards or role.include_sensitive,
+                        exact=info.exact,
+                    )
                     and (not is_restricted or role.include_sensitive or names_field(g))
                     for g in role.grants
                 ):
@@ -272,7 +277,9 @@ class PolicyAuthorizer(RoleBasedAuthorizer):
                 if not self._applies(p, principal, roles):
                     continue
                 hits = [
-                    a for a in p.actions if action_matches(a, info.name, wildcards=info.wildcards)
+                    a
+                    for a in p.actions
+                    if action_matches(a, info.name, wildcards=info.wildcards, exact=info.exact)
                 ]
                 if p.effect == "allow" and is_restricted:
                     hits = [a for a in hits if names_field(a)]

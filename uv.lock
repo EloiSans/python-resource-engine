@@ -2462,6 +2462,9 @@ dependencies = [
 ]
 
 [package.optional-dependencies]
+explorer = [
+    { name = "resource-engine-fastapi" },
+]
 mcp = [
     { name = "mcp" },
 ]
@@ -2473,8 +2476,9 @@ requires-dist = [
     { name = "markdown-it-py", specifier = ">=3.0" },
     { name = "mcp", marker = "extra == 'mcp'", specifier = ">=2.3,<3" },
     { name = "resource-engine", editable = "packages/resource-engine" },
+    { name = "resource-engine-fastapi", marker = "extra == 'explorer'", editable = "packages/resource-engine-fastapi" },
 ]
-provides-extras = ["mcp"]
+provides-extras = ["mcp", "explorer"]
 
 [[package]]
 name = "resource-engine-fastapi"

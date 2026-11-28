@@ -242,11 +242,7 @@ def test_cli_audience_from_the_option_and_the_config(tmp_path):
 
 def test_console_data_and_pages():
     from invoices.app import create_app
-    from resource_engine_devtools.documentation.generators.api import (
-        catalogue_action,
-        console_data,
-        example,
-    )
+    from resource_engine_fastapi.explorer.data import catalogue_action, console_data, example
 
     assert catalogue_action("invoices", "GET", "/invoices") == "invoices:list"
     assert catalogue_action("invoices", "POST", "/invoices") == "invoices:create"
@@ -295,6 +291,27 @@ def test_console_data_and_pages():
     assert "console.js" not in _site(openapi=openapi)["resources/invoices.html"]
     with pytest.raises(ValueError):
         _site(console=True)  # no OpenAPI to build it from
+
+
+def test_the_events_page_gets_the_live_panel_when_the_app_has_it():
+    from invoices.app import create_app
+
+    openapi = create_app().openapi()
+    plain = _site(openapi=openapi, console=True)
+    assert '"events"' not in plain["assets/console.js"].split("\n", 1)[0]
+    openapi["paths"]["/_explorer/events/stream"] = {
+        "get": {"operationId": "explorer_event_stream", "tags": ["explorer"], "responses": {}}
+    }
+    files = _site(openapi=openapi, console=True)
+    payload = json.loads(
+        files["assets/console.js"].split("window.CONSOLE = ", 1)[1].split(";\n", 1)[0]
+    )
+    events = payload["events"]
+    assert events["stream"] == "/_explorer/events/stream" and events["deliveries"] is None
+    assert "invoices" in events["resources"] and events["types"]
+    assert payload["labels"]["connect"] == "Connecta"  # the explorer's catalogue, in Catalan
+    assert "R.panels.events = panel" in files["assets/console.js"]
+    assert 'data-page="events"' in files["events.html"]
 
 
 def test_cli_console_needs_the_app(tmp_path, monkeypatch, capsys):

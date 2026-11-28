@@ -340,6 +340,15 @@
   the explorer's console; `Resource.printouts` rendered on request at `GET
   /<resource>/{id}/printouts/<name>`; `EmailRequested(documents=[...])`
   attaching stored documents.
+- Explorer, part 1 (`docs/explorer.md`): `mount_explorer` serves a standalone
+  page like FastAPI's `/docs`, built from the running app (Operations and
+  Events tabs, en/ca/es), whose console and texts the docs site now reuses;
+  committed events live over server-sent events through `LiveEvents` (shared
+  with the GraphQL subscriptions), with per-consumer deliveries from an
+  `ActivityLog` (`ActivityMessageObserver`, `SqlAlchemyActivityLog`, purged by
+  `MessagingJanitor`); engine actions (`registry.register_actions`,
+  `register_explorer`) with `exact` actions no wildcard grants; and
+  `manager.audit_event` for audit entries outside operations.
 
 ## Next
 
@@ -349,7 +358,12 @@ what follows builds on it.
 
 ### Soon
 
-Nothing scheduled: the next items come from Later.
+- Explorer, part 2: a Jobs tab with the worker's jobs, their runs and "run
+  now" through the worker, and a record's pending timed transitions.
+- Explorer, part 3: a dry run of publishing an event, validated against its
+  schema and the app's consumers.
+- Explorer, part 4: publishing an event by hand through the outbox, tagged
+  and audited.
 
 ### Later
 

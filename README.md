@@ -167,6 +167,7 @@ uv run uvicorn invoices.app:app --app-dir examples --reload   # then open /docs 
 - [Contracts](docs/contracts.md) — consumers scaffolded from a provider's AsyncAPI, contract tests on both sides.
 - [AsyncAPI](docs/asyncapi.md) — the events the app publishes and consumes, generated and served next to OpenAPI.
 - [MCP server](docs/mcp.md) — operations as tools for AI agents, permissions per caller.
+- [Explorer](docs/explorer.md) — try the running app from the browser, like FastAPI's `/docs`: every operation, and committed events live, with the visitor's own permissions.
 - [Documentation site](docs/docs-site.md) — the docs as a static website, for a technical or a functional audience: diagrams, permission matrix, events, emails, the HTTP API, search, several languages; served by the app as an explorer with a try-it console. The example's is published at <https://eloisans.github.io/python-resource-engine/>.
 - [Translations](docs/i18n.md) — gettext catalogues for error titles, templates, your messages and the documentation site; locale per request.
 - [Data-lake views](docs/query-engines.md) — Athena, BigQuery and Trino tables as read-only resources with filters, permissions and tenancy.

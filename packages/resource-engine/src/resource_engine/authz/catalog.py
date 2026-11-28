@@ -41,6 +41,9 @@ class ActionInfo:
     wildcards: bool = True  # False: only explicit grants match (sensitive resources)
     input: list[AttributeInfo] = field(default_factory=list)
     restricted: bool = False  # field actions: restricted in code (needs a grant)
+    #: Only a grant naming this action exactly matches: no wildcard, not even
+    #: for roles that include sensitive actions (publishing events by hand).
+    exact: bool = False
 
 
 FIELD_KINDS = ("read", "write")
@@ -119,6 +122,9 @@ class Catalog:
             attributes[d.name] = cls._resource_attributes(d)
             for action in cls._actions(d):
                 actions[action.name] = action
+        for action in registry.engine_actions():
+            attributes.setdefault(action.resource, [])
+            actions[action.name] = action
         return cls(actions, attributes)
 
     @staticmethod
@@ -202,7 +208,9 @@ class Catalog:
         return [
             name
             for name, info in self.actions.items()
-            if action_matches(pattern, name, wildcards=info.wildcards or include_sensitive)
+            if action_matches(
+                pattern, name, wildcards=info.wildcards or include_sensitive, exact=info.exact
+            )
         ]
 
     def attribute_types(self, actions: Iterable[str]) -> dict[str, str]:
@@ -251,12 +259,16 @@ def _write_fields(d: ResourceDefinition) -> dict[str, str | None]:
     return out
 
 
-def action_matches(pattern: str, action: str, *, wildcards: bool = True) -> bool:
+def action_matches(
+    pattern: str, action: str, *, wildcards: bool = True, exact: bool = False
+) -> bool:
     """``*`` matches one segment; a trailing ``*`` matches the rest.
 
     With ``wildcards=False`` (sensitive resources) the resource segment must be
-    named explicitly.
+    named explicitly; with ``exact`` only the action itself matches.
     """
+    if exact:
+        return pattern == action
     p, a = pattern.split(":"), action.split(":")
     if not wildcards and p[0] != a[0]:
         return False

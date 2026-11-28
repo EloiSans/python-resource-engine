@@ -136,6 +136,10 @@ With `--console`, the site gets two panels:
   console at the API, which must then allow the site's origin (CORS).
 - **Files the console can't send:** document uploads (multipart). Use
   another client for those.
+- **Live events:** with the [explorer's](explorer.md#with-the-documentation-site)
+  endpoints mounted, the events page gets a live panel too.
+- **Without a build step:** `mount_explorer` serves the same console as a
+  single page, built from the running app ([explorer](explorer.md)).
 
 The example mounts it when `DOCS_SITE` names the built folder:
 

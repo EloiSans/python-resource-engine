@@ -194,7 +194,9 @@ result, seconds)`, sync or async. That includes duplicates, dead letters, and
 messages held back behind a failed key (0 seconds). A failing observer is
 logged and ignored. `LoggingObserver` writes one line per message to
 `resource_engine.messaging.metrics`. Held-back messages have
-`result.blocked` set.
+`result.blocked` set. `ActivityMessageObserver(activity_log)` records each
+consumer's outcome per message in an `ActivityLog`, for the
+[explorer](explorer.md#which-consumers-handled-an-event).
 
 For OpenTelemetry, install `resource-engine-opentelemetry`:
 
@@ -240,6 +242,8 @@ await janitor.run_once()  # from a scheduled job, or: await janitor.run_forever(
   until a batch comes back short.
 - **Opting out:** `None` leaves a table alone. A unit of work without the table
   is a configuration error unless its retention is `None`.
+- **Activity log:** `activity=` an `ActivityLog` is purged after
+  `activity_retention` (7 days).
 
 Custom stores implement `InboxStore.purge(before, limit)` and
 `OutboxStore.purge_published(before, limit)`. `InboxContract` and
@@ -277,8 +281,10 @@ formats, e.g. `resource_engine_gcp.decode_pubsub_push`.
 `hub.subscribe(filter)` returns a `Subscription` to iterate with `async for`.
 Each holds `queue_size` envelopes (default 100); when it is full the oldest is
 dropped and `overflowed` counts it. Subscribers must check permissions
-themselves: the GraphQL adapter re-reads each record as the subscriber
-([GraphQL subscriptions](graphql.md#subscriptions)).
+themselves. `LiveEvents(manager, hub)` does it for the GraphQL subscriptions
+and the [explorer's event stream](explorer.md#events): it re-reads each record
+as the subscriber, never reveals the ids of records the subscriber didn't
+see, and shows payloads and events about no record only with `events:read`.
 
 ## CloudEvents
 

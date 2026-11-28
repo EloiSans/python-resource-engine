@@ -63,11 +63,16 @@ def check_gates(
         if info.kind == "transition" and not definition.expose_transitions:
             continue
         granted = any(
-            action_matches(g, info.name, wildcards=info.wildcards or role.include_sensitive)
+            action_matches(
+                g,
+                info.name,
+                wildcards=info.wildcards or role.include_sensitive,
+                exact=info.exact,
+            )
             for role in gates
             for g in role.grants
         ) or any(
-            action_matches(pattern, info.name, wildcards=info.wildcards)
+            action_matches(pattern, info.name, wildcards=info.wildcards, exact=info.exact)
             for policy in allows
             for pattern in policy.get("actions", ())
         )

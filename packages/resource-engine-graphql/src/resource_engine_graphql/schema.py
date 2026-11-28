@@ -395,28 +395,8 @@ class SchemaBuilder:
         return out
 
     def _subscribe(self, resource: str) -> Callable[..., Any]:
-        from resource_engine.errors import (
-            EntityNotFound,
-            PermissionDenied,
-            TenantMismatch,
-            TenantRequired,
-        )
-
-        d = self.resources[resource].definition
-        adapter = TypeAdapter(d.id_type)
-        hidden = (EntityNotFound, PermissionDenied, TenantRequired, TenantMismatch)
-
-        def entity_of(envelope: Any) -> Any:
-            payload = envelope.payload
-            if (payload.get("resource") or envelope.resource) != resource:
-                return None
-            value = payload.get("entity_id")
-            if value is None:
-                return None
-            try:
-                return adapter.validate_python(value)
-            except Exception:
-                return None
+        from resource_engine.errors import PermissionDenied
+        from resource_engine.messaging.live import LiveEvents
 
         async def subscribe(_root: Any, info: Any, **kw: Any) -> Any:
             c = self._ctx(info)
@@ -430,41 +410,33 @@ class SchemaBuilder:
                     f"Not allowed to read {resource}", details={"action": f"{resource}:get"}
                 )
             # checks above raise before the stream starts: an ``error`` message
-            return stream(manager, actor, tenant, only, events)
+            return stream(LiveEvents(manager, self.hub), actor, tenant, only, events)
 
         async def stream(
-            manager: Any, actor: Any, tenant: Any, only: Any, events: set[str]
+            live: Any, actor: Any, tenant: Any, only: Any, events: set[str]
         ) -> AsyncIterator[dict[str, Any]]:
-            subscription = self.hub.subscribe(
-                lambda env: (
-                    (entity := entity_of(env)) is not None
-                    and (only is None or entity == only)
-                    and (not events or env.type in events)
+            shown: set[tuple[str, Any]] = {(resource, only)} if only is not None else set()
+
+            def matches(envelope: Any) -> bool:
+                about, entity_id = live.about(envelope)
+                return (
+                    about == resource
+                    and (only is None or entity_id == only)
+                    and (not events or envelope.type in events)
                 )
-            )
-            delivered: set[Any] = {only} if only is not None else set()
+
+            subscription = self.hub.subscribe(matches)
             try:
                 async for envelope in subscription:
-                    entity_id = entity_of(envelope)
-                    change = {
-                        "event": envelope.type,
-                        "id": entity_id,
-                        "occurred_at": envelope.occurred_at,
-                        "record": None,
-                    }
-                    if envelope.type == "ResourceDeleted":
-                        if entity_id in delivered:  # never reveal unseen records' ids
-                            delivered.discard(entity_id)
-                            yield change
-                        continue
-                    try:
-                        change["record"] = await manager.get(
-                            resource, entity_id, actor=actor, tenant=tenant
-                        )
-                    except hidden:
+                    event = await live.visible(envelope, actor, tenant=tenant, shown=shown)
+                    if event is None:
                         continue  # not (or no longer) visible to this subscriber
-                    delivered.add(entity_id)
-                    yield change
+                    yield {
+                        "event": envelope.type,
+                        "id": event.entity_id,
+                        "occurred_at": envelope.occurred_at,
+                        "record": event.record,
+                    }
             finally:
                 subscription.close()
 

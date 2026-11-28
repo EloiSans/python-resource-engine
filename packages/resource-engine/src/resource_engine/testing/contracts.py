@@ -818,3 +818,44 @@ class IdempotencyContract:
             assert await uow.idempotency().purge(datetime.now(UTC), 10) == 1
             await uow.commit()
         assert await self._get(contract_uow_factory, "fresh") is not None
+
+
+class ActivityLogContract:
+    """Behaviour of an ``ActivityLog``. Fixture: ``activity_log``."""
+
+    @pytest.fixture
+    def activity_log(self) -> Any:
+        raise NotImplementedError("Provide an ActivityLog")
+
+    async def test_deliveries_by_message_oldest_first(self, activity_log):
+        from resource_engine.ports.activity import DeliveryRecord
+
+        now = datetime.now(UTC)
+        later = DeliveryRecord("mailer", "m1", "InvoiceApproved", "retry", 0.25,
+                               error="RE-E501: down", at=now)  # fmt: skip
+        first = DeliveryRecord("billing", "m1", "InvoiceApproved", "ack", 0.01,
+                               at=now - timedelta(seconds=1))  # fmt: skip
+        other = DeliveryRecord("billing", "m2", "InvoiceApproved", "ack", 0.01, at=now)
+        for record in (later, first, other):
+            await activity_log.record_delivery(record)
+        found = await activity_log.deliveries("m1")
+        assert [(d.consumer, d.outcome, d.error) for d in found] == [
+            ("billing", "ack", None),
+            ("mailer", "retry", "RE-E501: down"),
+        ]
+        assert found[1].at == now and found[1].seconds == 0.25
+        assert await activity_log.deliveries("missing") == []
+
+    async def test_purge_deletes_old_records_in_batches(self, activity_log):
+        from resource_engine.ports.activity import DeliveryRecord
+
+        now = datetime.now(UTC)
+        for i in range(3):
+            await activity_log.record_delivery(
+                DeliveryRecord("c", f"old{i}", "T", "ack", 0.0, at=now - timedelta(days=10))
+            )
+        await activity_log.record_delivery(DeliveryRecord("c", "new", "T", "ack", 0.0, at=now))
+        before = now - timedelta(days=1)
+        assert await activity_log.purge(before, 2) == 2
+        assert await activity_log.purge(before, 10) == 1
+        assert len(await activity_log.deliveries("new")) == 1

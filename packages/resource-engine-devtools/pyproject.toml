@@ -40,6 +40,7 @@ packages = ["src/resource_engine_devtools"]
 
 [project.optional-dependencies]
 mcp = ["mcp>=2.3,<3"]
+explorer = ["resource-engine-fastapi>=0.1.0.dev0,<0.2"]
 
 [project.scripts]
 resource-engine = "resource_engine_devtools.cli:main"

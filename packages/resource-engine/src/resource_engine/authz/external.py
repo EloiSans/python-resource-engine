@@ -167,7 +167,12 @@ class EngineAuthorizer(RoleBasedAuthorizer):
         for name in sorted(roles):
             role = self.config.system_role(name)
             if role and any(
-                action_matches(g, info.name, wildcards=info.wildcards or role.include_sensitive)
+                action_matches(
+                    g,
+                    info.name,
+                    wildcards=info.wildcards or role.include_sensitive,
+                    exact=info.exact,
+                )
                 and (not info.restricted or role.include_sensitive or names_field(g))
                 for g in role.grants
             ):

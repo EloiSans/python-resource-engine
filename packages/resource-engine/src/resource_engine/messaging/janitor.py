@@ -23,6 +23,7 @@ logger = logging.getLogger("resource_engine.messaging.janitor")
 class MessagingJanitorStats:
     inbox: int = 0
     outbox: int = 0
+    activity: int = 0
 
 
 class MessagingJanitor:
@@ -36,6 +37,8 @@ class MessagingJanitor:
             runs again. ``None`` keeps the inbox untouched.
         outbox_retention: How long published records stay (for inspection and
             replays). Unpublished records are never deleted. ``None`` keeps them.
+        activity / activity_retention: An ``ActivityLog`` and how long its
+            records stay.
         batch_size: Rows deleted per transaction; ``run_once`` repeats until a
             batch comes back short.
     """
@@ -47,6 +50,8 @@ class MessagingJanitor:
         inbox_retention: timedelta | None = timedelta(days=14),
         outbox_retention: timedelta | None = timedelta(days=7),
         batch_size: int = 1000,
+        activity: Any = None,
+        activity_retention: timedelta = timedelta(days=7),
     ) -> None:
         if batch_size < 1:
             raise ConfigurationError("batch_size must be at least 1")
@@ -57,6 +62,9 @@ class MessagingJanitor:
         self.inbox_retention = inbox_retention
         self.outbox_retention = outbox_retention
         self.batch_size = batch_size
+        #: An ``ActivityLog`` purged after ``activity_retention`` (docs/explorer.md).
+        self.activity = activity
+        self.activity_retention = activity_retention
 
     async def run_once(self, now: datetime | None = None) -> MessagingJanitorStats:
         now = now or datetime.now(UTC)
@@ -69,6 +77,13 @@ class MessagingJanitor:
             stats.outbox = await self._drain(
                 lambda uow: _outbox(uow).purge_published(before, self.batch_size)
             )
+        if self.activity is not None:
+            before = now - self.activity_retention
+            while True:
+                deleted = await self.activity.purge(before, self.batch_size)
+                stats.activity += deleted
+                if deleted < self.batch_size:
+                    break
         if stats.inbox or stats.outbox:
             logger.info("Purged %d inbox marks, %d outbox records", stats.inbox, stats.outbox)
         return stats

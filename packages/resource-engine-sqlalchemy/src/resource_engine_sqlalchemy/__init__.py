@@ -6,6 +6,11 @@ Domain entities stay plain classes; map them with SQLAlchemy's imperative mappin
 infrastructure layer, so the domain never imports SQLAlchemy.
 """
 
+from resource_engine_sqlalchemy.activity import (
+    ActivityTables,
+    SqlAlchemyActivityLog,
+    activity_tables,
+)
 from resource_engine_sqlalchemy.audit import audit_seal_table, audit_table, map_audit
 from resource_engine_sqlalchemy.authz import AuthzTables, authz_tables, map_authz
 from resource_engine_sqlalchemy.documents import documents_table, map_documents
@@ -26,6 +31,9 @@ from resource_engine_sqlalchemy.unit_of_work import SqlAlchemyUnitOfWork, unit_o
 from resource_engine_sqlalchemy.views import aggregate_select, map_view, map_views
 
 __all__ = [
+    "ActivityTables",
+    "SqlAlchemyActivityLog",
+    "activity_tables",
     "SqlAlchemySuppressionList",
     "suppressions_table",
     "aggregate_select",

@@ -25,6 +25,7 @@ from typing import Any
 from sqlalchemy import MetaData, Table
 from sqlalchemy.orm import registry as orm_registry
 
+from resource_engine_sqlalchemy.activity import activity_tables
 from resource_engine_sqlalchemy.audit import audit_seal_table, audit_table, map_audit
 from resource_engine_sqlalchemy.authz import (
     AuthzTables,
@@ -65,6 +66,7 @@ class EngineTables:
     idempotency: Table | None = None
     api_keys: Table | None = None
     suppressions: Table | None = None
+    activity: Any = None  # ActivityTables
 
     def all(self) -> list[Table]:
         tables = [
@@ -80,6 +82,8 @@ class EngineTables:
         ]
         if self.authz is not None:
             tables += [self.authz.policies, self.authz.roles, self.authz.assignments]
+        if self.activity is not None:
+            tables += self.activity.all()
         return [t for t in tables if t is not None]
 
 
@@ -96,6 +100,7 @@ def engine_tables(
     idempotency: bool = False,
     api_keys: bool = False,
     suppressions: bool = False,
+    activity: bool = False,
     names: dict[str, Any] | None = None,
 ) -> EngineTables:
     """Declare the engine tables an application uses on ``metadata``.
@@ -110,6 +115,8 @@ def engine_tables(
         idempotency: Results of writes sent with an idempotency key.
         api_keys: Keys for machine clients (``registry.register_api_keys``).
         suppressions: Email addresses not to send to (``SqlAlchemySuppressionList``).
+        activity: What the worker did, for the explorer (``SqlAlchemyActivityLog``;
+            ``names`` takes a prefix).
         names: Custom table names, by the same keys (``authz`` takes a prefix).
     """
     if seals and not audit:
@@ -130,6 +137,7 @@ def engine_tables(
         idempotency=named("idempotency", idempotency_table) if idempotency else None,
         api_keys=named("api_keys", api_keys_table) if api_keys else None,
         suppressions=named("suppressions", suppressions_table) if suppressions else None,
+        activity=named("activity", activity_tables) if activity else None,
     )
 
 

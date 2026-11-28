@@ -1,0 +1,178 @@
+# Spanish translations for resource-engine-fastapi.
+# Copyright (C) 2026 ORGANIZATION
+# This file is distributed under the same license as the resource-engine-fastapi project.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2026.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: resource-engine-fastapi VERSION\n"
+"Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
+"POT-Creation-Date: 2026-11-28 10:28+0100\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language: es\n"
+"Language-Team: es <LL@li.org>\n"
+"Plural-Forms: nplurals=3; plural=(n == 1 ? 0 : n != 0 && n % 1000000 == 0 ? 1 : 2);\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.19.0\n"
+
+msgid "Try it"
+msgstr "Pruébalo"
+
+msgid "Calls the running API with your token. Reads only, unless you allow changes."
+msgstr "Llama a la API en funcionamiento con tu token. Solo lee, salvo que permitas cambios."
+
+msgid "Access token or API key"
+msgstr "Token de acceso o clave de API"
+
+msgid "Kept in this browser tab only"
+msgstr "Solo se guarda en esta pestaña"
+
+msgid "Allow changes (create, update, delete, transitions, actions)"
+msgstr "Permitir cambios (crear, modificar, eliminar, transiciones, acciones)"
+
+msgid "This operation changes data: tick “Allow changes” first."
+msgstr "Esta operación modifica datos: marca primero «Permitir cambios»."
+
+msgid "Operation"
+msgstr "Operación"
+
+msgid "header"
+msgstr "cabecera"
+
+msgid "Body (JSON)"
+msgstr "Cuerpo (JSON)"
+
+msgid "Send"
+msgstr "Enviar"
+
+msgid "Send the change"
+msgstr "Enviar el cambio"
+
+msgid "Sending…"
+msgstr "Enviando…"
+
+msgid "Fill in"
+msgstr "Rellena"
+
+msgid "The body is not valid JSON"
+msgstr "El cuerpo no es JSON válido"
+
+msgid "The API could not be reached"
+msgstr "No se ha podido contactar con la API"
+
+msgid "Why was it refused?"
+msgstr "¿Por qué se ha denegado?"
+
+msgid "Allowed transitions now"
+msgstr "Transiciones permitidas ahora"
+
+msgid "none"
+msgstr "ninguna"
+
+msgid "Files are uploaded with the multipart form; use another client."
+msgstr "Los archivos se suben con un formulario multipart; usa otro cliente."
+
+msgid "What can I do?"
+msgstr "¿Qué puedo hacer?"
+
+msgid "Your roles and the actions you may perform, from the running API."
+msgstr "Tus roles y las acciones que puedes hacer, según la API en funcionamiento."
+
+msgid "Only policy editors can see the full explanation. What the API says about you:"
+msgstr "Solo quien edita políticas puede ver la explicación completa. Lo que dice la API de ti:"
+
+msgid "Your roles"
+msgstr "Tus roles"
+
+msgid "not granted"
+msgstr "no concedido"
+
+msgid "Download"
+msgstr "Descargar"
+
+msgid "Check the export"
+msgstr "Comprobar la exportación"
+
+msgid "Explorer"
+msgstr "Explorador"
+
+msgid "Operations"
+msgstr "Operaciones"
+
+msgid "Events"
+msgstr "Eventos"
+
+msgid "Resource"
+msgstr "Recurso"
+
+msgid ""
+"Events committed from now on that you may see: those about records you can read. Payloads and "
+"events about no record need the events:read permission."
+msgstr ""
+"Los eventos confirmados a partir de ahora que puedes ver: los de los registros que puedes leer. "
+"Los datos y los eventos sin registro necesitan el permiso events:read."
+
+msgid "Connect"
+msgstr "Conectar"
+
+msgid "Disconnect"
+msgstr "Desconectar"
+
+msgid "Pause"
+msgstr "Pausar"
+
+msgid "Resume"
+msgstr "Continuar"
+
+msgid "Clear"
+msgstr "Vaciar"
+
+msgid "Resource (channel)"
+msgstr "Recurso (canal)"
+
+msgid "Event type"
+msgstr "Tipo de evento"
+
+msgid "Schema version"
+msgstr "Versión del esquema"
+
+msgid "Record id"
+msgstr "Id del registro"
+
+msgid "any"
+msgstr "cualquiera"
+
+msgid "Connected: waiting for events…"
+msgstr "Conectado: esperando eventos…"
+
+msgid "Disconnected"
+msgstr "Desconectado"
+
+msgid "No events yet."
+msgstr "Todavía no hay eventos."
+
+msgid "Envelope"
+msgstr "Sobre"
+
+msgid "Record as you can read it"
+msgstr "El registro tal como lo puedes leer"
+
+msgid "Payload"
+msgstr "Datos"
+
+msgid "The payload needs the events:read permission."
+msgstr "Los datos necesitan el permiso events:read."
+
+msgid "Handled by"
+msgstr "Tratado por"
+
+msgid "No consumer has reported handling it yet."
+msgstr "Ningún consumidor ha informado todavía de que lo haya tratado."
+
+msgid "Consumer results are not recorded (no activity log)."
+msgstr "Los resultados de los consumidores no se registran (no hay registro de actividad)."
+
