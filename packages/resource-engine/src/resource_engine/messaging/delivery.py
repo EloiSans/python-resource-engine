@@ -48,7 +48,9 @@ class TransportEventPublisher:
         self.serializer = serializer or EventSerializer()
 
     async def publish(self, events: Sequence[DomainEvent]) -> None:
-        await self.transport.publish([self.serializer.to_envelope(e) for e in events])
+        await self.transport.publish(
+            [envelope for e in events for envelope in self.serializer.to_envelopes(e)]
+        )
 
 
 class OutboxDelivery:
@@ -63,10 +65,11 @@ class OutboxDelivery:
 
     def envelopes(self, ctx: OperationContext) -> list[EventEnvelope]:
         return [
-            self.serializer.to_envelope(
+            envelope
+            for e in ctx.events
+            for envelope in self.serializer.to_envelopes(
                 e, correlation_id=ctx.correlation_id, resource=ctx.resource.name
             )
-            for e in ctx.events
         ]
 
     async def before_commit(self, ctx: OperationContext, uow: UnitOfWork) -> None:

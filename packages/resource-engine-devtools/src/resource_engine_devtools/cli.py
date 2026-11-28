@@ -229,6 +229,41 @@ def cmd_docs_asyncapi(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_docs_openapi(args: argparse.Namespace) -> int:
+    from resource_engine_devtools.loader import add_paths
+
+    add_paths(find_config(Path.cwd()), Path.cwd())
+    document = _technical_documents("technical", openapi=True).get("openapi")
+    if document is None:
+        _emit(
+            args,
+            {"error": "no app"},
+            "error: set [tool.resource-engine] app (a FastAPI app or a factory)",
+        )
+        return 2
+    text = json.dumps(document, indent=2, ensure_ascii=False) + "\n"
+    if args.check:
+        from resource_engine_devtools.contracts import openapi_breaking_changes
+
+        problems = openapi_breaking_changes(Path(args.check), document)  # type: ignore[arg-type]
+        current = json.loads(Path(args.check).read_text(encoding="utf-8")) == document
+        report = "\n".join(f"BREAKING {p}" for p in problems) or (
+            "Same as the published document."
+            if current
+            else "Compatible changes only: publish the new document."
+        )
+        _emit(args, {"breaking": [p.to_dict() for p in problems], "changed": not current}, report)
+        return 1 if problems else 0
+    if args.out:
+        target = Path(args.out)
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(text, encoding="utf-8")
+        print(json.dumps({"written": [str(target)]}) if args.json else f"wrote {target}")
+    else:
+        sys.stdout.write(text)
+    return 0
+
+
 def _templates() -> dict[str, object]:
     """The renderer named in ``[tool.resource-engine] templates``, for the docs."""
     config = find_config(Path.cwd())
@@ -812,6 +847,16 @@ def build_parser() -> argparse.ArgumentParser:
         help="EventRouter as module:attribute (repeatable; default: pyproject consumers)",
     )
     p.set_defaults(func=cmd_docs_asyncapi)
+    p = docs.add_parser(
+        "openapi", parents=[common], help="OpenAPI document of the app ([tool.resource-engine] app)"
+    )
+    p.add_argument("--out", help="file to write (default: standard output)")
+    p.add_argument(
+        "--check",
+        metavar="PUBLISHED",
+        help="compare with the published document; exit 1 on changes that break clients",
+    )
+    p.set_defaults(func=cmd_docs_openapi)
     from resource_engine_devtools.documentation.generators.site import MERMAID_URL
 
     p = docs.add_parser(

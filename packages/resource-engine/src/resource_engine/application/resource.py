@@ -184,6 +184,11 @@ class Resource:
     translatable: ClassVar[Sequence[str]] = ()
     #: The language of translatable fields when the request names none.
     default_locale: ClassVar[str | None] = None
+    #: Older API versions still served, by name (``"v1"``), each with its
+    #: schemas and converters (``resource_engine.versions.ApiVersion``).
+    api_versions: ClassVar[Mapping[str, Any]] = {}
+    #: The whole resource is on its way out (``resource_engine.versions.Deprecation``).
+    deprecation: ClassVar[Any] = None
 
     # --- Mapping between schemas and entities. Override when needed. ---
 

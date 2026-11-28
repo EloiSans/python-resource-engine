@@ -54,6 +54,23 @@ from resource_engine.messaging.envelope import to_jsonable
 
 DOC = "docs/graphql.md"
 
+
+def _deprecated(field: GraphQLField, d: ResourceDefinition) -> GraphQLField:
+    """``@deprecated`` on the fields of a deprecated resource."""
+    notice = d.resource_cls.deprecation
+    if notice is not None and field.deprecation_reason is None:
+        field.deprecation_reason = notice.notice()
+    return field
+
+
+def _field_deprecation(info: Any) -> str | None:
+    """A pydantic field's ``deprecated=`` (``True`` or a message) as a reason."""
+    deprecated = getattr(info, "deprecated", None)
+    if not deprecated:
+        return None
+    return deprecated if isinstance(deprecated, str) else "Deprecated."
+
+
 # ------------------------------------------------------------------ names
 
 
@@ -466,7 +483,10 @@ class SchemaBuilder:
                 if f == d.id_field:
                     gql = GraphQLNonNull(gql)
                 out[camel(f)] = GraphQLField(
-                    gql, resolve=_attribute(f), description=info.description
+                    gql,
+                    resolve=_attribute(f),
+                    description=info.description,
+                    deprecation_reason=_field_deprecation(info),
                 )
             for ref in d.references.values():
                 if ref.target not in self.resources:
@@ -623,6 +643,9 @@ class SchemaBuilder:
                     resolve=self._list(name),
                     description=d.operation_docs.get("list") or f"A page of {name}",
                 )
+            for key in (r.single, r.plural):
+                if key in out:
+                    out[key] = _deprecated(out[key], d)
         return out
 
     # -------------------------------------------------------- mutations
@@ -637,7 +660,7 @@ class SchemaBuilder:
                     hint="Rename the transition or action.",
                     doc=DOC,
                 )
-            out[name] = field
+            out[name] = _deprecated(field, self.resources[resource].definition)
 
         for name, r in self.resources.items():
             d = r.definition

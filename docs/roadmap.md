@@ -318,6 +318,13 @@
   `If-Match`), and `DestinationService` / `destination_client` (bindings from
   Cloud Foundry or Kyma, `authTokens` headers renewed on expiry and 401,
   principal propagation; on-premise destinations refused).
+- Versioning (`docs/versioning.md`): API versions under their prefix
+  (`mount_resources(versions=...)`, `Resource.api_versions` converting input
+  and output); event `schema_version` with older versions published side by
+  side and consumers picking one; `Deprecation` notices as response headers
+  (RFC 9745, 8594), in OpenAPI, AsyncAPI and GraphQL; contract checks per
+  event version and for OpenAPI (`docs openapi --check`), letting a version go
+  after its sunset.
 
 ## Next
 
@@ -331,7 +338,4 @@ Nothing scheduled: the next items come from Later.
 
 ### Later
 
-- Versioning: versions of resource schemas, actions and events published side
-  by side (`/v2/...`, `schema_version` per event type), deprecation notices in
-  OpenAPI, AsyncAPI and GraphQL, and the contract checks comparing versions.
 - Reference document processors (ClamAV scan, text extraction).

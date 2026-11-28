@@ -8,7 +8,7 @@ the resource's Pydantic schemas and documents them in OpenAPI.
 from __future__ import annotations
 
 import inspect
-from collections.abc import Callable
+from collections.abc import Callable, Mapping, Sequence
 from typing import Any, Literal, Union
 
 from fastapi import APIRouter, Body, Depends, FastAPI, Header, Path, Query, Response, status
@@ -18,6 +18,7 @@ from resource_engine import ListQuery, ResourceDefinition, ResourceManager, Reso
 from resource_engine.application.manager import EXPAND_PAGE_SIZE
 from resource_engine.application.relations import dump_read, needs_dump
 from resource_engine.errors import InvalidQuery
+from resource_engine.versions import ApiVersion, Deprecation
 
 from resource_engine_fastapi.documents import (
     add_owner_document_routes,
@@ -117,15 +118,35 @@ def build_resource_router(
     manager: ResourceManager,
     *,
     actor_dependency: ActorDependency = _no_actor,
+    api_version: ApiVersion | None = None,
+    deprecation: Deprecation | None = None,
 ) -> APIRouter:
     """Routes for one resource: CRUD, ``/transitions/<event>`` and ``/actions/<name>``.
 
     ``actor_dependency`` is a FastAPI dependency whose result is passed to the
     manager as ``actor``. It is the integration point for authentication; the
     engine does not interpret it yet.
+
+    ``api_version``: serve an older version of the resource's API (its
+    schemas, converting input and output); ``deprecation`` marks the routes
+    deprecated in the OpenAPI document (docs/versioning.md).
     """
     name = definition.name
-    router = APIRouter(prefix=f"/{name}", tags=[name])
+    deprecation = deprecation or definition.resource_cls.deprecation
+    router = APIRouter(
+        prefix=f"/{name}",
+        tags=[name],
+        deprecated=True if deprecation is not None else None,
+    )
+    schemas = (
+        {
+            role: api_version.schema(role, definition.schemas)
+            for role in ("read", "create", "update")
+            if api_version.schema(role, definition.schemas) is not None
+        }
+        if api_version is not None
+        else definition.schemas
+    )
     id_param = _param("entity_id", definition.id_type, Path(...))
     actor_param = _param("actor", Any, Depends(actor_dependency))
     # tenant-scoped resources: cross-tenant callers may name a tenant
@@ -140,10 +161,15 @@ def build_resource_router(
         if definition.tenant_field
         else []
     )
-    read = definition.schemas.get("read")
+    read = schemas.get("read")
     # a base resource answers with each record's subtype schema
-    subtypes = [d.schemas["read"] for d in registry_of(manager).subtypes(name).values()]
+    subtypes = (
+        [d.schemas["read"] for d in registry_of(manager).subtypes(name).values()]
+        if api_version is None
+        else []
+    )
     out: Any = Union[tuple(subtypes)] if subtypes else read  # noqa: UP007
+    to_read = api_version.to_read if api_version is not None else None
     docs = definition.operation_docs
     version_field = definition.version_field
     # versioned resources: responses carry ETag, writes accept If-Match
@@ -208,9 +234,21 @@ def build_resource_router(
         return tuple(part.strip() for part in raw.split(",") if part.strip())
 
     def reply(value: Any, kw: dict[str, Any], status_code: int = 200) -> Any:
+        if to_read is not None:  # an older version: its shape, from the current one
+            converted = JSONResponse(to_read(_dump(value)), status_code=status_code)
+            record_version = getattr(value, version_field, None) if version_field else None
+            if record_version is not None:
+                converted.headers["ETag"] = f'"{record_version}"'
+            return converted
         return _respond(
             value, status_code, version_field=version_field, response=kw.get("response")
         )
+
+    def given(payload: Any, convert: Any) -> Any:
+        """An older version's input as the current schema's input."""
+        if convert is None or api_version is None:
+            return payload
+        return convert(payload.model_dump(exclude_unset=True))
 
     if definition.exposed("list"):
         filter_params = []
@@ -261,6 +299,15 @@ def build_resource_router(
                 tenant=kw.get("tenant"),
                 expand=expand_of(kw),
             )
+            if to_read is not None:
+                return JSONResponse(
+                    {
+                        "items": [to_read(_dump(i)) for i in page.items],
+                        "total": page.total,
+                        "offset": page.offset,
+                        "limit": page.limit,
+                    }
+                )
             return _respond_page(
                 {
                     "items": page.items,
@@ -398,7 +445,7 @@ def build_resource_router(
         async def create_endpoint(**kw: Any) -> Any:
             result = await manager.create(
                 name,
-                kw["payload"],
+                given(kw["payload"], api_version.from_create if api_version else None),
                 actor=kw["actor"],
                 tenant=kw.get("tenant"),
                 idempotency_key=kw.get("idempotency_key"),
@@ -410,7 +457,7 @@ def build_resource_router(
             _endpoint(
                 create_endpoint,
                 [
-                    _param("payload", definition.schemas["create"], Body(...)),
+                    _param("payload", schemas["create"], Body(...)),
                     *tenant_params,
                     *key_params,
                     actor_param,
@@ -431,7 +478,7 @@ def build_resource_router(
             result = await manager.update(
                 name,
                 kw["entity_id"],
-                kw["payload"],
+                given(kw["payload"], api_version.from_update if api_version else None),
                 actor=kw["actor"],
                 tenant=kw.get("tenant"),
                 expected_version=parse_if_match(kw.get("if_match")),
@@ -445,7 +492,7 @@ def build_resource_router(
                 update_endpoint,
                 [
                     id_param,
-                    _param("payload", definition.schemas["update"], Body(...)),
+                    _param("payload", schemas["update"], Body(...)),
                     *tenant_params,
                     *match_params,
                     *key_params,
@@ -551,6 +598,7 @@ def build_resource_router(
                     event,
                     id_param,
                     [*tenant_params, *match_params, *key_params, actor_param, response_param],
+                    reply,
                 ),
                 methods=["POST"],
                 response_model=out,
@@ -623,6 +671,16 @@ def build_resource_router(
         )
 
     add_owner_document_routes(router, definition, manager, actor_dependency)
+    if deprecation is not None:  # the sunset, for clients and the contract check
+        for route in router.routes:
+            extra = dict(getattr(route, "openapi_extra", None) or {})
+            extra["x-deprecation"] = deprecation.to_dict()
+            route.openapi_extra = extra  # type: ignore[attr-defined]
+            if hasattr(route, "description"):
+                text = route.description or ""  # type: ignore[attr-defined]
+                route.description = (  # type: ignore[attr-defined]
+                    f"{deprecation.notice()}\n\n{text}" if text else deprecation.notice()
+                )
     return router
 
 
@@ -698,6 +756,7 @@ def _transition_endpoint(
     event: str,
     id_param: inspect.Parameter,
     tail: list[inspect.Parameter],
+    reply: Callable[[Any, dict[str, Any]], Any] | None = None,
 ) -> Callable[..., Any]:
     schema = definition.transition_schemas.get(event)
 
@@ -712,6 +771,8 @@ def _transition_endpoint(
             expected_version=parse_if_match(kw.get("if_match")),
             idempotency_key=kw.get("idempotency_key"),
         )
+        if reply is not None:
+            return reply(result, kw)
         return _respond(result, version_field=definition.version_field, response=kw.get("response"))
 
     params = [id_param]
@@ -728,11 +789,18 @@ def build_router(
     prefix: str = "",
     actor_dependency: ActorDependency = _no_actor,
     redirect_downloads: bool = False,
+    version: str | None = None,
+    current: bool = True,
+    deprecation: Deprecation | None = None,
 ) -> APIRouter:
     """Routes for every registered resource (and document downloads, if enabled).
 
     ``redirect_downloads`` answers downloads with a 307 to a presigned URL instead
     of streaming the content through the API.
+
+    ``version``: the API version these routes serve. An older one (``current``
+    false) uses each resource's ``api_versions[version]`` where it has one;
+    ``deprecation`` deprecates the whole version.
     """
     router = APIRouter(prefix=prefix)
     if getattr(manager.authorizer, "catalog", None) is not None:
@@ -746,8 +814,19 @@ def build_router(
             )
         )
     for definition in registry:
+        api = (
+            definition.resource_cls.api_versions.get(version)
+            if version is not None and not current
+            else None
+        )
         router.include_router(
-            build_resource_router(definition, manager, actor_dependency=actor_dependency)
+            build_resource_router(
+                definition,
+                manager,
+                actor_dependency=actor_dependency,
+                api_version=api,
+                deprecation=(api.deprecation if api else None) or deprecation,
+            )
         )
     return router
 
@@ -762,19 +841,56 @@ def mount_resources(
     redirect_downloads: bool = False,
     access_log: bool = False,
     http_cache: bool = True,
+    versions: Sequence[str] = (),
+    deprecated: Mapping[str, Deprecation] | None = None,
 ) -> None:
     """Include every registered resource in ``app`` and install error handlers.
     ``access_log`` adds the access log and request ids (``install_access_log``);
-    ``http_cache`` the ETag / 304 handling of ``GET`` (docs/caching.md)."""
-    app.include_router(
-        build_router(
-            registry,
-            manager,
-            prefix=prefix,
-            actor_dependency=actor_dependency,
-            redirect_downloads=redirect_downloads,
+    ``http_cache`` the ETag / 304 handling of ``GET`` (docs/caching.md).
+
+    ``versions`` (``["v1", "v2"]``, oldest first) serves each under its own
+    prefix (``/v1/...``); the last is the current one, and older ones use the
+    resources' ``api_versions``. ``deprecated`` deprecates whole versions.
+    Deprecated routes answer with ``Deprecation``, ``Sunset`` and ``Link``
+    headers (docs/versioning.md)."""
+    deprecated = dict(deprecated or {})
+    unknown = sorted(set(deprecated) - set(versions))
+    if unknown:
+        from resource_engine.errors import ConfigurationError
+
+        raise ConfigurationError(
+            f"Deprecated API versions {unknown} are not served",
+            hint=f"Served versions: {list(versions)}",
+            doc="docs/versioning.md",
         )
-    )
+    notices: dict[str, Deprecation] = {}
+    for index, version in enumerate(versions or [None]):  # type: ignore[list-item]
+        current = index == len(versions) - 1 if versions else True
+        version_prefix = f"{prefix}/{version}" if version else prefix
+        whole = deprecated.get(version) if version else None
+        app.include_router(
+            build_router(
+                registry,
+                manager,
+                prefix=version_prefix,
+                actor_dependency=actor_dependency,
+                redirect_downloads=redirect_downloads,
+                version=version,
+                current=current,
+                deprecation=whole,
+            )
+        )
+        for definition in registry:
+            api = definition.resource_cls.api_versions.get(version) if not current else None
+            notice = (
+                (api.deprecation if api else None) or whole or definition.resource_cls.deprecation
+            )
+            if notice is not None:
+                notices[f"{version_prefix}/{definition.name}"] = notice
+    if notices:
+        from resource_engine_fastapi.versioning import DeprecationMiddleware
+
+        app.add_middleware(DeprecationMiddleware, notices=notices)
     install_exception_handlers(app)
     if http_cache:
         from resource_engine_fastapi.caching import ConditionalGetMiddleware

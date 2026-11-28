@@ -80,6 +80,10 @@ class Message:
     payload: dict[str, Any]
     wire: str  # envelope | cloudevents | raw
     examples: list[Any] = field(default_factory=list)
+    #: The payload version (``schema_version``; ``"1"`` when the document has none).
+    schema_version: str = "1"
+    #: The message's ``x-deprecation`` (``since``, ``sunset``, ``link``, ``reason``).
+    deprecation: Mapping[str, Any] | None = None
 
 
 class _Resolver:
@@ -155,7 +159,8 @@ def provider_messages(
         event_type, payload, wire = unwrapped
         if messages and event_type not in messages:
             continue
-        key = event_type if unique else f"{channel}\x00{event_type}"
+        version = _version(resolver, message)
+        key = event_type if unique else f"{channel}\x00{event_type}\x00{version}"
         if key in seen:
             continue
         seen.add(key)
@@ -173,6 +178,8 @@ def provider_messages(
                 payload=payload,
                 wire=wire,
                 examples=[_inner(e, wire) for e in examples if e is not None],
+                schema_version=version,
+                deprecation=message.get("x-deprecation"),
             )
         )
     if not out:
@@ -182,6 +189,17 @@ def provider_messages(
             + (f" named {list(messages)}" if messages else "")
         )
     return out
+
+
+def _version(resolver: _Resolver, message: Mapping[str, Any]) -> str:
+    """The message's ``schema_version`` const (envelope or CloudEvents)."""
+    schema = resolver.resolve(message.get("payload") or {})
+    props = schema.get("properties") or {} if isinstance(schema, Mapping) else {}
+    for name in ("schema_version", "schemaversion"):
+        const = (resolver.resolve(props.get(name) or {}) or {}).get("const")
+        if const is not None:
+            return str(const)
+    return "1"
 
 
 def _inner(example: Any, wire: str) -> Any:

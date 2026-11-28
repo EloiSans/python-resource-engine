@@ -51,6 +51,7 @@ from resource_engine.errors import ConfigurationError
 from resource_engine.messaging.cloudevents import CONTENT_TYPE as CLOUDEVENTS_CONTENT_TYPE
 from resource_engine.messaging.consumer import EventRouter
 from resource_engine.messaging.envelope import SCHEMA_VERSION
+from resource_engine.versions import event_version
 
 ASYNCAPI_VERSION = "3.0.0"
 
@@ -112,6 +113,7 @@ class _Builder:
         format: Format,
         source: str | None,
         type_prefix: str,
+        schema_version: str = SCHEMA_VERSION,
     ) -> dict[str, Any]:
         if format == "cloudevents":
             properties: dict[str, Any] = {
@@ -121,7 +123,7 @@ class _Builder:
                 "type": {"const": f"{type_prefix}{event_type}"},
                 "time": {"type": "string", "format": "date-time"},
                 "datacontenttype": {"const": "application/json"},
-                "schemaversion": {"const": SCHEMA_VERSION},
+                "schemaversion": {"const": schema_version},
                 "subject": {"type": "string", "description": "Ordering key"},
                 "partitionkey": {"type": "string", "description": "Ordering key"},
                 "correlationid": {"type": "string"},
@@ -145,7 +147,7 @@ class _Builder:
                     **_OPTIONAL_STRING,
                     "description": "Ordering key: <resource>:<entity_id>",
                 },
-                "schema_version": {"const": SCHEMA_VERSION},
+                "schema_version": {"const": schema_version},
                 "payload": payload,
                 "trace": {
                     "type": "object",
@@ -169,6 +171,8 @@ class _Builder:
         summary: str | None,
         description: str | None = None,
         channel: Mapping[str, Any],
+        schema_version: str = SCHEMA_VERSION,
+        deprecation: Any = None,
     ) -> dict[str, Any]:
         format = channel.get("format", self.format)
         if format not in ("envelope", "cloudevents"):
@@ -183,10 +187,12 @@ class _Builder:
             format=format,
             source=channel.get("source", self.source),
             type_prefix=channel.get("type_prefix", self.type_prefix),
+            schema_version=schema_version,
         )
+        versioned = schema_version != SCHEMA_VERSION
         message: dict[str, Any] = {
             "name": event_type,
-            "title": event_type,
+            "title": f"{event_type} v{schema_version}" if versioned else event_type,
             "contentType": "application/json" if format == "envelope" else CLOUDEVENTS_CONTENT_TYPE,
             "payload": {"$ref": _REF.format(model=key)},
             "correlationId": {
@@ -203,7 +209,7 @@ class _Builder:
                 "properties": {
                     "event_type": {"const": event_type},
                     "event_id": {"type": "string"},
-                    "schema_version": {"const": SCHEMA_VERSION},
+                    "schema_version": {"const": schema_version},
                     "resource": {"type": "string"},
                     "correlation_id": {"type": "string"},
                     "traceparent": {"type": "string"},
@@ -213,6 +219,13 @@ class _Builder:
             message["summary"] = summary
         if description and description != summary:
             message["description"] = description
+        if deprecation is not None:  # AsyncAPI has no deprecated messages: schema + extension
+            self.schemas[key]["deprecated"] = True
+            message["x-deprecation"] = deprecation.to_dict()
+            notice = deprecation.notice()
+            message["description"] = (
+                f"{notice}\n\n{message['description']}" if message.get("description") else notice
+            )
         self.messages[key] = message
         return {"$ref": f"#/components/messages/{key}"}
 
@@ -233,10 +246,26 @@ class _Builder:
                 "required": list(properties),
             }
 
-        def add(event: type | str, payload: dict[str, Any], summary: str) -> None:
+        def add(
+            event: type | str,
+            payload: dict[str, Any],
+            summary: str,
+            *,
+            schema_version: str = SCHEMA_VERSION,
+            deprecation: Any = None,
+        ) -> None:
             name = event if isinstance(event, str) else event.__name__
-            refs[name] = self.message(
-                _key(d.name, name), name, payload, resource=d.name, summary=summary, channel=channel
+            versioned = schema_version != SCHEMA_VERSION
+            ref = f"{name}.v{schema_version}" if versioned else name
+            refs[ref] = self.message(
+                _key(d.name, name, f"v{schema_version}") if versioned else _key(d.name, name),
+                name,
+                payload,
+                resource=d.name,
+                summary=summary,
+                channel=channel,
+                schema_version=schema_version,
+                deprecation=deprecation,
             )
 
         if d.enabled("create"):
@@ -289,7 +318,21 @@ class _Builder:
                     "engine event",
                     hint="Rename the domain event.",
                 )
-            add(event, self.event_schema(event), _summary(doc) or f"{event.__name__}.")
+            add(
+                event,
+                self.event_schema(event),
+                _summary(doc) or f"{event.__name__}.",
+                schema_version=str(event_version(event)),
+                deprecation=getattr(event, "deprecation", None),
+            )
+            for number, older in sorted(getattr(event, "previous_versions", {}).items()):
+                add(
+                    event.__name__,
+                    self.event_schema(older.schema),
+                    f"{event.__name__}, version {number} (published for older consumers).",
+                    schema_version=str(number),
+                    deprecation=older.deprecation,
+                )
         return refs
 
     def _document_events(self, d: ResourceDefinition, base: Any, add: Any) -> None:
@@ -450,6 +493,7 @@ def asyncapi_document(
                 summary=_summary(text),
                 description=text,
                 channel=options,
+                schema_version=router.schema_version(event_type) or SCHEMA_VERSION,
             )
         channel = channel_object(consumer, router.description)
         channel["title"] = f"{consumer} (consumed)"

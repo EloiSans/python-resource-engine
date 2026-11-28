@@ -39,7 +39,7 @@ def to_cloudevent(envelope: EventEnvelope, *, source: str, type_prefix: str = ""
         "type": f"{type_prefix}{envelope.type}",
         "time": envelope.occurred_at.isoformat(),
         "datacontenttype": "application/json",
-        "schemaversion": SCHEMA_VERSION,
+        "schemaversion": envelope.schema_version,
         "data": dict(envelope.payload),
     }
     if envelope.key:
@@ -80,4 +80,5 @@ def from_cloudevent(
         resource=data.get("resource"),
         key=data.get("partitionkey") or data.get("subject"),
         trace={k: data[k] for k in ("traceparent", "tracestate") if data.get(k)} or None,
+        schema_version=str(data.get("schemaversion") or SCHEMA_VERSION),
     )

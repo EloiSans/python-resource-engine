@@ -169,6 +169,7 @@ uv run uvicorn invoices.app:app --app-dir examples --reload   # then open /docs 
 - [Documentation site](docs/docs-site.md) — the docs as a static website, for a technical or a functional audience: diagrams, permission matrix, events, emails, the HTTP API, search, several languages; served by the app as an explorer with a try-it console. The example's is published at <https://eloisans.github.io/python-resource-engine/>.
 - [Translations](docs/i18n.md) — gettext catalogues for error titles, templates, your messages and the documentation site; locale per request.
 - [Data-lake views](docs/query-engines.md) — Athena, BigQuery and Trino tables as read-only resources with filters, permissions and tenancy.
+- [Versioning](docs/versioning.md) — API and event versions side by side, deprecation notices, and contract checks between versions.
 - [SAP](docs/sap.md) — S/4HANA OData APIs as resources, with BTP destinations for the URL and credentials.
 - [NoSQL stores](docs/nosql.md) — DynamoDB, Firestore and Cosmos DB repositories, with capability flags for what each store can query.
 - [Composite stores](docs/composite.md) — SQL, remote and data-lake resources in one operation, with compensations for remote writes.

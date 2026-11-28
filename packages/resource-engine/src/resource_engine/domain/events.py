@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
+from typing import Any, ClassVar
 
 
 def _now() -> datetime:
@@ -18,7 +20,16 @@ class DomainEvent:
         @dataclass(frozen=True, kw_only=True)
         class InvoiceApproved(DomainEvent):
             invoice_id: int
+
+    When its payload changes in a way consumers notice, raise
+    ``schema_version`` and keep publishing the older shapes in
+    ``previous_versions`` (``resource_engine.versions.EventVersion``) until
+    their sunset. ``deprecation`` marks the event itself as on its way out.
     """
+
+    schema_version: ClassVar[int] = 1
+    previous_versions: ClassVar[Mapping[int, Any]] = {}
+    deprecation: ClassVar[Any] = None
 
     occurred_at: datetime = field(default_factory=_now)
 

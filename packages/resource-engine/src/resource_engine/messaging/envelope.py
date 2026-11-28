@@ -15,6 +15,7 @@ from typing import Any
 from resource_engine.domain.events import DomainEvent
 from resource_engine.tracing import get_tracer
 
+#: The payload version of events that declare none (``DomainEvent.schema_version``).
 SCHEMA_VERSION = "1"
 
 
@@ -32,6 +33,9 @@ class EventEnvelope:
         key: Ordering/partition key (FIFO group, session, ordering key).
         trace: W3C trace context of the operation that produced the event
             (``traceparent``, ``tracestate``), so consumers continue its trace.
+        schema_version: Version of the payload's shape for this event type
+            (``"1"`` unless the event declares one; older versions published
+            side by side carry theirs, see ``resource_engine.versions``).
     """
 
     type: str
@@ -42,10 +46,15 @@ class EventEnvelope:
     resource: str | None = None
     key: str | None = None
     trace: Mapping[str, str] | None = None
+    schema_version: str = SCHEMA_VERSION
 
     def attributes(self) -> dict[str, str]:
         """String attributes for broker-level routing and filtering."""
-        attrs = {"event_type": self.type, "event_id": self.id, "schema_version": SCHEMA_VERSION}
+        attrs = {
+            "event_type": self.type,
+            "event_id": self.id,
+            "schema_version": self.schema_version,
+        }
         if self.resource:
             attrs["resource"] = self.resource
         if self.correlation_id:
@@ -61,7 +70,7 @@ class EventEnvelope:
             "correlation_id": self.correlation_id,
             "resource": self.resource,
             "key": self.key,
-            "schema_version": SCHEMA_VERSION,
+            "schema_version": self.schema_version,
             "payload": dict(self.payload),
         }
         if self.trace:
@@ -82,6 +91,7 @@ class EventEnvelope:
             key=data.get("key"),
             payload=data.get("payload") or {},
             trace=data.get("trace") or None,
+            schema_version=str(data.get("schema_version") or SCHEMA_VERSION),
         )
 
     @classmethod
@@ -119,6 +129,29 @@ class EventSerializer:
     so all messages about one entity keep their order on FIFO transports.
     """
 
+    def to_envelopes(
+        self,
+        event: DomainEvent,
+        *,
+        correlation_id: str | None = None,
+        resource: str | None = None,
+    ) -> list[EventEnvelope]:
+        """The event's envelope, then one per older version it still
+        publishes (``previous_versions``), each with its own id
+        (``<id>.v<n>``), ``schema_version`` and converted payload."""
+        current = self.to_envelope(event, correlation_id=correlation_id, resource=resource)
+        envelopes = [current]
+        for number, version in sorted(getattr(event, "previous_versions", {}).items()):
+            envelopes.append(
+                dataclasses.replace(
+                    current,
+                    id=f"{current.id}.v{number}",
+                    payload=to_jsonable(version.convert(dict(current.payload))),
+                    schema_version=str(number),
+                )
+            )
+        return envelopes
+
     def to_envelope(
         self,
         event: DomainEvent,
@@ -142,4 +175,5 @@ class EventSerializer:
             resource=resource,
             key=key,
             trace=get_tracer().inject() or None,
+            schema_version=str(getattr(event, "schema_version", SCHEMA_VERSION)),
         )

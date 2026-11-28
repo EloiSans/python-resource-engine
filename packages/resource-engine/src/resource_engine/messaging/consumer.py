@@ -43,6 +43,8 @@ class EventRouter:
         description: str | None = None,
     ) -> None:
         self._handlers: dict[str, list[tuple[MessageHandler, bool]]] = {}
+        #: Event type → the payload version its handlers are written for.
+        self._versions: dict[str, str] = {}
         self._payloads: dict[str, Any] = {}
         self._adapters: dict[str, TypeAdapter[Any]] = {}
         self.ignore_unknown = ignore_unknown
@@ -55,8 +57,21 @@ class EventRouter:
         handler: MessageHandler,
         *,
         payload: Any = None,
+        schema_version: int | str | None = None,
     ) -> MessageHandler:
+        """``schema_version``: the payload version the handler is written for;
+        other versions of the type (published side by side) are acknowledged
+        without calling it. ``None``: every version."""
         name = event_type if isinstance(event_type, str) else event_type.__name__
+        if schema_version is not None:
+            known_version = self._versions.get(name)
+            if known_version is not None and known_version != str(schema_version):
+                raise ConfigurationError(
+                    f"Event type {name!r} is registered for two schema versions",
+                    hint="Handle one version of an event per router.",
+                    doc="docs/versioning.md#events",
+                )
+            self._versions[name] = str(schema_version)
         if payload is not None:
             known = self._payloads.get(name)
             if known is not None and known is not payload:
@@ -77,14 +92,29 @@ class EventRouter:
         for event_type, handlers in other._handlers.items():
             for handler, typed in handlers:
                 payload = other._payloads.get(event_type) if typed else None
-                self.register(event_type, handler, payload=payload)
+                self.register(
+                    event_type,
+                    handler,
+                    payload=payload,
+                    schema_version=other._versions.get(event_type),
+                )
         return self
 
     def on(
-        self, event_type: str | type[DomainEvent], *, payload: Any = None
+        self,
+        event_type: str | type[DomainEvent],
+        *,
+        payload: Any = None,
+        schema_version: int | str | None = None,
     ) -> Callable[[MessageHandler], MessageHandler]:
         """Decorator form of ``register``."""
-        return lambda handler: self.register(event_type, handler, payload=payload)
+        return lambda handler: self.register(
+            event_type, handler, payload=payload, schema_version=schema_version
+        )
+
+    def schema_version(self, event_type: str) -> str | None:
+        """The payload version handled for ``event_type`` (``None``: any)."""
+        return self._versions.get(event_type)
 
     @property
     def event_types(self) -> list[str]:
@@ -121,6 +151,9 @@ class EventRouter:
                 f"No handler registered for event type {envelope.type!r}",
                 hint=f"Registered types: {', '.join(self._handlers) or '(none)'}",
             )
+        wanted = self._versions.get(envelope.type)
+        if wanted is not None and envelope.schema_version != wanted:
+            return  # another version of the event, published for other consumers
         payload = self.parse(envelope) if envelope.type in self._adapters else None
         for handler, typed in handlers:
             result = handler(envelope, payload) if typed else handler(envelope)  # type: ignore[call-arg]

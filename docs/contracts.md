@@ -8,7 +8,8 @@ in CI instead of in production.
 | Side | Command or test | Fails when |
 |---|---|---|
 | Consumer | the generated `test_<name>_consumer.py::test_contract` (`assert_consumer_contract`) | the provider stops sending a handled event, stops sending or requiring a field the model requires, changes a type, adds enum values, or its examples no longer parse |
-| Provider | `resource-engine docs asyncapi --check published.json` (`breaking_changes`) | an event or field is removed, a required field becomes optional or nullable, a type changes, or an enum gains values |
+| Provider | `resource-engine docs asyncapi --check published.json` (`breaking_changes`) | an event or field is removed, a required field becomes optional or nullable, a type changes, or an enum gains values; compared per event version, and a version may go once its sunset has passed ([versioning](versioning.md)) |
+| REST API | `resource-engine docs openapi --check published.json` (`openapi_breaking_changes`) | an operation is removed before its sunset, a response field is removed or changes type, a request field or parameter becomes required |
 
 ## Consumer: scaffold from the provider's document
 
